@@ -70,6 +70,7 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
         try:
             client_ip = self.client_address[0]
             FortniteServerHandler.clients.add(client_ip)
+            print(f"[INFO] Client connected from {client_ip}")
             
             # Handle verification endpoint
             if self.path == "/account/api/oauth/verify":
@@ -86,7 +87,8 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "auth_method": "exchange_code",
                     "display_name": "ZeroFN",
                     "app": "fortnite",
-                    "in_app_id": "ZeroFN"
+                    "in_app_id": "ZeroFN",
+                    "device_id": "ZeroFN"
                 }
             else:
                 response = {
@@ -101,9 +103,10 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
             
         except ConnectionAbortedError:
-            # Silently handle client disconnection
-            pass
+            print(f"[INFO] Client {client_ip} disconnected")
+            FortniteServerHandler.clients.remove(client_ip)
         except Exception as e:
+            print(f"[ERROR] Request error: {str(e)}")
             self.send_error(500, str(e))
         
     def do_POST(self):
@@ -114,6 +117,7 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             data = json.loads(post_data.decode())
             client_ip = self.client_address[0]
             FortniteServerHandler.clients.add(client_ip)
+            print(f"[INFO] Client {client_ip} made POST request to {self.path}")
             
             # Handle different endpoints
             if self.path == "/account/api/oauth/token":
@@ -131,7 +135,8 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "client_service": "fortnite",
                     "displayName": "ZeroFN",
                     "app": "fortnite",
-                    "in_app_id": "ZeroFN"
+                    "in_app_id": "ZeroFN",
+                    "device_id": "ZeroFN"
                 }
                 
             elif self.path == "/fortnite/api/game/v2/profile/client/QueryProfile":
@@ -183,14 +188,15 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
             
         except ConnectionAbortedError:
-            # Silently handle client disconnection
-            pass
+            print(f"[INFO] Client {client_ip} disconnected")
+            FortniteServerHandler.clients.remove(client_ip)
         except Exception as e:
+            print(f"[ERROR] Request error: {str(e)}")
             self.send_error(500, str(e))
             
     def log_message(self, format, *args):
-        # Suppress default logging
-        pass
+        # Custom logging
+        print(f"[INFO] {format%args}")
 
 class ZeroFNServer:
     def __init__(self, host="127.0.0.1", port=7777):
@@ -217,6 +223,7 @@ class ZeroFNServer:
             self.server = HTTPServer((self.host, self.port), FortniteServerHandler)
             self.running = True
             print(f"[INFO] ZeroFN server started on {self.host}:{self.port}")
+            print("[INFO] Waiting for client connection...")
             
             # Send initial connection request to ourselves to establish connection
             try:
@@ -243,8 +250,10 @@ class ZeroFNServer:
         start_time = time.time()
         while time.time() - start_time < timeout:
             if FortniteServerHandler.clients:
+                print("[INFO] Client connected successfully!")
                 return True
             time.sleep(0.5)
+        print("[ERROR] No client connected within timeout period")
         return False
 
 class ZeroFNApp:
@@ -598,6 +607,12 @@ class ZeroFNApp:
             )
             
             self.log_status("Game launched successfully!")
+            
+            # Wait for client connection
+            if self.server.wait_for_client(timeout=30):
+                self.log_status("Client connected to server successfully!")
+            else:
+                self.log_status("Warning: Client connection timeout")
             
         except Exception as e:
             self.log_status(f"Error starting hybrid mode: {str(e)}")

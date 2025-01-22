@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger('FortniteServer')
 
 class FortniteAuthServer:
-    def __init__(self, host='0.0.0.1', port=7000):  # Changed to listen on 0.0.0.1:7000
+    def __init__(self, host='0.0.0.1', port=7777):  # Changed to listen on 0.0.0.1:7777
         self.host = host
         self.port = port
         self.running = True
@@ -33,6 +33,8 @@ class FortniteAuthServer:
         self.active_sessions = {}
         self.matchmaking_queue = []
         self.match_instances = {}
+        self.last_update = time.time()
+        self.update_interval = 1.0  # Update every second
 
     def load_cosmetics(self):
         # Enhanced cosmetics list with popular Fortnite items
@@ -80,20 +82,28 @@ class FortniteAuthServer:
 
     def start(self):
         try:
-            # Bind immediately and start listening
             self.server_socket.bind((self.host, self.port))
-            self.server_socket.listen(1)  # Only listen for 1 connection at a time
+            self.server_socket.listen(5)  # Allow multiple connections
             logger.info(f'ZeroFN Server listening on {self.host}:{self.port}')
-            logger.info('Waiting for Fortnite client connection...')
+            logger.info('Waiting for Fortnite client connections...')
+
+            # Start update thread
+            update_thread = threading.Thread(target=self.update_loop)
+            update_thread.daemon = True
+            update_thread.start()
 
             while self.running:
                 try:
-                    # Accept connection immediately when client launches
                     client_socket, address = self.server_socket.accept()
                     logger.info(f'Fortnite client connected from {address}')
                     
-                    # Handle client in main thread for immediate response
-                    self.handle_client(client_socket, address)
+                    # Handle each client in a separate thread
+                    client_thread = threading.Thread(
+                        target=self.handle_client,
+                        args=(client_socket, address)
+                    )
+                    client_thread.daemon = True
+                    client_thread.start()
                     
                 except Exception as e:
                     logger.error(f'Connection error: {e}')
@@ -103,10 +113,40 @@ class FortniteAuthServer:
             logger.error(f'Server error: {e}')
             self.shutdown()
 
+    def update_loop(self):
+        while self.running:
+            current_time = time.time()
+            if current_time - self.last_update >= self.update_interval:
+                self.last_update = current_time
+                self.update_game_state()
+            time.sleep(0.1)  # Small sleep to prevent CPU overuse
+
+    def update_game_state(self):
+        # Update active sessions
+        for session_id in list(self.active_sessions.keys()):
+            session = self.active_sessions[session_id]
+            session['last_update'] = datetime.now().isoformat()
+
+        # Update matchmaking queue
+        if len(self.matchmaking_queue) >= 2:
+            match_id = f'match_{random.randint(1000, 9999)}'
+            players = self.matchmaking_queue[:2]
+            self.matchmaking_queue = self.matchmaking_queue[2:]
+            self.match_instances[match_id] = {
+                'players': players,
+                'start_time': datetime.now().isoformat(),
+                'status': 'in_progress'
+            }
+
     def handle_client(self, client_socket, address):
         try:
-            # Set a short timeout to handle requests quickly
             client_socket.settimeout(1)
+            session_id = f'session_{random.randint(1000, 9999)}'
+            self.active_sessions[session_id] = {
+                'address': address,
+                'connected_time': datetime.now().isoformat(),
+                'last_update': datetime.now().isoformat()
+            }
             
             while self.running:
                 try:
@@ -117,12 +157,10 @@ class FortniteAuthServer:
                     request = data.decode('utf-8')
                     logger.info(f'Received request from client: {request[:100]}...')
 
-                    # Parse the HTTP request
                     request_lines = request.split('\r\n')
                     request_line = request_lines[0]
                     method, path, _ = request_line.split(' ')
 
-                    # Handle different API endpoints with immediate response
                     response_body = ""
                     if "/account/api/oauth/token" in path:
                         response_body = self.generate_auth_token_response()
@@ -137,7 +175,6 @@ class FortniteAuthServer:
                     else:
                         response_body = self.generate_auth_token_response()
 
-                    # Send response immediately
                     headers = [
                         'HTTP/1.1 200 OK',
                         'Content-Type: application/json',
@@ -150,7 +187,7 @@ class FortniteAuthServer:
 
                     response = '\r\n'.join(headers) + '\r\n\r\n' + response_body
                     client_socket.send(response.encode())
-                    logger.info(f'Sent immediate response to client')
+                    logger.info(f'Sent response to client')
 
                 except socket.timeout:
                     continue
@@ -161,6 +198,8 @@ class FortniteAuthServer:
         except Exception as e:
             logger.error(f'Client handler error: {e}')
         finally:
+            if session_id in self.active_sessions:
+                del self.active_sessions[session_id]
             client_socket.close()
             logger.info(f'Client {address} disconnected')
 

@@ -57,14 +57,20 @@ class FortniteTheme:
 
 # Custom HTTP request handler for Fortnite server
 class FortniteServerHandler(BaseHTTPRequestHandler):
+    clients = set()
+
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         
+        client_ip = self.client_address[0]
+        FortniteServerHandler.clients.add(client_ip)
+        
         response = {
             "status": "ok",
-            "message": "ZeroFN server running"
+            "message": "ZeroFN server running",
+            "client_ip": client_ip
         }
         
         self.wfile.write(json.dumps(response).encode())
@@ -75,6 +81,11 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
         
         try:
             data = json.loads(post_data.decode())
+            client_ip = self.client_address[0]
+            
+            if client_ip not in FortniteServerHandler.clients:
+                self.send_error(403, "Client not authorized")
+                return
             
             # Handle different endpoints
             if self.path == "/account/api/oauth/token":
@@ -137,6 +148,14 @@ class ZeroFNServer:
         if self.server:
             self.server.server_close()
             print("[INFO] ZeroFN server stopped")
+            
+    def wait_for_client(self, timeout=30):
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if FortniteServerHandler.clients:
+                return True
+            time.sleep(0.5)
+        return False
 
 class ZeroFNApp:
     def __init__(self, root):
@@ -356,6 +375,14 @@ class ZeroFNApp:
         server_thread = threading.Thread(target=self.server.start, daemon=True)
         server_thread.start()
         self.log_status("ZeroFN server started on 127.0.0.1:7777")
+        
+        # Wait for client connection
+        self.log_status("Waiting for client connection...")
+        if not self.server.wait_for_client():
+            self.log_status("No client connected within timeout period")
+            self.server.stop()
+            messagebox.showerror("Connection Error", "Failed to establish client connection")
+            return
 
         # Clean up existing processes
         self.log_status("Cleaning up existing processes...")

@@ -306,6 +306,10 @@ class ZeroFNApp:
                 
                 # Launch game with admin rights
                 self.log_status("Launching Fortnite...")
+                
+                # Change working directory to game executable location
+                os.chdir(str(game_exe.parent))
+                
                 launch_args = [
                     str(game_exe),
                     "-NOSPLASH",
@@ -338,7 +342,9 @@ class ZeroFNApp:
                     "-FORCECLIENT_HOST=127.0.0.1:7777"
                 ]
                 
-                self.game_process = subprocess.Popen(launch_args)
+                # Use shell=True to handle command line arguments properly
+                self.game_process = subprocess.Popen(" ".join(launch_args), shell=True)
+                
                 self.log_status("Game launched successfully!")
                 self.log_status("Server logs available in separate window")
                 
@@ -350,11 +356,11 @@ class ZeroFNApp:
         
     def __del__(self):
         # Cleanup on exit
-        if self.server_process:
+        if hasattr(self, 'server_process') and self.server_process:
             self.server_process.terminate()
-        if self.game_process:
+        if hasattr(self, 'game_process') and self.game_process:
             self.game_process.terminate()
-        if self.server_window:
+        if hasattr(self, 'server_window') and self.server_window:
             subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.server_window.pid)],
                          stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)

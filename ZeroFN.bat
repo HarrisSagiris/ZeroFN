@@ -138,7 +138,7 @@ echo    Starting ProjectZERO server only
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo [INFO] Initializing ZeroFN server on 0.0.0.0:7777
+echo [INFO] Initializing ZeroFN server on 0.0.0.1:7000
 echo [INFO] Using game files from: %GAME_EXE%
 echo.
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
@@ -189,22 +189,22 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=0.0.0.0:7777 ^
--AUTH_HOST=0.0.0.0:7777 ^
+-HTTP=0.0.0.1:7000 ^
+-AUTH_HOST=0.0.0.1:7000 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
 -AUTH_EPIC=0 ^
 -AUTH_EPIC_ONLY=0 ^
--FORCECLIENT=0.0.0.0:7777 ^
+-FORCECLIENT=0.0.0.1:7000 ^
 -NOEPICWEB ^
 -NOEPICFRIENDS ^
 -NOEAC ^
 -NOBE ^
--FORCECLIENT_HOST=0.0.0.0:7777
+-FORCECLIENT_HOST=0.0.0.1:7000
 
-echo [SUCCESS] Fortnite client launched and connected to local ZeroFN server!
+echo [SUCCESS] Fortnite client launched and connected to custom server!
 echo [INFO] All Epic Games services have been disabled
-echo [INFO] Using only local ZeroFN server for authentication
+echo [INFO] Using only custom server for authentication
 echo.
 timeout /t 3
 goto menu
@@ -216,7 +216,7 @@ echo    Starting ProjectZERO Hybrid Mode (Game + Server)
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo [INFO] Initializing ZeroFN server on 0.0.0.0:7777
+echo [INFO] Initializing ZeroFN server on 0.0.0.1:7000
 echo [INFO] Using game files from: %GAME_EXE%
 echo.
 
@@ -257,23 +257,23 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=0.0.0.0:7777 ^
--AUTH_HOST=0.0.0.0:7777 ^
+-HTTP=0.0.0.1:7000 ^
+-AUTH_HOST=0.0.0.1:7000 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
 -AUTH_EPIC=0 ^
 -AUTH_EPIC_ONLY=0 ^
--FORCECLIENT=0.0.0.0:7777 ^
+-FORCECLIENT=0.0.0.1:7000 ^
 -NOEPICWEB ^
 -NOEPICFRIENDS ^
 -NOEAC ^
 -NOBE ^
--FORCECLIENT_HOST=0.0.0.0:7777
+-FORCECLIENT_HOST=0.0.0.1:7000
 
-echo [SUCCESS] Game client launched and connected to local ZeroFN server!
+echo [SUCCESS] Game client launched and connected to custom server!
 echo [INFO] Server is running in separate window with live logs
 echo [INFO] All Epic Games services have been disabled
-echo [INFO] Using only local ZeroFN server for authentication
+echo [INFO] Using only custom server for authentication
 echo.
 echo Press any key to return to menu...
 pause >nul

@@ -65,6 +65,13 @@ class FortniteTheme:
 # Custom HTTP request handler for Fortnite server
 class FortniteServerHandler(BaseHTTPRequestHandler):
     clients = set()
+    connection_count = 0
+    last_activity = {}
+    
+    def log_connection(self, client_ip, action):
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{timestamp}] {action}: {client_ip}")
+        FortniteServerHandler.last_activity[client_ip] = timestamp
     
     def send_json_response(self, data, status=200):
         self.send_response(status)
@@ -75,11 +82,15 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             client_ip = self.client_address[0]
-            FortniteServerHandler.clients.add(client_ip)
-            print(f"[INFO] Client connected from {client_ip}")
+            if client_ip not in FortniteServerHandler.clients:
+                FortniteServerHandler.clients.add(client_ip)
+                FortniteServerHandler.connection_count += 1
+                self.log_connection(client_ip, "New client connected")
+                print(f"Total connections: {FortniteServerHandler.connection_count}")
             
             # Handle verification endpoint
             if self.path == "/account/api/oauth/verify":
+                self.log_connection(client_ip, "Client verification")
                 response = {
                     "access_token": str(uuid.uuid4()),
                     "expires_in": 28800,
@@ -95,14 +106,19 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                 }
                 self.send_json_response(response)
             elif self.path == "/fortnite/api/cloudstorage/system":
+                self.log_connection(client_ip, "Requesting cloud storage")
                 self.send_json_response([])
             elif self.path == "/fortnite/api/game/v2/enabled_features":
+                self.log_connection(client_ip, "Checking enabled features")
                 self.send_json_response([])
             elif self.path.startswith("/fortnite/api/cloudstorage/user/"):
+                self.log_connection(client_ip, "User storage access")
                 self.send_json_response([])
             elif self.path == "/waitingroom/api/waitingroom":
+                self.log_connection(client_ip, "Waiting room check")
                 self.send_json_response(None)
             elif self.path == "/lightswitch/api/service/bulk/status":
+                self.log_connection(client_ip, "Service status check")
                 response = [{
                     "serviceInstanceId": "fortnite",
                     "status": "UP",
@@ -113,24 +129,30 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                 }]
                 self.send_json_response(response)
             elif self.path == "/fortnite/api/game/v2/tryPlayOnPlatform/account/ZeroFN":
+                self.log_connection(client_ip, "Platform validation")
                 response = {"platformValid": True}
                 self.send_json_response(response)
             elif self.path == "/fortnite/api/game/v2/privacy/account/ZeroFN":
+                self.log_connection(client_ip, "Privacy settings check")
                 response = {"accountId": "ZeroFN", "optOutOfPublicLeaderboards": False}
                 self.send_json_response(response)
             else:
+                self.log_connection(client_ip, f"Generic request to {self.path}")
                 response = {
                     "status": "ok",
                     "message": "ZeroFN server running",
-                    "client_ip": client_ip
+                    "client_ip": client_ip,
+                    "total_connections": FortniteServerHandler.connection_count,
+                    "active_clients": len(FortniteServerHandler.clients)
                 }
                 self.send_json_response(response)
             
         except ConnectionAbortedError:
-            print(f"[INFO] Client {client_ip} disconnected")
             FortniteServerHandler.clients.remove(client_ip)
+            FortniteServerHandler.connection_count -= 1
+            self.log_connection(client_ip, "Client disconnected")
         except Exception as e:
-            print(f"[ERROR] Request error: {str(e)}")
+            self.log_connection(client_ip, f"Error: {str(e)}")
             self.send_error(500, str(e))
         
     def do_POST(self):
@@ -140,17 +162,21 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             
             data = json.loads(post_data.decode())
             client_ip = self.client_address[0]
-            FortniteServerHandler.clients.add(client_ip)
-            print(f"[INFO] Client {client_ip} made POST request to {self.path}")
+            
+            if client_ip not in FortniteServerHandler.clients:
+                FortniteServerHandler.clients.add(client_ip)
+                FortniteServerHandler.connection_count += 1
+                self.log_connection(client_ip, "New client connected via POST")
             
             # Handle different endpoints
             if self.path == "/account/api/oauth/token":
+                self.log_connection(client_ip, "Client authentication")
                 response = {
-                    "access_token": str(uuid.uuid4()),
+                    "access_token": "zerofn_access_token",
                     "expires_in": 28800,
-                    "expires_at": "9999-12-31T23:59:59.999Z",
+                    "expires_at": "9999-12-31T23:59:59.999Z", 
                     "token_type": "bearer",
-                    "refresh_token": str(uuid.uuid4()),
+                    "refresh_token": "zerofn_refresh",
                     "refresh_expires": 28800,
                     "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                     "account_id": "ZeroFN",
@@ -159,41 +185,49 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "client_service": "fortnite",
                     "displayName": "ZeroFN",
                     "app": "fortnite",
-                    "in_app_id": "ZeroFN"
+                    "in_app_id": "ZeroFN",
+                    "device_id": "zerofn_device"
                 }
                 self.send_json_response(response)
                 
             elif self.path == "/fortnite/api/game/v2/profile/client/QueryProfile":
+                self.log_connection(client_ip, "Profile query")
                 response = {
                     "profileId": data.get("profileId", "athena"),
-                    "profileChanges": [
-                        {
-                            "_type": "fullProfileUpdate",
-                            "profile": {
-                                "_id": "ZeroFN",
-                                "accountId": "ZeroFN",
-                                "profileId": data.get("profileId", "athena"),
-                                "version": "no_version",
-                                "items": {},
-                                "stats": {
-                                    "attributes": {
-                                        "past_seasons": [],
-                                        "season_match_boost": 0,
-                                        "loadouts": ["ZeroFN"],
-                                        "mfa_reward_claimed": True
-                                    }
-                                },
-                                "commandRevision": 1
-                            }
+                    "profileChanges": [{
+                        "_type": "fullProfileUpdate",
+                        "profile": {
+                            "_id": "ZeroFN",
+                            "accountId": "ZeroFN", 
+                            "profileId": data.get("profileId", "athena"),
+                            "version": "no_version",
+                            "items": {},
+                            "stats": {
+                                "attributes": {
+                                    "past_seasons": [],
+                                    "season_match_boost": 999999,
+                                    "loadouts": ["ZeroFN"],
+                                    "mfa_reward_claimed": True,
+                                    "rested_xp_overflow": 999999,
+                                    "quest_manager": {},
+                                    "book_level": 999,
+                                    "season_num": 1,
+                                    "season_update": 0,
+                                    "book_xp": 999999,
+                                    "permissions": []
+                                }
+                            },
+                            "commandRevision": 0
                         }
-                    ],
-                    "profileCommandRevision": 1,
-                    "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    }],
+                    "profileCommandRevision": 0,
+                    "serverTime": "2023-01-01T00:00:00.000Z",
                     "responseVersion": 1
                 }
                 self.send_json_response(response)
                 
             elif self.path == "/fortnite/api/game/v2/matchmaking/account":
+                self.log_connection(client_ip, "Matchmaking request")
                 response = {
                     "accountId": "ZeroFN",
                     "matches": [],
@@ -203,34 +237,42 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                 self.send_json_response(response)
                 
             elif self.path == "/fortnite/api/game/v2/profile/ZeroFN/client/SetCosmeticLockerSlot":
+                self.log_connection(client_ip, "Cosmetic slot update")
                 response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
                 self.send_json_response(response)
                 
             elif self.path == "/fortnite/api/game/v2/profile/ZeroFN/client/SetCosmeticLockerBanner":
+                self.log_connection(client_ip, "Banner update")
                 response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
                 self.send_json_response(response)
                 
             elif self.path == "/fortnite/api/game/v2/profile/ZeroFN/client/EquipBattleRoyaleCustomization":
+                self.log_connection(client_ip, "BR customization update")
                 response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
                 self.send_json_response(response)
                 
             else:
+                self.log_connection(client_ip, f"Generic POST to {self.path}")
                 response = {
                     "status": "ok",
-                    "path": self.path
+                    "path": self.path,
+                    "client_info": {
+                        "ip": client_ip,
+                        "last_activity": FortniteServerHandler.last_activity.get(client_ip)
+                    }
                 }
                 self.send_json_response(response)
             
         except ConnectionAbortedError:
-            print(f"[INFO] Client {client_ip} disconnected")
             FortniteServerHandler.clients.remove(client_ip)
+            FortniteServerHandler.connection_count -= 1
+            self.log_connection(client_ip, "Client disconnected")
         except Exception as e:
-            print(f"[ERROR] Request error: {str(e)}")
+            self.log_connection(client_ip, f"Error: {str(e)}")
             self.send_error(500, str(e))
             
     def log_message(self, format, *args):
-        # Custom logging
-        print(f"[INFO] {format%args}")
+        pass
 
 class ZeroFNServer:
     def __init__(self, host="127.0.0.1", port=7777):
@@ -241,25 +283,19 @@ class ZeroFNServer:
         
     def start(self):
         try:
-            # Try to connect to the port first to ensure it's free
             test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             test_sock.settimeout(1)
             result = test_sock.connect_ex((self.host, self.port))
             test_sock.close()
             
             if result == 0:
-                print(f"[WARN] Port {self.port} already in use, attempting to free it...")
-                # Try to free up the port
                 subprocess.run(f"netstat -ano | findstr :{self.port}", shell=True)
                 subprocess.run(f"taskkill /F /PID $(netstat -ano | findstr :{self.port} | awk '{{print $5}}')", shell=True)
                 time.sleep(1)
             
             self.server = HTTPServer((self.host, self.port), FortniteServerHandler)
             self.running = True
-            print(f"[INFO] ZeroFN server started on {self.host}:{self.port}")
-            print("[INFO] Waiting for client connection...")
             
-            # Send initial connection request to ourselves to establish connection
             try:
                 requests.get(f"http://{self.host}:{self.port}/", timeout=1)
             except:
@@ -268,8 +304,8 @@ class ZeroFNServer:
             while self.running:
                 try:
                     self.server.handle_request()
-                except Exception as e:
-                    print(f"[ERROR] Request handling error: {str(e)}")
+                except:
+                    pass
                 
         except Exception as e:
             print(f"[ERROR] Server error: {str(e)}")
@@ -278,16 +314,13 @@ class ZeroFNServer:
         self.running = False
         if self.server:
             self.server.server_close()
-            print("[INFO] ZeroFN server stopped")
             
     def wait_for_client(self, timeout=30):
         start_time = time.time()
         while time.time() - start_time < timeout:
             if FortniteServerHandler.clients:
-                print("[INFO] Client connected successfully!")
                 return True
             time.sleep(0.5)
-        print("[ERROR] No client connected within timeout period")
         return False
 
 class ZeroFNApp:

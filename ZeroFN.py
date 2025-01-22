@@ -76,6 +76,7 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
     def send_json_response(self, data, status=200):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
@@ -156,15 +157,15 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "lastLogin": "2023-01-01T00:00:00.000Z",
                     "numberOfDisplayNameChanges": 0,
                     "ageGroup": "UNKNOWN",
-                    "headless": false,
+                    "headless": False,
                     "country": "US",
                     "lastName": "User",
                     "preferredLanguage": "en",
-                    "canUpdateDisplayName": true,
-                    "tfaEnabled": false,
-                    "emailVerified": true,
-                    "minorVerified": false,
-                    "minorExpected": false,
+                    "canUpdateDisplayName": True,
+                    "tfaEnabled": False,
+                    "emailVerified": True,
+                    "minorVerified": False,
+                    "minorExpected": False,
                     "minorStatus": "UNKNOWN"
                 }
                 self.send_json_response(response)
@@ -212,11 +213,11 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             if self.path == "/account/api/oauth/token":
                 self.log_connection(client_ip, "Client authentication")
                 response = {
-                    "access_token": "zerofn_access_token",
+                    "access_token": str(uuid.uuid4()),
                     "expires_in": 28800,
                     "expires_at": "9999-12-31T23:59:59.999Z", 
                     "token_type": "bearer",
-                    "refresh_token": "zerofn_refresh",
+                    "refresh_token": str(uuid.uuid4()),
                     "refresh_expires": 28800,
                     "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                     "account_id": "ZeroFN",
@@ -226,7 +227,7 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "displayName": "ZeroFN",
                     "app": "fortnite",
                     "in_app_id": "ZeroFN",
-                    "device_id": "zerofn_device"
+                    "device_id": str(uuid.uuid4())
                 }
                 self.send_json_response(response)
                 

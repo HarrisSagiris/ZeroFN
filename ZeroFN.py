@@ -67,43 +67,50 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
     clients = set()
 
     def do_GET(self):
-        client_ip = self.client_address[0]
-        FortniteServerHandler.clients.add(client_ip)
-        
-        # Handle verification endpoint
-        if self.path == "/account/api/oauth/verify":
-            response = {
-                "token": str(uuid.uuid4()),
-                "session_id": str(uuid.uuid4()),
-                "token_type": "bearer",
-                "client_id": "ZeroFN",
-                "internal_client": True,
-                "client_service": "fortnite",
-                "account_id": "ZeroFN",
-                "expires_in": 28800,
-                "expires_at": "9999-12-31T23:59:59.999Z",
-                "auth_method": "exchange_code",
-                "display_name": "ZeroFN",
-                "app": "fortnite",
-                "in_app_id": "ZeroFN"
-            }
-        else:
-            response = {
-                "status": "ok",
-                "message": "ZeroFN server running",
-                "client_ip": client_ip
-            }
-        
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(response).encode())
+        try:
+            client_ip = self.client_address[0]
+            FortniteServerHandler.clients.add(client_ip)
+            
+            # Handle verification endpoint
+            if self.path == "/account/api/oauth/verify":
+                response = {
+                    "token": str(uuid.uuid4()),
+                    "session_id": str(uuid.uuid4()),
+                    "token_type": "bearer",
+                    "client_id": "ZeroFN",
+                    "internal_client": True,
+                    "client_service": "fortnite",
+                    "account_id": "ZeroFN",
+                    "expires_in": 28800,
+                    "expires_at": "9999-12-31T23:59:59.999Z",
+                    "auth_method": "exchange_code",
+                    "display_name": "ZeroFN",
+                    "app": "fortnite",
+                    "in_app_id": "ZeroFN"
+                }
+            else:
+                response = {
+                    "status": "ok",
+                    "message": "ZeroFN server running",
+                    "client_ip": client_ip
+                }
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+            
+        except ConnectionAbortedError:
+            # Silently handle client disconnection
+            pass
+        except Exception as e:
+            self.send_error(500, str(e))
         
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        
         try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
             data = json.loads(post_data.decode())
             client_ip = self.client_address[0]
             FortniteServerHandler.clients.add(client_ip)
@@ -175,6 +182,9 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
             
+        except ConnectionAbortedError:
+            # Silently handle client disconnection
+            pass
         except Exception as e:
             self.send_error(500, str(e))
             
@@ -215,7 +225,10 @@ class ZeroFNServer:
                 pass
                 
             while self.running:
-                self.server.handle_request()
+                try:
+                    self.server.handle_request()
+                except Exception as e:
+                    print(f"[ERROR] Request handling error: {str(e)}")
                 
         except Exception as e:
             print(f"[ERROR] Server error: {str(e)}")

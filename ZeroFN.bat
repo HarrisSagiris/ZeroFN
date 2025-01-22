@@ -138,7 +138,7 @@ echo    Starting ProjectZERO server only
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo [INFO] Initializing ZeroFN server on 0.0.0.1:7777
+echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
 echo [INFO] Using game files from: %GAME_EXE%
 echo.
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
@@ -189,18 +189,18 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=0.0.0.1:7777 ^
--AUTH_HOST=0.0.0.1:7777 ^
+-HTTP=127.0.0.1:7777 ^
+-AUTH_HOST=127.0.0.1:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
 -AUTH_EPIC=0 ^
 -AUTH_EPIC_ONLY=0 ^
--FORCECLIENT=0.0.0.1:7777 ^
+-FORCECLIENT=127.0.0.1:7777 ^
 -NOEPICWEB ^
 -NOEPICFRIENDS ^
 -NOEAC ^
 -NOBE ^
--FORCECLIENT_HOST=0.0.0.1:7777
+-FORCECLIENT_HOST=127.0.0.1:7777
 
 echo [SUCCESS] Fortnite client launched and connected to custom server!
 echo [INFO] All Epic Games services have been disabled
@@ -216,7 +216,7 @@ echo    Starting ProjectZERO Hybrid Mode (Game + Server)
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo [INFO] Initializing ZeroFN server on 0.0.0.1:7777
+echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
 echo [INFO] Using game files from: %GAME_EXE%
 echo.
 
@@ -257,18 +257,18 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=0.0.0.1:7777 ^
--AUTH_HOST=0.0.0.1:7777 ^
+-HTTP=127.0.0.1:7777 ^
+-AUTH_HOST=127.0.0.1:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
 -AUTH_EPIC=0 ^
 -AUTH_EPIC_ONLY=0 ^
--FORCECLIENT=0.0.0.1:7777 ^
+-FORCECLIENT=127.0.0.1:7777 ^
 -NOEPICWEB ^
 -NOEPICFRIENDS ^
 -NOEAC ^
 -NOBE ^
--FORCECLIENT_HOST=0.0.0.1:7777
+-FORCECLIENT_HOST=127.0.0.1:7777
 
 echo [SUCCESS] Game client launched and connected to custom server!
 echo [INFO] Server is running in separate window with live logs

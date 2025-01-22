@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger('FortniteServer')
 
 class FortniteAuthServer:
-    def __init__(self, host='0.0.0.1', port=7777):  # Changed to listen on 0.0.0.1:7777
+    def __init__(self, host='127.0.0.1', port=7777):  # Changed to listen on 127.0.0.1:7777
         self.host = host
         self.port = port
         self.running = True

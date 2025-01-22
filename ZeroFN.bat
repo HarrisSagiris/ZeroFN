@@ -170,10 +170,29 @@ del /f /q "%localappdata%\FortniteGame\Saved\Config\CrashReportClient\*.*" >nul 
 REM Set compatibility flags and bypass settings
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
-REM Launch with bypass parameters and auto-login
-start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken= -nolog -NOSSLPINNING -preferredregion=NAE -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777
+REM Launch with server connection parameters
+start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
+-AUTH_TYPE=epic ^
+-AUTH_LOGIN=ZeroFN@zerofn.com ^
+-AUTH_PASSWORD=zerofn ^
+-epicapp=Fortnite ^
+-epicenv=Prod ^
+-epiclocale=en-us ^
+-epicportal ^
+-noeac -nobe -fromfl=be -fltoken= ^
+-nolog ^
+-NOSSLPINNING ^
+-preferredregion=NAE ^
+-skippatchcheck ^
+-notexturestreaming ^
+-HTTP=127.0.0.1:7777 ^
+-AUTH_HOST=127.0.0.1:7777 ^
+-AUTH_SSL=0 ^
+-AUTH_VERIFY_SSL=0 ^
+-AUTH_EPIC=0 ^
+-AUTH_EPIC_ONLY=0
 
-echo Fortnite client launched in bypass mode with auto-login!
+echo Fortnite client launched and connected to local server!
 echo.
 timeout /t 3
 goto menu
@@ -208,10 +227,29 @@ del /f /q "%localappdata%\FortniteGame\Saved\Config\CrashReportClient\*.*" >nul 
 
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
-REM Launch game with auto-login
-start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken= -nolog -NOSSLPINNING -preferredregion=NAE -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777
+REM Launch game with server connection parameters
+start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
+-AUTH_TYPE=epic ^
+-AUTH_LOGIN=ZeroFN@zerofn.com ^
+-AUTH_PASSWORD=zerofn ^
+-epicapp=Fortnite ^
+-epicenv=Prod ^
+-epiclocale=en-us ^
+-epicportal ^
+-noeac -nobe -fromfl=be -fltoken= ^
+-nolog ^
+-NOSSLPINNING ^
+-preferredregion=NAE ^
+-skippatchcheck ^
+-notexturestreaming ^
+-HTTP=127.0.0.1:7777 ^
+-AUTH_HOST=127.0.0.1:7777 ^
+-AUTH_SSL=0 ^
+-AUTH_VERIFY_SSL=0 ^
+-AUTH_EPIC=0 ^
+-AUTH_EPIC_ONLY=0
 
-echo Game client launched in bypass mode with auto-login!
+echo Game client launched and connected to local server!
 echo Server is running in separate window with live logs
 echo.
 echo Press any key to return to menu...

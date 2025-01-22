@@ -112,6 +112,12 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "banned": False
                 }]
                 self.send_json_response(response)
+            elif self.path == "/fortnite/api/game/v2/tryPlayOnPlatform/account/ZeroFN":
+                response = {"platformValid": True}
+                self.send_json_response(response)
+            elif self.path == "/fortnite/api/game/v2/privacy/account/ZeroFN":
+                response = {"accountId": "ZeroFN", "optOutOfPublicLeaderboards": False}
+                self.send_json_response(response)
             else:
                 response = {
                     "status": "ok",

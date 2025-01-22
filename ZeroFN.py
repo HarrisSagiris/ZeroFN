@@ -65,6 +65,12 @@ class FortniteTheme:
 # Custom HTTP request handler for Fortnite server
 class FortniteServerHandler(BaseHTTPRequestHandler):
     clients = set()
+    
+    def send_json_response(self, data, status=200):
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
 
     def do_GET(self):
         try:
@@ -75,32 +81,44 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             # Handle verification endpoint
             if self.path == "/account/api/oauth/verify":
                 response = {
-                    "token": str(uuid.uuid4()),
-                    "session_id": str(uuid.uuid4()),
+                    "access_token": str(uuid.uuid4()),
+                    "expires_in": 28800,
+                    "expires_at": "9999-12-31T23:59:59.999Z",
                     "token_type": "bearer",
+                    "account_id": "ZeroFN",
                     "client_id": "ZeroFN",
                     "internal_client": True,
                     "client_service": "fortnite",
-                    "account_id": "ZeroFN",
-                    "expires_in": 28800,
-                    "expires_at": "9999-12-31T23:59:59.999Z",
-                    "auth_method": "exchange_code",
-                    "display_name": "ZeroFN",
+                    "displayName": "ZeroFN",
                     "app": "fortnite",
-                    "in_app_id": "ZeroFN",
-                    "device_id": "ZeroFN"
+                    "in_app_id": "ZeroFN"
                 }
+                self.send_json_response(response)
+            elif self.path == "/fortnite/api/cloudstorage/system":
+                self.send_json_response([])
+            elif self.path == "/fortnite/api/game/v2/enabled_features":
+                self.send_json_response([])
+            elif self.path.startswith("/fortnite/api/cloudstorage/user/"):
+                self.send_json_response([])
+            elif self.path == "/waitingroom/api/waitingroom":
+                self.send_json_response(None)
+            elif self.path == "/lightswitch/api/service/bulk/status":
+                response = [{
+                    "serviceInstanceId": "fortnite",
+                    "status": "UP",
+                    "message": "Fortnite is online",
+                    "maintenanceUri": None,
+                    "allowedActions": ["PLAY", "DOWNLOAD"],
+                    "banned": False
+                }]
+                self.send_json_response(response)
             else:
                 response = {
                     "status": "ok",
                     "message": "ZeroFN server running",
                     "client_ip": client_ip
                 }
-            
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(response).encode())
+                self.send_json_response(response)
             
         except ConnectionAbortedError:
             print(f"[INFO] Client {client_ip} disconnected")
@@ -124,7 +142,7 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                 response = {
                     "access_token": str(uuid.uuid4()),
                     "expires_in": 28800,
-                    "expires_at": "9999-12-31T23:59:59.999Z", 
+                    "expires_at": "9999-12-31T23:59:59.999Z",
                     "token_type": "bearer",
                     "refresh_token": str(uuid.uuid4()),
                     "refresh_expires": 28800,
@@ -135,27 +153,27 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "client_service": "fortnite",
                     "displayName": "ZeroFN",
                     "app": "fortnite",
-                    "in_app_id": "ZeroFN",
-                    "device_id": "ZeroFN"
+                    "in_app_id": "ZeroFN"
                 }
+                self.send_json_response(response)
                 
             elif self.path == "/fortnite/api/game/v2/profile/client/QueryProfile":
                 response = {
-                    "profileId": "athena",
+                    "profileId": data.get("profileId", "athena"),
                     "profileChanges": [
                         {
                             "_type": "fullProfileUpdate",
                             "profile": {
                                 "_id": "ZeroFN",
                                 "accountId": "ZeroFN",
-                                "profileId": "athena",
+                                "profileId": data.get("profileId", "athena"),
                                 "version": "no_version",
                                 "items": {},
                                 "stats": {
                                     "attributes": {
                                         "past_seasons": [],
                                         "season_match_boost": 0,
-                                        "loadouts": [],
+                                        "loadouts": ["ZeroFN"],
                                         "mfa_reward_claimed": True
                                     }
                                 },
@@ -167,6 +185,7 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                     "responseVersion": 1
                 }
+                self.send_json_response(response)
                 
             elif self.path == "/fortnite/api/game/v2/matchmaking/account":
                 response = {
@@ -175,17 +194,26 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "startTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                     "endTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
                 }
+                self.send_json_response(response)
+                
+            elif self.path == "/fortnite/api/game/v2/profile/ZeroFN/client/SetCosmeticLockerSlot":
+                response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
+                self.send_json_response(response)
+                
+            elif self.path == "/fortnite/api/game/v2/profile/ZeroFN/client/SetCosmeticLockerBanner":
+                response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
+                self.send_json_response(response)
+                
+            elif self.path == "/fortnite/api/game/v2/profile/ZeroFN/client/EquipBattleRoyaleCustomization":
+                response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
+                self.send_json_response(response)
                 
             else:
                 response = {
                     "status": "ok",
                     "path": self.path
                 }
-                
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(response).encode())
+                self.send_json_response(response)
             
         except ConnectionAbortedError:
             print(f"[INFO] Client {client_ip} disconnected")

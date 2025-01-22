@@ -138,11 +138,11 @@ echo    Starting ProjectZERO server only
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo Server running on 127.0.0.1:7777
-echo Using game files from: %GAME_EXE%
+echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
+echo [INFO] Using game files from: %GAME_EXE%
 echo.
-start cmd /k "title ZeroFN Server && python server.py"
-echo Server window opened with live logs
+start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
+echo [SUCCESS] Server window opened with live logs
 pause
 goto menu
 
@@ -155,22 +155,22 @@ echo =====================================
 echo.
 cd /d "%GAME_EXE%\.."
 
-REM Kill any existing processes
+echo [INFO] Cleaning up existing processes...
 taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 taskkill /f /im FortniteLauncher.exe >nul 2>&1
 taskkill /f /im EpicGamesLauncher.exe >nul 2>&1
 
-REM Delete crash logs and temp files
+echo [INFO] Cleaning temporary files and logs...
 del /f /q "%localappdata%\FortniteGame\Saved\Logs\*.*" >nul 2>&1
 del /f /q "%localappdata%\CrashReportClient\*.*" >nul 2>&1
 del /f /q "%localappdata%\FortniteGame\Saved\Config\CrashReportClient\*.*" >nul 2>&1
 
-REM Set compatibility flags and bypass settings
+echo [INFO] Setting compatibility flags...
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
-REM Launch with server connection parameters
+echo [INFO] Launching game with ZeroFN configuration...
 start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -AUTH_TYPE=epic ^
 -AUTH_LOGIN=ZeroFN@zerofn.com ^
@@ -190,9 +190,17 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
 -AUTH_EPIC=0 ^
--AUTH_EPIC_ONLY=0
+-AUTH_EPIC_ONLY=0 ^
+-FORCECLIENT=127.0.0.1:7777 ^
+-NOEPICWEB ^
+-NOEPICFRIENDS ^
+-NOEAC ^
+-NOBE ^
+-FORCECLIENT_HOST=127.0.0.1:7777
 
-echo Fortnite client launched and connected to local server!
+echo [SUCCESS] Fortnite client launched and connected to local ZeroFN server!
+echo [INFO] All Epic Games services have been disabled
+echo [INFO] Using only local ZeroFN server for authentication
 echo.
 timeout /t 3
 goto menu
@@ -204,30 +212,33 @@ echo    Starting ProjectZERO Hybrid Mode (Game + Server)
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo Starting server on 127.0.0.1:7777
-echo Using game files from: %GAME_EXE%
+echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
+echo [INFO] Using game files from: %GAME_EXE%
 echo.
 
-REM Start server in new window with title
-start cmd /k "title ZeroFN Server && python server.py"
+echo [INFO] Starting ZeroFN server process...
+start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
+echo [SUCCESS] Server initialized
 timeout /t 2 >nul
 
 cd /d "%GAME_EXE%\.."
 
-REM Kill existing processes
+echo [INFO] Cleaning up existing processes...
 taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 taskkill /f /im FortniteLauncher.exe >nul 2>&1
 taskkill /f /im EpicGamesLauncher.exe >nul 2>&1
 
+echo [INFO] Cleaning temporary files and logs...
 del /f /q "%localappdata%\FortniteGame\Saved\Logs\*.*" >nul 2>&1
 del /f /q "%localappdata%\CrashReportClient\*.*" >nul 2>&1
 del /f /q "%localappdata%\FortniteGame\Saved\Config\CrashReportClient\*.*" >nul 2>&1
 
+echo [INFO] Setting compatibility flags...
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
-REM Launch game with server connection parameters
+echo [INFO] Launching game with ZeroFN configuration...
 start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -AUTH_TYPE=epic ^
 -AUTH_LOGIN=ZeroFN@zerofn.com ^
@@ -247,10 +258,18 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
 -AUTH_EPIC=0 ^
--AUTH_EPIC_ONLY=0
+-AUTH_EPIC_ONLY=0 ^
+-FORCECLIENT=127.0.0.1:7777 ^
+-NOEPICWEB ^
+-NOEPICFRIENDS ^
+-NOEAC ^
+-NOBE ^
+-FORCECLIENT_HOST=127.0.0.1:7777
 
-echo Game client launched and connected to local server!
-echo Server is running in separate window with live logs
+echo [SUCCESS] Game client launched and connected to local ZeroFN server!
+echo [INFO] Server is running in separate window with live logs
+echo [INFO] All Epic Games services have been disabled
+echo [INFO] Using only local ZeroFN server for authentication
 echo.
 echo Press any key to return to menu...
 pause >nul

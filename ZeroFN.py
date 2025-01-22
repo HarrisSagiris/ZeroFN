@@ -18,6 +18,7 @@ import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import secrets
+import base64
 
 # Configure Fortnite theme styles
 class FortniteTheme:
@@ -581,6 +582,11 @@ class ZeroFNApp:
         
         # Epic Games OAuth2 parameters
         client_id = "ec684b8c687f479fadea3cb2ad83f5c6"  # Your Epic Games client ID
+        # PLACE YOUR CLIENT SECRET HERE AND ENCODE IT WITH THE CLIENT ID
+        client_secret = "YOUR_CLIENT_SECRET_HERE"
+        auth_string = f"{client_id}:{client_secret}"
+        auth_header = base64.b64encode(auth_string.encode()).decode()
+        
         redirect_uri = "http://127.0.0.1:7777/epic/callback"
         
         # Construct authorization URL
@@ -604,7 +610,7 @@ class ZeroFNApp:
                 # Exchange auth code for tokens
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 headers = {
-                    "Authorization": f"Basic {client_id}"
+                    "Authorization": f"Basic {auth_header}"
                 }
                 data = {
                     "grant_type": "authorization_code",

@@ -10,44 +10,59 @@ import requests
 from pathlib import Path
 import logging
 import time
+import ctypes
 
-# Configure dark theme styles
-class DarkTheme:
-    BG_COLOR = '#1a1a1a'
-    FG_COLOR = '#ffffff' 
-    ACCENT_COLOR = '#404040'
-    HIGHLIGHT_COLOR = '#0066cc'
+# Configure Fortnite theme styles
+class FortniteTheme:
+    BG_COLOR = '#121212'
+    FG_COLOR = '#ffffff'
+    ACCENT_COLOR = '#fccc4d' 
+    SECONDARY_COLOR = '#2b2b2b'
+    HIGHLIGHT_COLOR = '#ffc700'
 
     @staticmethod
     def configure_styles():
         style = ttk.Style()
-        style.configure('TFrame', background=DarkTheme.BG_COLOR)
-        style.configure('TLabel', 
-                       background=DarkTheme.BG_COLOR,
-                       foreground=DarkTheme.FG_COLOR)
-        style.configure('TButton',
-                       background=DarkTheme.ACCENT_COLOR,
-                       foreground=DarkTheme.FG_COLOR,
-                       padding=5)
-        style.configure('TLabelframe', 
-                       background=DarkTheme.BG_COLOR,
-                       foreground=DarkTheme.FG_COLOR)
-        style.configure('TLabelframe.Label',
-                       background=DarkTheme.BG_COLOR,
-                       foreground=DarkTheme.FG_COLOR)
-        style.configure('TEntry',
-                       fieldbackground=DarkTheme.ACCENT_COLOR,
-                       foreground=DarkTheme.FG_COLOR)
+        
+        # Configure main styles
+        style.configure('Fortnite.TFrame', background=FortniteTheme.BG_COLOR)
+        style.configure('Fortnite.TLabel',
+                       background=FortniteTheme.BG_COLOR,
+                       foreground=FortniteTheme.FG_COLOR,
+                       font=("Segoe UI", 10))
+        
+        # Custom button style
+        style.configure('Fortnite.TButton',
+                       background=FortniteTheme.ACCENT_COLOR,
+                       foreground=FortniteTheme.BG_COLOR,
+                       font=("Segoe UI", 10, "bold"),
+                       padding=10)
+        style.map('Fortnite.TButton',
+                 background=[('active', FortniteTheme.HIGHLIGHT_COLOR)],
+                 foreground=[('active', FortniteTheme.BG_COLOR)])
+                 
+        # Frame styles
+        style.configure('Fortnite.TLabelframe',
+                       background=FortniteTheme.BG_COLOR,
+                       foreground=FortniteTheme.FG_COLOR)
+        style.configure('Fortnite.TLabelframe.Label',
+                       background=FortniteTheme.BG_COLOR,
+                       foreground=FortniteTheme.ACCENT_COLOR,
+                       font=("Segoe UI", 11, "bold"))
 
 class ZeroFNApp:
     def __init__(self, root):
+        # Check for admin rights
+        if not self.is_admin():
+            self.restart_as_admin()
+            
         self.root = root
-        self.root.title("ZeroFN Launcher")
-        self.root.geometry("900x700")
-        self.root.configure(bg=DarkTheme.BG_COLOR)
+        self.root.title("ProjectZERO Launcher")
+        self.root.geometry("1000x800")
+        self.root.configure(bg=FortniteTheme.BG_COLOR)
         
-        # Configure dark theme
-        DarkTheme.configure_styles()
+        # Configure Fortnite theme
+        FortniteTheme.configure_styles()
         
         # Variables
         self.fortnite_path = tk.StringVar()
@@ -59,6 +74,16 @@ class ZeroFNApp:
         self.setup_logging()
         
         self.create_gui()
+        
+    def is_admin(self):
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            return False
+            
+    def restart_as_admin(self):
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        sys.exit()
         
     def setup_logging(self):
         if not os.path.exists('logs'):
@@ -75,82 +100,110 @@ class ZeroFNApp:
         self.logger = logging.getLogger('ZeroFNLauncher')
         
     def create_gui(self):
-        # Main frame with padding
-        main_frame = ttk.Frame(self.root, padding="20")
+        # Main container
+        main_frame = ttk.Frame(self.root, style='Fortnite.TFrame', padding=30)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Title with custom font and color
+        # Header section with logo
+        header_frame = ttk.Frame(main_frame, style='Fortnite.TFrame')
+        header_frame.pack(fill=tk.X, pady=(0,30))
+        
         title_label = ttk.Label(
-            main_frame, 
+            header_frame,
             text="ProjectZERO",
-            font=("Segoe UI", 32, "bold"),
-            foreground=DarkTheme.HIGHLIGHT_COLOR
+            font=("Segoe UI", 48, "bold"),
+            foreground=FortniteTheme.ACCENT_COLOR,
+            style='Fortnite.TLabel'
         )
-        title_label.pack(pady=20)
+        title_label.pack()
         
-        # Subtitle
-        subtitle_label = ttk.Label(
+        subtitle = ttk.Label(
+            header_frame,
+            text="Experience OG Fortnite like never before",
+            font=("Segoe UI", 16),
+            foreground=FortniteTheme.FG_COLOR,
+            style='Fortnite.TLabel'
+        )
+        subtitle.pack(pady=5)
+        
+        # Path selection with modern styling
+        path_frame = ttk.LabelFrame(
             main_frame,
-            text="Created by root404 and the ZeroFN team",
-            font=("Segoe UI", 14)
+            text="FORTNITE LOCATION",
+            style='Fortnite.TLabelframe',
+            padding=20
         )
-        subtitle_label.pack(pady=5)
-        
-        # Path selection frame
-        path_frame = ttk.LabelFrame(main_frame, text="Fortnite Path", padding=15)
-        path_frame.pack(fill=tk.X, pady=15)
+        path_frame.pack(fill=tk.X, pady=20)
         
         path_entry = ttk.Entry(
-            path_frame, 
+            path_frame,
             textvariable=self.fortnite_path,
-            font=("Segoe UI", 10)
+            font=("Segoe UI", 11),
+            width=50
         )
-        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0,10))
+        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0,15))
         
         browse_btn = ttk.Button(
             path_frame,
-            text="Browse",
+            text="BROWSE",
             command=self.browse_fortnite,
-            style='Accent.TButton'
+            style='Fortnite.TButton'
         )
         browse_btn.pack(side=tk.RIGHT)
         
-        # Action buttons frame
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(pady=20)
+        # Action buttons with Fortnite styling
+        btn_frame = ttk.Frame(main_frame, style='Fortnite.TFrame')
+        btn_frame.pack(pady=30)
         
-        # Custom button styles
-        for btn_text, btn_cmd in [
-            ("Install Fortnite OG", self.install_fortnite_og),
-            ("Start Hybrid Mode", self.start_hybrid_mode),
-            ("Join Discord", lambda: webbrowser.open('https://discord.gg/yCY4FTMPdK'))
+        for btn_text, btn_cmd, btn_width in [
+            ("INSTALL FORTNITE OG", self.install_fortnite_og, 25),
+            ("START HYBRID MODE", self.start_hybrid_mode, 25),
+            ("JOIN DISCORD", lambda: webbrowser.open('https://discord.gg/yCY4FTMPdK'), 25)
         ]:
             btn = ttk.Button(
                 btn_frame,
                 text=btn_text,
                 command=btn_cmd,
-                style='Accent.TButton'
+                style='Fortnite.TButton',
+                width=btn_width
             )
-            btn.pack(pady=8, ipadx=20, ipady=5)
+            btn.pack(pady=10)
         
-        # Status frame with scrollbar
-        self.status_frame = ttk.LabelFrame(main_frame, text="Status", padding=15)
-        self.status_frame.pack(fill=tk.BOTH, expand=True, pady=15)
+        # Status console with custom styling
+        status_frame = ttk.LabelFrame(
+            main_frame,
+            text="CONSOLE OUTPUT",
+            style='Fortnite.TLabelframe',
+            padding=15
+        )
+        status_frame.pack(fill=tk.BOTH, expand=True, pady=(20,0))
         
-        # Add scrollbar
-        scrollbar = ttk.Scrollbar(self.status_frame)
+        # Scrollbar styling
+        scrollbar = ttk.Scrollbar(status_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         self.status_text = tk.Text(
-            self.status_frame, 
-            height=12,
-            bg=DarkTheme.ACCENT_COLOR,
-            fg=DarkTheme.FG_COLOR,
+            status_frame,
+            height=15,
+            bg=FortniteTheme.SECONDARY_COLOR,
+            fg=FortniteTheme.FG_COLOR,
             font=("Consolas", 10),
-            yscrollcommand=scrollbar.set
+            yscrollcommand=scrollbar.set,
+            padx=10,
+            pady=10
         )
         self.status_text.pack(fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.status_text.yview)
+        
+        # Footer
+        footer = ttk.Label(
+            main_frame,
+            text="Created by root404 and the ZeroFN team",
+            font=("Segoe UI", 9),
+            foreground=FortniteTheme.FG_COLOR,
+            style='Fortnite.TLabel'
+        )
+        footer.pack(pady=(20,0))
         
     def log_status(self, message):
         timestamp = time.strftime("%H:%M:%S")
@@ -210,11 +263,11 @@ class ZeroFNApp:
             
         def start_server():
             try:
-                # Create server window
+                # Create server window with admin rights
                 self.server_window = subprocess.Popen(
-                    ['cmd', '/c', 'start', 'cmd', '/k', 
+                    ['cmd', '/c', 'start', 'cmd', '/k',
                      f'title ZeroFN Server && python server.py'],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                    creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS
                 )
                 
                 self.log_status("ZeroFN server started in new window")
@@ -231,11 +284,11 @@ class ZeroFNApp:
                 ]
                 
                 for proc in processes:
-                    subprocess.run(["taskkill", "/f", "/im", proc], 
+                    subprocess.run(["taskkill", "/f", "/im", proc],
                                  stdout=subprocess.DEVNULL,
                                  stderr=subprocess.DEVNULL)
                 
-                # Set compatibility flags
+                # Set compatibility flags with admin rights
                 game_exe = Path(self.fortnite_path.get()) / "FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe"
                 
                 if not game_exe.exists():
@@ -251,7 +304,7 @@ class ZeroFNApp:
                     "/f"
                 ], stdout=subprocess.DEVNULL)
                 
-                # Launch game
+                # Launch game with admin rights
                 self.log_status("Launching Fortnite...")
                 launch_args = [
                     str(game_exe),
@@ -274,7 +327,7 @@ class ZeroFNApp:
                     "-HTTP=127.0.0.1:7777",
                     "-AUTH_HOST=127.0.0.1:7777",
                     "-AUTH_SSL=0",
-                    "-AUTH_VERIFY_SSL=0", 
+                    "-AUTH_VERIFY_SSL=0",
                     "-AUTH_EPIC=0",
                     "-AUTH_EPIC_ONLY=0",
                     "-FORCECLIENT=127.0.0.1:7777",

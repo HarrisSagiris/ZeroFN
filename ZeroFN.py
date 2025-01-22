@@ -55,6 +55,13 @@ class FortniteTheme:
                        foreground=FortniteTheme.ACCENT_COLOR,
                        font=("Segoe UI", 11, "bold"))
 
+        # Combobox style
+        style.configure('Fortnite.TCombobox',
+                       background=FortniteTheme.SECONDARY_COLOR,
+                       foreground=FortniteTheme.FG_COLOR,
+                       fieldbackground=FortniteTheme.SECONDARY_COLOR,
+                       arrowcolor=FortniteTheme.ACCENT_COLOR)
+
 # Custom HTTP request handler for Fortnite server
 class FortniteServerHandler(BaseHTTPRequestHandler):
     clients = set()
@@ -243,9 +250,17 @@ class ZeroFNApp:
         
         # Variables
         self.fortnite_path = tk.StringVar()
+        self.selected_season = tk.StringVar(value="Season 1 (Chapter 1)")
         self.server_process = None
         self.game_process = None
         self.server_window = None
+        
+        # Season download URLs
+        self.season_urls = {
+            "Season 1 (Chapter 1)": "https://public.simplyblk.xyz/1.11.zip",
+            "Season 4 (Chapter 1)": "https://public.simplyblk.xyz/4.0.zip",
+            "Season 7 (Chapter 1)": "https://public.simplyblk.xyz/7.30.zip"
+        }
         
         # Initialize server
         self.server = ZeroFNServer()
@@ -306,6 +321,25 @@ class ZeroFNApp:
         )
         subtitle.pack(pady=5)
         
+        # Season selection dropdown
+        season_frame = ttk.LabelFrame(
+            main_frame,
+            text="SELECT SEASON",
+            style='Fortnite.TLabelframe',
+            padding=20
+        )
+        season_frame.pack(fill=tk.X, pady=20)
+        
+        season_combo = ttk.Combobox(
+            season_frame,
+            textvariable=self.selected_season,
+            values=list(self.season_urls.keys()),
+            state="readonly",
+            style='Fortnite.TCombobox',
+            width=40
+        )
+        season_combo.pack()
+        
         # Path selection with modern styling
         path_frame = ttk.LabelFrame(
             main_frame,
@@ -336,7 +370,7 @@ class ZeroFNApp:
         btn_frame.pack(pady=30)
         
         for btn_text, btn_cmd, btn_width in [
-            ("INSTALL FORTNITE OG", self.install_fortnite_og, 25),
+            ("INSTALL SELECTED SEASON", self.install_fortnite_og, 25),
             ("START HYBRID MODE", self.start_hybrid_mode, 25),
             ("JOIN DISCORD", lambda: webbrowser.open('https://discord.gg/yCY4FTMPdK'), 25)
         ]:
@@ -398,23 +432,26 @@ class ZeroFNApp:
             self.log_status(f"Selected Fortnite path: {path}")
             
     def install_fortnite_og(self):
-        install_dir = Path("FortniteOG")
-        download_url = "https://public.simplyblk.xyz/1.11.zip"
+        season = self.selected_season.get()
+        season_dir = f"FortniteOG_{season.split()[1]}"
+        install_dir = Path(season_dir)
+        download_url = self.season_urls[season]
         
         def download():
             try:
                 if install_dir.exists():
-                    self.log_status("FortniteOG directory already exists. Verifying files...")
+                    self.log_status(f"{season} directory already exists. Verifying files...")
                     self.fortnite_path.set(str(install_dir.absolute()))
                     return
                     
-                self.log_status("Starting Fortnite OG download...")
+                self.log_status(f"Starting {season} download...")
                 response = requests.get(download_url, stream=True)
                 total_size = int(response.headers.get('content-length', 0))
                 block_size = 8192
                 downloaded = 0
                 
-                with open("1.11.zip", 'wb') as f:
+                zip_file = f"{season.split()[1]}.zip"
+                with open(zip_file, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=block_size):
                         if chunk:
                             f.write(chunk)
@@ -424,8 +461,8 @@ class ZeroFNApp:
                                 self.log_status(f"Download progress: {progress}%")
                                 
                 self.log_status("Download complete! Extracting files...")
-                shutil.unpack_archive("1.11.zip", "FortniteOG")
-                os.remove("1.11.zip")
+                shutil.unpack_archive(zip_file, season_dir)
+                os.remove(zip_file)
                 
                 self.log_status("Installation completed successfully!")
                 self.fortnite_path.set(str(install_dir.absolute()))

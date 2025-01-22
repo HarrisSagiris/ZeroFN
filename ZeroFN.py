@@ -60,20 +60,36 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
     clients = set()
 
     def do_GET(self):
-        # Auto-add client on any request
         client_ip = self.client_address[0]
         FortniteServerHandler.clients.add(client_ip)
+        
+        # Handle verification endpoint
+        if self.path == "/account/api/oauth/verify":
+            response = {
+                "token": str(uuid.uuid4()),
+                "session_id": str(uuid.uuid4()),
+                "token_type": "bearer",
+                "client_id": "ZeroFN",
+                "internal_client": True,
+                "client_service": "fortnite",
+                "account_id": "ZeroFN",
+                "expires_in": 28800,
+                "expires_at": "9999-12-31T23:59:59.999Z",
+                "auth_method": "exchange_code",
+                "display_name": "ZeroFN",
+                "app": "fortnite",
+                "in_app_id": "ZeroFN"
+            }
+        else:
+            response = {
+                "status": "ok",
+                "message": "ZeroFN server running",
+                "client_ip": client_ip
+            }
         
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        
-        response = {
-            "status": "ok",
-            "message": "ZeroFN server running",
-            "client_ip": client_ip
-        }
-        
         self.wfile.write(json.dumps(response).encode())
         
     def do_POST(self):
@@ -83,8 +99,6 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
         try:
             data = json.loads(post_data.decode())
             client_ip = self.client_address[0]
-            
-            # Auto-add client on POST too
             FortniteServerHandler.clients.add(client_ip)
             
             # Handle different endpoints
@@ -92,20 +106,55 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                 response = {
                     "access_token": str(uuid.uuid4()),
                     "expires_in": 28800,
+                    "expires_at": "9999-12-31T23:59:59.999Z", 
                     "token_type": "bearer",
-                    "account_id": str(uuid.uuid4()),
+                    "refresh_token": str(uuid.uuid4()),
+                    "refresh_expires": 28800,
+                    "refresh_expires_at": "9999-12-31T23:59:59.999Z",
+                    "account_id": "ZeroFN",
                     "client_id": "ZeroFN",
                     "internal_client": True,
-                    "client_service": "fortnite"
+                    "client_service": "fortnite",
+                    "displayName": "ZeroFN",
+                    "app": "fortnite",
+                    "in_app_id": "ZeroFN"
                 }
                 
             elif self.path == "/fortnite/api/game/v2/profile/client/QueryProfile":
                 response = {
                     "profileId": "athena",
-                    "profileChanges": [],
+                    "profileChanges": [
+                        {
+                            "_type": "fullProfileUpdate",
+                            "profile": {
+                                "_id": "ZeroFN",
+                                "accountId": "ZeroFN",
+                                "profileId": "athena",
+                                "version": "no_version",
+                                "items": {},
+                                "stats": {
+                                    "attributes": {
+                                        "past_seasons": [],
+                                        "season_match_boost": 0,
+                                        "loadouts": [],
+                                        "mfa_reward_claimed": True
+                                    }
+                                },
+                                "commandRevision": 1
+                            }
+                        }
+                    ],
                     "profileCommandRevision": 1,
                     "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                     "responseVersion": 1
+                }
+                
+            elif self.path == "/fortnite/api/game/v2/matchmaking/account":
+                response = {
+                    "accountId": "ZeroFN",
+                    "matches": [],
+                    "startTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "endTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
                 }
                 
             else:

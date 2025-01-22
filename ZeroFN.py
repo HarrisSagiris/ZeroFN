@@ -136,6 +136,46 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                 self.log_connection(client_ip, "Privacy settings check")
                 response = {"accountId": "ZeroFN", "optOutOfPublicLeaderboards": False}
                 self.send_json_response(response)
+            # New authentication endpoints
+            elif self.path == "/account/api/public/account":
+                self.log_connection(client_ip, "Public account info")
+                response = {
+                    "id": "ZeroFN",
+                    "displayName": "ZeroFN",
+                    "externalAuths": {}
+                }
+                self.send_json_response(response)
+            elif self.path == "/account/api/public/account/ZeroFN":
+                self.log_connection(client_ip, "Account details")
+                response = {
+                    "id": "ZeroFN",
+                    "displayName": "ZeroFN",
+                    "name": "ZeroFN",
+                    "email": "zerofn@example.com",
+                    "failedLoginAttempts": 0,
+                    "lastLogin": "2023-01-01T00:00:00.000Z",
+                    "numberOfDisplayNameChanges": 0,
+                    "ageGroup": "UNKNOWN",
+                    "headless": false,
+                    "country": "US",
+                    "lastName": "User",
+                    "preferredLanguage": "en",
+                    "canUpdateDisplayName": true,
+                    "tfaEnabled": false,
+                    "emailVerified": true,
+                    "minorVerified": false,
+                    "minorExpected": false,
+                    "minorStatus": "UNKNOWN"
+                }
+                self.send_json_response(response)
+            elif self.path == "/account/api/oauth/exchange":
+                self.log_connection(client_ip, "OAuth exchange")
+                response = {
+                    "expiresInSeconds": 28800,
+                    "code": str(uuid.uuid4()),
+                    "creatingClientId": "ZeroFN"
+                }
+                self.send_json_response(response)
             else:
                 self.log_connection(client_ip, f"Generic request to {self.path}")
                 response = {

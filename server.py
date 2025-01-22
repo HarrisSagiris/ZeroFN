@@ -8,6 +8,9 @@ import random
 from datetime import datetime
 
 # Configure logging
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -57,15 +60,39 @@ class FortniteAuthServer:
                 request = data.decode('utf-8')
                 logger.debug(f'Received request from {address}: {request[:100]}...')
 
-                if '/account/api/oauth/token' in request:
-                    response = self.generate_auth_token_response()
-                elif '/fortnite/api/game/v2/profile' in request:
-                    response = self.generate_profile_response()
-                else:
-                    response = json.dumps({'status': 'ok'})
+                # Parse the HTTP request
+                request_lines = request.split('\r\n')
+                request_line = request_lines[0]
+                method, path, _ = request_line.split(' ')
 
+                # Prepare HTTP response headers
+                headers = [
+                    'HTTP/1.1 200 OK',
+                    'Content-Type: application/json',
+                    'Access-Control-Allow-Origin: *',
+                    'Access-Control-Allow-Methods: GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers: Content-Type',
+                ]
+
+                if '/account/api/oauth/token' in path:
+                    response_body = self.generate_auth_token_response()
+                elif '/fortnite/api/game/v2/profile' in path:
+                    response_body = self.generate_profile_response()
+                elif '/fortnite/api/cloudstorage/system' in path:
+                    response_body = json.dumps([])
+                elif '/fortnite/api/game/v2/enabled_features' in path:
+                    response_body = json.dumps([])
+                elif '/lightswitch/api/service/bulk/status' in path:
+                    response_body = json.dumps([{"serviceInstanceId": "fortnite","status": "UP","message": "Fortnite is online","maintenanceUri": None}])
+                else:
+                    response_body = json.dumps({'status': 'ok'})
+
+                headers.append(f'Content-Length: {len(response_body)}')
+                response = '\r\n'.join(headers) + '\r\n\r\n' + response_body
+                
                 client_socket.send(response.encode())
                 logger.debug(f'Sent response to {address}')
+
         except Exception as e:
             logger.error(f'Error handling client {address}: {e}')
         finally:
@@ -82,19 +109,29 @@ class FortniteAuthServer:
         return json.dumps({
             'access_token': token,
             'expires_in': 28800,
+            'expires_at': '9999-12-31T23:59:59.999Z',
             'token_type': 'bearer',
+            'account_id': 'ZeroFN',
             'client_id': 'ZeroFN',
             'internal_client': True,
-            'client_service': 'fortnite'
+            'client_service': 'fortnite',
+            'displayName': 'ZeroFN',
+            'app': 'fortnite',
+            'in_app_id': 'ZeroFN',
+            'device_id': 'ZeroFN'
         })
 
     def generate_profile_response(self):
         return json.dumps({
+            'profileRevision': 1,
             'profileId': 'default',
             'profileChanges': [],
+            'baseRevision': 1,
             'serverTime': datetime.now().isoformat(),
+            'responseVersion': 1,
             'profileCommandRevision': 1,
-            'status': 'ok'
+            'status': 'ok',
+            'commandRevision': 1
         })
 
     def shutdown(self):

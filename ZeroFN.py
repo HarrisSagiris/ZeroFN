@@ -264,10 +264,10 @@ class ZeroFNApp:
         def start_server():
             try:
                 # Create server window with admin rights
+                server_cmd = f'cmd /k "title ZeroFN Server && python server.py"'
                 self.server_window = subprocess.Popen(
-                    ['cmd', '/c', 'start', 'cmd', '/k',
-                     f'title ZeroFN Server && python server.py'],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS
+                    server_cmd,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
                 )
                 
                 self.log_status("ZeroFN server started in new window")
@@ -284,9 +284,13 @@ class ZeroFNApp:
                 ]
                 
                 for proc in processes:
-                    subprocess.run(["taskkill", "/f", "/im", proc],
-                                 stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL)
+                    try:
+                        subprocess.run(["taskkill", "/f", "/im", proc], 
+                                     stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL,
+                                     check=False)
+                    except:
+                        pass
                 
                 # Set compatibility flags with admin rights
                 game_exe = Path(self.fortnite_path.get()) / "FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe"
@@ -295,14 +299,17 @@ class ZeroFNApp:
                     raise FileNotFoundError("Fortnite executable not found!")
                 
                 self.log_status("Setting compatibility flags...")
-                subprocess.run([
-                    "reg", "add",
-                    "HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers",
-                    "/v", str(game_exe),
-                    "/t", "REG_SZ",
-                    "/d", "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES",
-                    "/f"
-                ], stdout=subprocess.DEVNULL)
+                try:
+                    subprocess.run([
+                        "reg", "add",
+                        "HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers",
+                        "/v", str(game_exe),
+                        "/t", "REG_SZ",
+                        "/d", "~ RUNASADMIN",
+                        "/f"
+                    ], check=True, capture_output=True)
+                except subprocess.CalledProcessError:
+                    self.log_status("Warning: Could not set compatibility flags")
                 
                 # Launch game with admin rights
                 self.log_status("Launching Fortnite...")
@@ -322,7 +329,10 @@ class ZeroFNApp:
                     "-epicenv=Prod",
                     "-epiclocale=en-us",
                     "-epicportal",
-                    "-noeac", "-nobe", "-fromfl=be", "-fltoken=",
+                    "-noeac",
+                    "-nobe",
+                    "-fromfl=be",
+                    "-fltoken=",
                     "-nolog",
                     "-NOSSLPINNING",
                     "-preferredregion=NAE",
@@ -342,8 +352,13 @@ class ZeroFNApp:
                     "-FORCECLIENT_HOST=127.0.0.1:7777"
                 ]
                 
-                # Use shell=True to handle command line arguments properly
-                self.game_process = subprocess.Popen(" ".join(launch_args), shell=True)
+                # Launch game with proper argument formatting
+                launch_cmd = " ".join(f'"{arg}"' if " " in arg else arg for arg in launch_args)
+                self.game_process = subprocess.Popen(
+                    launch_cmd,
+                    shell=True,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                )
                 
                 self.log_status("Game launched successfully!")
                 self.log_status("Server logs available in separate window")
@@ -357,13 +372,22 @@ class ZeroFNApp:
     def __del__(self):
         # Cleanup on exit
         if hasattr(self, 'server_process') and self.server_process:
-            self.server_process.terminate()
+            try:
+                self.server_process.terminate()
+            except:
+                pass
         if hasattr(self, 'game_process') and self.game_process:
-            self.game_process.terminate()
+            try:
+                self.game_process.terminate()
+            except:
+                pass
         if hasattr(self, 'server_window') and self.server_window:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.server_window.pid)],
-                         stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
+            try:
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.server_window.pid)],
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+            except:
+                pass
 
 if __name__ == "__main__":
     root = tk.Tk()

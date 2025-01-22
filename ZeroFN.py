@@ -375,14 +375,6 @@ class ZeroFNApp:
         server_thread = threading.Thread(target=self.server.start, daemon=True)
         server_thread.start()
         self.log_status("ZeroFN server started on 127.0.0.1:7777")
-        
-        # Wait for client connection
-        self.log_status("Waiting for client connection...")
-        if not self.server.wait_for_client():
-            self.log_status("No client connected within timeout period")
-            self.server.stop()
-            messagebox.showerror("Connection Error", "Failed to establish client connection")
-            return
 
         # Clean up existing processes
         self.log_status("Cleaning up existing processes...")

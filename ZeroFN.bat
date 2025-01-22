@@ -138,7 +138,7 @@ echo    Starting ProjectZERO server only
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
+echo [INFO] Initializing ZeroFN server on 0.0.0.0:7777
 echo [INFO] Using game files from: %GAME_EXE%
 echo.
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
@@ -155,6 +155,10 @@ echo =====================================
 echo.
 cd /d "%GAME_EXE%\.."
 
+echo [INFO] Starting ZeroFN server first...
+start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
+timeout /t 3 >nul
+
 echo [INFO] Cleaning up existing processes...
 taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
@@ -185,18 +189,18 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=127.0.0.1:7777 ^
--AUTH_HOST=127.0.0.1:7777 ^
+-HTTP=0.0.0.0:7777 ^
+-AUTH_HOST=0.0.0.0:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
 -AUTH_EPIC=0 ^
 -AUTH_EPIC_ONLY=0 ^
--FORCECLIENT=127.0.0.1:7777 ^
+-FORCECLIENT=0.0.0.0:7777 ^
 -NOEPICWEB ^
 -NOEPICFRIENDS ^
 -NOEAC ^
 -NOBE ^
--FORCECLIENT_HOST=127.0.0.1:7777
+-FORCECLIENT_HOST=0.0.0.0:7777
 
 echo [SUCCESS] Fortnite client launched and connected to local ZeroFN server!
 echo [INFO] All Epic Games services have been disabled
@@ -212,14 +216,14 @@ echo    Starting ProjectZERO Hybrid Mode (Game + Server)
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
+echo [INFO] Initializing ZeroFN server on 0.0.0.0:7777
 echo [INFO] Using game files from: %GAME_EXE%
 echo.
 
 echo [INFO] Starting ZeroFN server process...
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
 echo [SUCCESS] Server initialized
-timeout /t 2 >nul
+timeout /t 3 >nul
 
 cd /d "%GAME_EXE%\.."
 
@@ -253,18 +257,18 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=127.0.0.1:7777 ^
--AUTH_HOST=127.0.0.1:7777 ^
+-HTTP=0.0.0.0:7777 ^
+-AUTH_HOST=0.0.0.0:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
 -AUTH_EPIC=0 ^
 -AUTH_EPIC_ONLY=0 ^
--FORCECLIENT=127.0.0.1:7777 ^
+-FORCECLIENT=0.0.0.0:7777 ^
 -NOEPICWEB ^
 -NOEPICFRIENDS ^
 -NOEAC ^
 -NOBE ^
--FORCECLIENT_HOST=127.0.0.1:7777
+-FORCECLIENT_HOST=0.0.0.0:7777
 
 echo [SUCCESS] Game client launched and connected to local ZeroFN server!
 echo [INFO] Server is running in separate window with live logs

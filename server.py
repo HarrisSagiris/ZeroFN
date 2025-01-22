@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger('FortniteServer')
 
 class FortniteAuthServer:
-    def __init__(self, host='127.0.0.1', port=7777):  # Changed to localhost
+    def __init__(self, host='0.0.0.0', port=7777):  # Changed to listen on all interfaces
         self.host = host
         self.port = port
         self.running = True
@@ -80,20 +80,24 @@ class FortniteAuthServer:
 
     def start(self):
         try:
+            # Bind immediately and start listening
             self.server_socket.bind((self.host, self.port))
-            self.server_socket.listen(5)
+            self.server_socket.listen(1)  # Only listen for 1 connection at a time
             logger.info(f'ZeroFN Server listening on {self.host}:{self.port}')
-            logger.info('Ready to accept Fortnite client connections')
+            logger.info('Waiting for Fortnite client connection...')
 
             while self.running:
                 try:
+                    # Accept connection immediately when client launches
                     client_socket, address = self.server_socket.accept()
-                    logger.info(f'New Fortnite client connection from {address}')
-                    client_thread = threading.Thread(target=self.handle_client, args=(client_socket, address))
-                    client_thread.daemon = True
-                    client_thread.start()
+                    logger.info(f'Fortnite client connected from {address}')
+                    
+                    # Handle client in main thread for immediate response
+                    self.handle_client(client_socket, address)
+                    
                 except Exception as e:
-                    logger.error(f'Error accepting connection: {e}')
+                    logger.error(f'Connection error: {e}')
+                    continue
 
         except Exception as e:
             logger.error(f'Server error: {e}')
@@ -101,53 +105,61 @@ class FortniteAuthServer:
 
     def handle_client(self, client_socket, address):
         try:
+            # Set a short timeout to handle requests quickly
+            client_socket.settimeout(1)
+            
             while self.running:
-                data = client_socket.recv(4096)
-                if not data:
+                try:
+                    data = client_socket.recv(4096)
+                    if not data:
+                        break
+
+                    request = data.decode('utf-8')
+                    logger.info(f'Received request from client: {request[:100]}...')
+
+                    # Parse the HTTP request
+                    request_lines = request.split('\r\n')
+                    request_line = request_lines[0]
+                    method, path, _ = request_line.split(' ')
+
+                    # Handle different API endpoints with immediate response
+                    response_body = ""
+                    if "/account/api/oauth/token" in path:
+                        response_body = self.generate_auth_token_response()
+                    elif "/fortnite/api/game/v2/profile" in path:
+                        response_body = self.generate_profile_response()
+                    elif "/content/api/pages/fortnite-game" in path:
+                        response_body = self.generate_game_info()
+                    elif "/lightswitch/api/service/bulk/status" in path:
+                        response_body = self.generate_lightswitch_response()
+                    elif "/account/api/public/account" in path:
+                        response_body = self.generate_account_response()
+                    else:
+                        response_body = self.generate_auth_token_response()
+
+                    # Send response immediately
+                    headers = [
+                        'HTTP/1.1 200 OK',
+                        'Content-Type: application/json',
+                        'Access-Control-Allow-Origin: *',
+                        'Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE',
+                        'Access-Control-Allow-Headers: Accept, Content-Type, Authorization',
+                        'Connection: keep-alive',
+                        f'Content-Length: {len(response_body)}'
+                    ]
+
+                    response = '\r\n'.join(headers) + '\r\n\r\n' + response_body
+                    client_socket.send(response.encode())
+                    logger.info(f'Sent immediate response to client')
+
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    logger.error(f'Error handling request: {e}')
                     break
 
-                request = data.decode('utf-8')
-                logger.debug(f'Received request from {address}: {request[:100]}...')
-
-                # Parse the HTTP request
-                request_lines = request.split('\r\n')
-                request_line = request_lines[0]
-                method, path, _ = request_line.split(' ')
-
-                # Handle different API endpoints
-                response_body = ""
-                if "/account/api/oauth/token" in path:
-                    response_body = self.generate_auth_token_response()
-                elif "/fortnite/api/game/v2/profile" in path:
-                    response_body = self.generate_profile_response()
-                elif "/content/api/pages/fortnite-game" in path:
-                    response_body = self.generate_game_info()
-                elif "/lightswitch/api/service/bulk/status" in path:
-                    response_body = self.generate_lightswitch_response()
-                elif "/account/api/public/account" in path:  # Added account endpoint
-                    response_body = self.generate_account_response()
-                else:
-                    # Default auth response for unknown endpoints
-                    response_body = self.generate_auth_token_response()
-
-                # Prepare HTTP response headers
-                headers = [
-                    'HTTP/1.1 200 OK',
-                    'Content-Type: application/json',
-                    'Access-Control-Allow-Origin: *',
-                    'Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE',  # Added more methods
-                    'Access-Control-Allow-Headers: Accept, Content-Type, Authorization',  # Added Accept
-                    'Connection: keep-alive'
-                ]
-
-                headers.append(f'Content-Length: {len(response_body)}')
-                response = '\r\n'.join(headers) + '\r\n\r\n' + response_body
-                
-                client_socket.send(response.encode())
-                logger.debug(f'Sent response to {address}')
-
         except Exception as e:
-            logger.error(f'Error handling client {address}: {e}')
+            logger.error(f'Client handler error: {e}')
         finally:
             client_socket.close()
             logger.info(f'Client {address} disconnected')
@@ -232,7 +244,7 @@ class FortniteAuthServer:
             }
         }])
 
-    def generate_account_response(self):  # Added account response
+    def generate_account_response(self):
         return json.dumps({
             "id": "ZeroFN_Player",
             "displayName": "ZeroFN Player",

@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger('FortniteServer')
 
 class FortniteAuthServer:
-    def __init__(self, host='0.0.0.0', port=7777):
+    def __init__(self, host='127.0.0.1', port=7777):  # Changed to localhost
         self.host = host
         self.port = port
         self.running = True
@@ -49,7 +49,7 @@ class FortniteAuthServer:
             ],
             "backpacks": [
                 "BID_004_BlackKnight",
-                "BID_023_GhoulTrooper",
+                "BID_023_GhoulTrooper", 
                 "BID_095_GalaxyStar",
                 "BID_122_RustLord",
                 "BID_142_SpaceExplorer",
@@ -62,14 +62,14 @@ class FortniteAuthServer:
             ],
             "gliders": [
                 "Glider_ID_001_Default",
-                "Glider_ID_002_Victory",
+                "Glider_ID_002_Victory", 
                 "Glider_ID_003_Founder",
                 "Glider_ID_008_StormSail",
             ],
             "emotes": [
                 "EID_DanceMoves",
-                "EID_Floss", 
-                "EID_TakeTheL",
+                "EID_Floss",
+                "EID_TakeTheL", 
                 "EID_Fresh",
                 "EID_RideThePony",
                 "EID_Dab",
@@ -124,6 +124,8 @@ class FortniteAuthServer:
                     response_body = self.generate_game_info()
                 elif "/lightswitch/api/service/bulk/status" in path:
                     response_body = self.generate_lightswitch_response()
+                elif "/account/api/public/account" in path:  # Added account endpoint
+                    response_body = self.generate_account_response()
                 else:
                     # Default auth response for unknown endpoints
                     response_body = self.generate_auth_token_response()
@@ -133,8 +135,8 @@ class FortniteAuthServer:
                     'HTTP/1.1 200 OK',
                     'Content-Type: application/json',
                     'Access-Control-Allow-Origin: *',
-                    'Access-Control-Allow-Methods: GET, POST, OPTIONS',
-                    'Access-Control-Allow-Headers: Content-Type, Authorization',
+                    'Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE',  # Added more methods
+                    'Access-Control-Allow-Headers: Accept, Content-Type, Authorization',  # Added Accept
                     'Connection: keep-alive'
                 ]
 
@@ -181,7 +183,15 @@ class FortniteAuthServer:
             "profileRevision": 1,
             "profileId": "athena",
             "profileChangesBaseRevision": 1,
-            "profileChanges": [],
+            "profileChanges": [{
+                "_type": "fullProfileUpdate",
+                "profile": {
+                    "_id": "ZeroFN_Player",
+                    "Update": "Profile Updated",
+                    "Created": "Profile Created",
+                    "Updated": datetime.now().isoformat()
+                }
+            }],
             "serverTime": datetime.now().isoformat(),
             "responseVersion": 1
         })
@@ -193,7 +203,18 @@ class FortniteAuthServer:
             "_title": "Fortnite Game",
             "lastModified": datetime.now().isoformat(),
             "_activeDate": datetime.now().isoformat(),
-            "_locale": "en-US"
+            "_locale": "en-US",
+            "battleroyalenews": {
+                "news": {
+                    "motds": [{
+                        "entryType": "Website",
+                        "image": "https://i.imgur.com/example.jpg",
+                        "tileImage": "https://i.imgur.com/example.jpg",
+                        "title": "Welcome to ZeroFN",
+                        "body": "Enjoy your game!",
+                    }]
+                }
+            }
         })
 
     def generate_lightswitch_response(self):
@@ -203,8 +224,20 @@ class FortniteAuthServer:
             "message": "Fortnite is online",
             "maintenanceUri": None,
             "allowedActions": ["PLAY", "DOWNLOAD"],
-            "banned": False
+            "banned": False,
+            "launcherInfoDTO": {
+                "appName": "Fortnite",
+                "catalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5",
+                "namespace": "fn"
+            }
         }])
+
+    def generate_account_response(self):  # Added account response
+        return json.dumps({
+            "id": "ZeroFN_Player",
+            "displayName": "ZeroFN Player",
+            "externalAuths": {}
+        })
 
     def shutdown(self):
         logger.info('Shutting down ZeroFN server...')

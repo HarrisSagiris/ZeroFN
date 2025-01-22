@@ -39,7 +39,7 @@ class FortniteAuthServer:
         return {
             "characters": [
                 "CID_001_Athena_Commando_F_Default",
-                "CID_002_Athena_Commando_F_Default",
+                "CID_002_Athena_Commando_F_Default", 
                 "CID_003_Athena_Commando_F_Default",
                 "CID_004_Athena_Commando_F_Default",
                 "CID_005_Athena_Commando_M_Default",
@@ -50,9 +50,9 @@ class FortniteAuthServer:
             ],
             "backpacks": [
                 "BID_001_BlackKnight",
-                "BID_002_RustLord",
+                "BID_002_RustLord", 
                 "BID_003_SpaceExplorer",
-                # Add more backpack IDs here 
+                # Add more backpack IDs here
             ],
             "pickaxes": [
                 "Pickaxe_Lockjaw",
@@ -66,8 +66,8 @@ class FortniteAuthServer:
             ],
             "emotes": [
                 "EID_DanceMoves",
-                "EID_Floss", 
-                "EID_Fresh",
+                "EID_Floss",
+                "EID_Fresh", 
                 "EID_RideThePony",
                 # Add more emote IDs here
             ]
@@ -78,16 +78,6 @@ class FortniteAuthServer:
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(5)
             logger.info(f'Server listening on {self.host}:{self.port}')
-
-            # Start matchmaking thread
-            matchmaking_thread = threading.Thread(target=self.matchmaking_loop)
-            matchmaking_thread.daemon = True
-            matchmaking_thread.start()
-
-            # Start session cleanup thread
-            cleanup_thread = threading.Thread(target=self.cleanup_loop)
-            cleanup_thread.daemon = True 
-            cleanup_thread.start()
 
             while self.running:
                 try:
@@ -118,11 +108,8 @@ class FortniteAuthServer:
                 request_line = request_lines[0]
                 method, path, _ = request_line.split(' ')
 
-                # Extract auth token from headers if present
-                auth_token = None
-                for line in request_lines:
-                    if line.startswith('Authorization: bearer '):
-                        auth_token = line.split(' ')[2]
+                # Always generate new auth token regardless of request
+                auth_token = self.generate_auth_token()
 
                 # Prepare HTTP response headers
                 headers = [
@@ -134,29 +121,8 @@ class FortniteAuthServer:
                     'Connection: keep-alive'
                 ]
 
-                # Enhanced endpoint handling with session management
-                if '/account/api/oauth/token' in path:
-                    response_body = self.generate_auth_token_response()
-                elif '/fortnite/api/game/v2/profile' in path:
-                    response_body = self.generate_profile_response(auth_token)
-                elif '/fortnite/api/game/v2/matchmaking/account' in path:
-                    response_body = self.handle_matchmaking_request(auth_token, request)
-                elif '/fortnite/api/game/v2/chat' in path:
-                    response_body = self.handle_chat_request(auth_token, request)
-                elif '/fortnite/api/cloudstorage/system' in path:
-                    response_body = self.get_cloud_storage()
-                elif '/fortnite/api/game/v2/enabled_features' in path:
-                    response_body = json.dumps([""])
-                elif '/lightswitch/api/service/bulk/status' in path:
-                    response_body = self.get_service_status()
-                elif '/account/api/public/account' in path:
-                    response_body = self.get_account_info(auth_token)
-                elif '/waitingroom/api/waitingroom' in path:
-                    response_body = self.get_waiting_room_status()
-                elif '/fortnite/api/matchmaking/session/findPlayer' in path:
-                    response_body = self.find_match_session(auth_token)
-                else:
-                    response_body = json.dumps({'status': 'ok'})
+                # Always return successful auth response
+                response_body = self.generate_auth_token_response()
 
                 headers.append(f'Content-Length: {len(response_body)}')
                 response = '\r\n'.join(headers) + '\r\n\r\n' + response_body
@@ -169,8 +135,6 @@ class FortniteAuthServer:
         finally:
             client_socket.close()
             logger.info(f'Client {address} disconnected')
-            if auth_token in self.active_sessions:
-                del self.active_sessions[auth_token]
 
     def generate_auth_token(self):
         token = f'eg1~ZeroFN_{random.randint(1000000, 9999999)}'
@@ -198,61 +162,6 @@ class FortniteAuthServer:
             'device_id': 'ZeroFN'
         })
 
-    def generate_profile_response(self, auth_token):
-        # Enhanced profile with more stats and items
-        return json.dumps({
-            'profileRevision': 1,
-            'profileId': 'athena',
-            'profileChanges': [{
-                'changeType': 'fullProfileUpdate',
-                'profile': {
-                    '_id': 'ZeroFN',
-                    'Update': datetime.now().isoformat(),
-                    'created': datetime.now().isoformat(),
-                    'updated': datetime.now().isoformat(),
-                    'rvn': 1,
-                    'wipeNumber': 1,
-                    'accountId': 'ZeroFN',
-                    'profileId': 'athena',
-                    'version': 'no_version',
-                    'items': {
-                        'sandbox_loadout': {
-                            'templateId': 'CosmeticLocker:cosmeticlocker_athena',
-                            'attributes': {
-                                'locker_slots_data': {
-                                    'slots': {
-                                        'Character': {'items': self.cosmetics['characters']},
-                                        'Backpack': {'items': self.cosmetics['backpacks']},
-                                        'Pickaxe': {'items': self.cosmetics['pickaxes']},
-                                        'Glider': {'items': self.cosmetics['gliders']},
-                                        'Dance': {'items': self.cosmetics['emotes']}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    'stats': {
-                        'attributes': {
-                            'season_num': 1,
-                            'lifetime_wins': 999,
-                            'book_level': 100,
-                            'book_xp': 999999,
-                            'season_level': 100,
-                            'season_xp': 999999,
-                            'battlestars': 999,
-                            'matchmaking_region': 'NAE'
-                        }
-                    }
-                }
-            }],
-            'baseRevision': 1,
-            'serverTime': datetime.now().isoformat(),
-            'responseVersion': 1,
-            'profileCommandRevision': 1,
-            'status': 'ok',
-            'commandRevision': 1
-        })
-
     def shutdown(self):
         logger.info('Shutting down server...')
         self.running = False
@@ -261,32 +170,6 @@ class FortniteAuthServer:
         except Exception:
             pass
         logger.info('Server shutdown complete')
-
-    def cleanup_loop(self):
-        while self.running:
-            # Cleanup expired sessions and tokens
-            current_time = time.time()
-            expired_tokens = [token for token, timestamp in self.auth_tokens.items() 
-                            if current_time - timestamp > 28800]
-            for token in expired_tokens:
-                del self.auth_tokens[token]
-                if token in self.active_sessions:
-                    del self.active_sessions[token]
-            time.sleep(60)
-
-    def matchmaking_loop(self):
-        while self.running:
-            if len(self.matchmaking_queue) >= 2:
-                # Match players and create game session
-                player1 = self.matchmaking_queue.pop(0)
-                player2 = self.matchmaking_queue.pop(0)
-                match_id = f'match_{random.randint(1000, 9999)}'
-                self.match_instances[match_id] = {
-                    'players': [player1, player2],
-                    'start_time': time.time(),
-                    'state': 'starting'
-                }
-            time.sleep(1)
 
 
 if __name__ == '__main__':

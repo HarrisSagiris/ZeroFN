@@ -141,8 +141,8 @@ echo.
 echo Server running on 127.0.0.1:7777
 echo Using game files from: %GAME_EXE%
 echo.
-start /B cmd /c python server.py
-echo Server started in background
+start cmd /k "title ZeroFN Server && python server.py"
+echo Server window opened with live logs
 pause
 goto menu
 
@@ -189,8 +189,8 @@ echo Starting server on 127.0.0.1:7777
 echo Using game files from: %GAME_EXE%
 echo.
 
-REM Start server in background first
-start /B cmd /c python server.py
+REM Start server in new window with title
+start cmd /k "title ZeroFN Server && python server.py"
 timeout /t 2 >nul
 
 cd /d "%GAME_EXE%\.."
@@ -212,7 +212,7 @@ REM Launch game with auto-login
 start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -EpicPortal -noeac -nobe -fltoken=none -fromfl=none -nolog -NOSSLPINNING -preferredregion=NAE -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777
 
 echo Game client launched in bypass mode with auto-login!
-echo Server is running in background
+echo Server is running in separate window with live logs
 echo.
 echo Press any key to return to menu...
 pause >nul

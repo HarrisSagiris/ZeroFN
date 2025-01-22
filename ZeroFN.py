@@ -120,18 +120,22 @@ class ZeroFNServer:
         self.host = host
         self.port = port
         self.server = None
+        self.running = False
         
     def start(self):
         try:
             self.server = HTTPServer((self.host, self.port), FortniteServerHandler)
+            self.running = True
             print(f"[INFO] ZeroFN server started on {self.host}:{self.port}")
-            self.server.serve_forever()
+            while self.running:
+                self.server.handle_request()
         except Exception as e:
             print(f"[ERROR] Server error: {str(e)}")
             
     def stop(self):
+        self.running = False
         if self.server:
-            self.server.shutdown()
+            self.server.server_close()
             print("[INFO] ZeroFN server stopped")
 
 class ZeroFNApp:
@@ -347,113 +351,111 @@ class ZeroFNApp:
         if not self.fortnite_path.get():
             messagebox.showerror("Error", "Please select Fortnite path first!")
             return
-            
-        def start_server():
+
+        # Start server in a separate thread
+        server_thread = threading.Thread(target=self.server.start, daemon=True)
+        server_thread.start()
+        self.log_status("ZeroFN server started on 127.0.0.1:7777")
+
+        # Clean up existing processes
+        self.log_status("Cleaning up existing processes...")
+        processes = [
+            "FortniteClient-Win64-Shipping.exe",
+            "EasyAntiCheat.exe",
+            "BEService.exe",
+            "FortniteLauncher.exe",
+            "EpicGamesLauncher.exe"
+        ]
+        
+        for proc in processes:
             try:
-                # Start the ZeroFN server
-                self.server.start()
-                self.log_status("ZeroFN server started on 127.0.0.1:7777")
-                
-                # Clean up existing processes
-                self.log_status("Cleaning up existing processes...")
-                processes = [
-                    "FortniteClient-Win64-Shipping.exe",
-                    "EasyAntiCheat.exe",
-                    "BEService.exe",
-                    "FortniteLauncher.exe",
-                    "EpicGamesLauncher.exe"
-                ]
-                
-                for proc in processes:
-                    try:
-                        subprocess.run(["taskkill", "/f", "/im", proc], 
-                                     stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.DEVNULL,
-                                     check=False)
-                    except:
-                        pass
-                
-                # Set compatibility flags with admin rights
-                game_exe = Path(self.fortnite_path.get()) / "FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe"
-                
-                if not game_exe.exists():
-                    raise FileNotFoundError("Fortnite executable not found!")
-                
-                self.log_status("Setting compatibility flags...")
-                try:
-                    subprocess.run([
-                        "reg", "add",
-                        "HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers",
-                        "/v", str(game_exe),
-                        "/t", "REG_SZ",
-                        "/d", "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES",
-                        "/f"
-                    ], check=True, capture_output=True)
-                except subprocess.CalledProcessError:
-                    self.log_status("Warning: Could not set compatibility flags")
-                
-                # Launch game with admin rights
-                self.log_status("Launching Fortnite...")
-                
-                # Change working directory to game executable location
-                os.chdir(str(game_exe.parent))
-                
-                launch_args = [
-                    str(game_exe),
-                    "-NOSPLASH",
-                    "-USEALLAVAILABLECORES",
-                    "-dx11",
-                    "-AUTH_TYPE=epic",
-                    "-AUTH_LOGIN=ZeroFN@zerofn.com",
-                    "-AUTH_PASSWORD=zerofn",
-                    "-epicapp=Fortnite",
-                    "-epicenv=Prod",
-                    "-epiclocale=en-us",
-                    "-epicportal",
-                    "-noeac",
-                    "-nobe",
-                    "-fromfl=be",
-                    "-fltoken=",
-                    "-nolog",
-                    "-NOSSLPINNING",
-                    "-preferredregion=NAE",
-                    "-skippatchcheck",
-                    "-notexturestreaming",
-                    "-HTTP=127.0.0.1:7777",
-                    "-AUTH_HOST=127.0.0.1:7777",
-                    "-AUTH_SSL=0",
-                    "-AUTH_VERIFY_SSL=0",
-                    "-AUTH_EPIC=0",
-                    "-AUTH_EPIC_ONLY=0",
-                    "-FORCECLIENT=127.0.0.1:7777",
-                    "-NOEPICWEB",
-                    "-NOEPICFRIENDS",
-                    "-NOEAC",
-                    "-NOBE",
-                    "-FORCECLIENT_HOST=127.0.0.1:7777",
-                    "-DISABLEFORTNITELOGIN",
-                    "-DISABLEEPICLOGIN",
-                    "-DISABLEEPICGAMESLOGIN",
-                    "-DISABLEEPICGAMESPORTAL",
-                    "-DISABLEEPICGAMESVERIFY"
-                ]
-                
-                # Launch game with proper argument formatting
-                launch_cmd = " ".join(f'"{arg}"' if " " in arg else arg for arg in launch_args)
-                self.game_process = subprocess.Popen(
-                    launch_cmd,
-                    shell=True,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
-                )
-                
-                self.log_status("Game launched successfully!")
-                self.log_status("Server logs available in separate window")
-                
-            except Exception as e:
-                self.log_status(f"Error starting hybrid mode: {str(e)}")
-                messagebox.showerror("Launch Error", str(e))
-                
-        threading.Thread(target=start_server, daemon=True).start()
+                subprocess.run(["taskkill", "/f", "/im", proc], 
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL,
+                             check=False)
+            except:
+                pass
+        
+        try:
+            # Set compatibility flags with admin rights
+            game_exe = Path(self.fortnite_path.get()) / "FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe"
+            
+            if not game_exe.exists():
+                raise FileNotFoundError("Fortnite executable not found!")
+            
+            self.log_status("Setting compatibility flags...")
+            try:
+                subprocess.run([
+                    "reg", "add",
+                    "HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers",
+                    "/v", str(game_exe),
+                    "/t", "REG_SZ",
+                    "/d", "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES",
+                    "/f"
+                ], check=True, capture_output=True)
+            except subprocess.CalledProcessError:
+                self.log_status("Warning: Could not set compatibility flags")
+            
+            # Launch game with admin rights
+            self.log_status("Launching Fortnite...")
+            
+            # Change working directory to game executable location
+            os.chdir(str(game_exe.parent))
+            
+            launch_args = [
+                str(game_exe),
+                "-NOSPLASH",
+                "-USEALLAVAILABLECORES",
+                "-dx11",
+                "-AUTH_TYPE=epic",
+                "-AUTH_LOGIN=ZeroFN@zerofn.com",
+                "-AUTH_PASSWORD=zerofn",
+                "-epicapp=Fortnite",
+                "-epicenv=Prod",
+                "-epiclocale=en-us",
+                "-epicportal",
+                "-noeac",
+                "-nobe",
+                "-fromfl=be",
+                "-fltoken=",
+                "-nolog",
+                "-NOSSLPINNING",
+                "-preferredregion=NAE",
+                "-skippatchcheck",
+                "-notexturestreaming",
+                "-HTTP=127.0.0.1:7777",
+                "-AUTH_HOST=127.0.0.1:7777",
+                "-AUTH_SSL=0",
+                "-AUTH_VERIFY_SSL=0",
+                "-AUTH_EPIC=0",
+                "-AUTH_EPIC_ONLY=0",
+                "-FORCECLIENT=127.0.0.1:7777",
+                "-NOEPICWEB",
+                "-NOEPICFRIENDS",
+                "-NOEAC",
+                "-NOBE",
+                "-FORCECLIENT_HOST=127.0.0.1:7777",
+                "-DISABLEFORTNITELOGIN",
+                "-DISABLEEPICLOGIN",
+                "-DISABLEEPICGAMESLOGIN",
+                "-DISABLEEPICGAMESPORTAL",
+                "-DISABLEEPICGAMESVERIFY"
+            ]
+            
+            # Launch game with proper argument formatting
+            launch_cmd = " ".join(f'"{arg}"' if " " in arg else arg for arg in launch_args)
+            self.game_process = subprocess.Popen(
+                launch_cmd,
+                shell=True,
+                creationflags=subprocess.CREATE_NEW_CONSOLE
+            )
+            
+            self.log_status("Game launched successfully!")
+            
+        except Exception as e:
+            self.log_status(f"Error starting hybrid mode: {str(e)}")
+            messagebox.showerror("Launch Error", str(e))
+            self.server.stop()
         
     def __del__(self):
         # Cleanup on exit

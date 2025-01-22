@@ -11,6 +11,11 @@ from pathlib import Path
 import logging
 import time
 import ctypes
+import socket
+import json
+import uuid
+import random
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # Configure Fortnite theme styles
 class FortniteTheme:
@@ -50,6 +55,85 @@ class FortniteTheme:
                        foreground=FortniteTheme.ACCENT_COLOR,
                        font=("Segoe UI", 11, "bold"))
 
+# Custom HTTP request handler for Fortnite server
+class FortniteServerHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        
+        response = {
+            "status": "ok",
+            "message": "ZeroFN server running"
+        }
+        
+        self.wfile.write(json.dumps(response).encode())
+        
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        
+        try:
+            data = json.loads(post_data.decode())
+            
+            # Handle different endpoints
+            if self.path == "/account/api/oauth/token":
+                response = {
+                    "access_token": str(uuid.uuid4()),
+                    "expires_in": 28800,
+                    "token_type": "bearer",
+                    "account_id": str(uuid.uuid4()),
+                    "client_id": "ZeroFN",
+                    "internal_client": True,
+                    "client_service": "fortnite"
+                }
+                
+            elif self.path == "/fortnite/api/game/v2/profile/client/QueryProfile":
+                response = {
+                    "profileId": "athena",
+                    "profileChanges": [],
+                    "profileCommandRevision": 1,
+                    "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "responseVersion": 1
+                }
+                
+            else:
+                response = {
+                    "status": "ok",
+                    "path": self.path
+                }
+                
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+            
+        except Exception as e:
+            self.send_error(500, str(e))
+            
+    def log_message(self, format, *args):
+        # Suppress default logging
+        pass
+
+class ZeroFNServer:
+    def __init__(self, host="127.0.0.1", port=7777):
+        self.host = host
+        self.port = port
+        self.server = None
+        
+    def start(self):
+        try:
+            self.server = HTTPServer((self.host, self.port), FortniteServerHandler)
+            print(f"[INFO] ZeroFN server started on {self.host}:{self.port}")
+            self.server.serve_forever()
+        except Exception as e:
+            print(f"[ERROR] Server error: {str(e)}")
+            
+    def stop(self):
+        if self.server:
+            self.server.shutdown()
+            print("[INFO] ZeroFN server stopped")
+
 class ZeroFNApp:
     def __init__(self, root):
         # Check for admin rights
@@ -69,6 +153,9 @@ class ZeroFNApp:
         self.server_process = None
         self.game_process = None
         self.server_window = None
+        
+        # Initialize server
+        self.server = ZeroFNServer()
         
         # Configure logging
         self.setup_logging()
@@ -263,15 +350,9 @@ class ZeroFNApp:
             
         def start_server():
             try:
-                # Create server window with admin rights
-                server_cmd = f'cmd /k "title ZeroFN Server && python server.py"'
-                self.server_window = subprocess.Popen(
-                    server_cmd,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
-                )
-                
-                self.log_status("ZeroFN server started in new window")
-                time.sleep(2)  # Wait for server to initialize
+                # Start the ZeroFN server
+                self.server.start()
+                self.log_status("ZeroFN server started on 127.0.0.1:7777")
                 
                 # Clean up existing processes
                 self.log_status("Cleaning up existing processes...")
@@ -376,21 +457,12 @@ class ZeroFNApp:
         
     def __del__(self):
         # Cleanup on exit
-        if hasattr(self, 'server_process') and self.server_process:
-            try:
-                self.server_process.terminate()
-            except:
-                pass
+        if hasattr(self, 'server'):
+            self.server.stop()
+            
         if hasattr(self, 'game_process') and self.game_process:
             try:
                 self.game_process.terminate()
-            except:
-                pass
-        if hasattr(self, 'server_window') and self.server_window:
-            try:
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.server_window.pid)],
-                             stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL)
             except:
                 pass
 

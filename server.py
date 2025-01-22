@@ -71,7 +71,8 @@ class FortniteAuthServer:
                     'Content-Type: application/json',
                     'Access-Control-Allow-Origin: *',
                     'Access-Control-Allow-Methods: GET, POST, OPTIONS',
-                    'Access-Control-Allow-Headers: Content-Type',
+                    'Access-Control-Allow-Headers: Content-Type, Authorization',
+                    'Connection: keep-alive'
                 ]
 
                 if '/account/api/oauth/token' in path:
@@ -83,7 +84,33 @@ class FortniteAuthServer:
                 elif '/fortnite/api/game/v2/enabled_features' in path:
                     response_body = json.dumps([])
                 elif '/lightswitch/api/service/bulk/status' in path:
-                    response_body = json.dumps([{"serviceInstanceId": "fortnite","status": "UP","message": "Fortnite is online","maintenanceUri": None}])
+                    response_body = json.dumps([{
+                        "serviceInstanceId": "fortnite",
+                        "status": "UP",
+                        "message": "Fortnite is online",
+                        "maintenanceUri": None,
+                        "allowedActions": ["PLAY", "DOWNLOAD"],
+                        "banned": False,
+                        "launcherInfoDTO": {
+                            "appName": "Fortnite",
+                            "catalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5",
+                            "namespace": "fn"
+                        }
+                    }])
+                elif '/account/api/public/account' in path:
+                    response_body = json.dumps({
+                        "id": "ZeroFN",
+                        "displayName": "ZeroFN",
+                        "externalAuths": {}
+                    })
+                elif '/waitingroom/api/waitingroom' in path:
+                    response_body = json.dumps({
+                        "type": "ACTIVE", 
+                        "timeToWait": 0,
+                        "expectedWait": 0,
+                        "status": "ACTIVE",
+                        "message": "No wait time"
+                    })
                 else:
                     response_body = json.dumps({'status': 'ok'})
 
@@ -100,7 +127,7 @@ class FortniteAuthServer:
             logger.info(f'Client {address} disconnected')
 
     def generate_auth_token(self):
-        token = f'zerofn_{random.randint(1000000, 9999999)}'
+        token = f'eg1~ZeroFN_{random.randint(1000000, 9999999)}'
         self.auth_tokens[token] = time.time()
         return token
 
@@ -111,10 +138,14 @@ class FortniteAuthServer:
             'expires_in': 28800,
             'expires_at': '9999-12-31T23:59:59.999Z',
             'token_type': 'bearer',
+            'refresh_token': token,
+            'refresh_expires': 28800,
+            'refresh_expires_at': '9999-12-31T23:59:59.999Z',
             'account_id': 'ZeroFN',
-            'client_id': 'ZeroFN',
+            'client_id': 'ec684b8c687f479fadea3cb2ad83f5c6',
             'internal_client': True,
             'client_service': 'fortnite',
+            'scope': 'basic_profile friends_list openid presence',
             'displayName': 'ZeroFN',
             'app': 'fortnite',
             'in_app_id': 'ZeroFN',
@@ -124,7 +155,7 @@ class FortniteAuthServer:
     def generate_profile_response(self):
         return json.dumps({
             'profileRevision': 1,
-            'profileId': 'default',
+            'profileId': 'athena',
             'profileChanges': [],
             'baseRevision': 1,
             'serverTime': datetime.now().isoformat(),

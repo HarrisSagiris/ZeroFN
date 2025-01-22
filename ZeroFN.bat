@@ -153,7 +153,7 @@ echo    Launching Game Client
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-cd /d "%~dp0%GAME_EXE%\.."
+cd /d "%GAME_EXE%\.."
 
 REM Kill any existing processes
 taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
@@ -193,7 +193,7 @@ REM Start server in background first
 start /B cmd /c python server.py
 timeout /t 2 >nul
 
-cd /d "%~dp0%GAME_EXE%\.."
+cd /d "%GAME_EXE%\.."
 
 REM Kill existing processes
 taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1

@@ -305,7 +305,7 @@ class ZeroFNApp:
                         "HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers",
                         "/v", str(game_exe),
                         "/t", "REG_SZ",
-                        "/d", "~ RUNASADMIN",
+                        "/d", "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES",
                         "/f"
                     ], check=True, capture_output=True)
                 except subprocess.CalledProcessError:
@@ -349,7 +349,12 @@ class ZeroFNApp:
                     "-NOEPICFRIENDS",
                     "-NOEAC",
                     "-NOBE",
-                    "-FORCECLIENT_HOST=127.0.0.1:7777"
+                    "-FORCECLIENT_HOST=127.0.0.1:7777",
+                    "-DISABLEFORTNITELOGIN",
+                    "-DISABLEEPICLOGIN",
+                    "-DISABLEEPICGAMESLOGIN",
+                    "-DISABLEEPICGAMESPORTAL",
+                    "-DISABLEEPICGAMESVERIFY"
                 ]
                 
                 # Launch game with proper argument formatting

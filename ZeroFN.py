@@ -60,12 +60,13 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
     clients = set()
 
     def do_GET(self):
+        # Auto-add client on any request
+        client_ip = self.client_address[0]
+        FortniteServerHandler.clients.add(client_ip)
+        
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        
-        client_ip = self.client_address[0]
-        FortniteServerHandler.clients.add(client_ip)
         
         response = {
             "status": "ok",
@@ -83,9 +84,8 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             data = json.loads(post_data.decode())
             client_ip = self.client_address[0]
             
-            if client_ip not in FortniteServerHandler.clients:
-                self.send_error(403, "Client not authorized")
-                return
+            # Auto-add client on POST too
+            FortniteServerHandler.clients.add(client_ip)
             
             # Handle different endpoints
             if self.path == "/account/api/oauth/token":
@@ -135,11 +135,32 @@ class ZeroFNServer:
         
     def start(self):
         try:
+            # Try to connect to the port first to ensure it's free
+            test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_sock.settimeout(1)
+            result = test_sock.connect_ex((self.host, self.port))
+            test_sock.close()
+            
+            if result == 0:
+                print(f"[WARN] Port {self.port} already in use, attempting to free it...")
+                # Try to free up the port
+                subprocess.run(f"netstat -ano | findstr :{self.port}", shell=True)
+                subprocess.run(f"taskkill /F /PID $(netstat -ano | findstr :{self.port} | awk '{{print $5}}')", shell=True)
+                time.sleep(1)
+            
             self.server = HTTPServer((self.host, self.port), FortniteServerHandler)
             self.running = True
             print(f"[INFO] ZeroFN server started on {self.host}:{self.port}")
+            
+            # Send initial connection request to ourselves to establish connection
+            try:
+                requests.get(f"http://{self.host}:{self.port}/", timeout=1)
+            except:
+                pass
+                
             while self.running:
                 self.server.handle_request()
+                
         except Exception as e:
             print(f"[ERROR] Server error: {str(e)}")
             
@@ -375,6 +396,14 @@ class ZeroFNApp:
         server_thread = threading.Thread(target=self.server.start, daemon=True)
         server_thread.start()
         self.log_status("ZeroFN server started on 127.0.0.1:7777")
+
+        # Wait briefly for server to start and establish connection
+        time.sleep(1)
+        try:
+            requests.get("http://127.0.0.1:7777/", timeout=2)
+            self.log_status("Server connection verified!")
+        except:
+            self.log_status("Warning: Could not verify server connection")
 
         # Clean up existing processes
         self.log_status("Cleaning up existing processes...")

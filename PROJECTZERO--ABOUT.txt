@@ -1,0 +1,7 @@
+----------------------------------PROJECTZERO, A FORTNITE HYBRID SERVER----------------------------------
+::Created by @root404 and the ZeroFN team 
+
+What is that ? 
+
+This is a hybrid fortnite server. Basically it allows you to run old fortnite versions with a couple of clicks... sooo how does that work ?
+When you run the installer script, it downloads the old fortnite files and saves them in a specified directory..after that the server.bat file takes care of the rest !

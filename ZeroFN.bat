@@ -138,7 +138,7 @@ echo    Starting ProjectZERO server only
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo Server running on 0.0.0.0:7777
+echo Server running on 127.0.0.1:7777
 echo Using game files from: %GAME_EXE%
 echo.
 start /B cmd /c python server.py
@@ -171,7 +171,7 @@ REM Set compatibility flags and bypass settings
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
 REM Launch with bypass parameters and auto-login
-start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -NOSOUND -dx11 -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN -AUTH_PASSWORD=ZeroFN -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fltoken=none -fromfl=none -nolog -NOSSLPINNING -preferredregion=NAE -skippatchcheck -notexturestreaming
+start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fltoken=none -fromfl=none -nolog -NOSSLPINNING -preferredregion=NAE -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777
 
 echo Fortnite client launched in bypass mode with auto-login!
 echo.
@@ -185,7 +185,7 @@ echo    Starting ProjectZERO Hybrid Mode (Game + Server)
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo Starting server on 0.0.0.0:7777
+echo Starting server on 127.0.0.1:7777
 echo Using game files from: %GAME_EXE%
 echo.
 
@@ -209,7 +209,7 @@ del /f /q "%localappdata%\FortniteGame\Saved\Config\CrashReportClient\*.*" >nul 
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
 REM Launch game with auto-login
-start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -NOSOUND -dx11 -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN -AUTH_PASSWORD=ZeroFN -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fltoken=none -fromfl=none -nolog -NOSSLPINNING -preferredregion=NAE -skippatchcheck -notexturestreaming
+start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fltoken=none -fromfl=none -nolog -NOSSLPINNING -preferredregion=NAE -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777
 
 echo Game client launched in bypass mode with auto-login!
 echo Server is running in background

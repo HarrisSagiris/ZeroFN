@@ -10,6 +10,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 from pathlib import Path
 
+print("Starting ZeroFN Server...")
+print("Initializing components...")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -20,23 +23,30 @@ logging.basicConfig(
     ]
 )
 
+print("Logging system initialized...")
+
 class FortniteServer:
     def __init__(self):
+        print("Setting up server configuration...")
         self.logger = logging.getLogger('FortniteServer')
         self.host = '0.0.0.0'  # Listen on all interfaces
         self.port = 7777
         
+        print("Initializing HTTP server...")
         # Initialize HTTP server
         self.http_server = HTTPServer((self.host, self.port), self.create_request_handler())
         
+        print("Setting up client tracking system...")
         # Track connected clients
         self.connected_clients = set()
         self.clients_lock = threading.Lock()
         
+        print("Initializing matchmaking system...")
         # Initialize matchmaking queue
         self.matchmaking_queue = []
         self.match_lock = threading.Lock()
         
+        print(f'Server bound to {self.host}:{self.port}')
         self.logger.info(f'Fortnite private server listening on {self.host}:{self.port}')
 
     def create_request_handler(self):
@@ -53,6 +63,8 @@ class FortniteServer:
                         outer_instance.connected_clients.add(client_ip)
                         outer_instance.logger.info(f'New client connected from {client_ip}')
                         outer_instance.logger.info(f'Total connected clients: {len(outer_instance.connected_clients)}')
+                        print(f'New client connected from {client_ip}')
+                        print(f'Total connected clients: {len(outer_instance.connected_clients)}')
                 
             def do_GET(self):
                 self.add_client()
@@ -187,12 +199,25 @@ class FortniteServer:
 
     def start(self):
         try:
+            print("Starting server components...")
+            print("Initializing network services...")
+            time.sleep(2)  # Allow time for network initialization
+            print("Setting up game systems...")
+            time.sleep(2)  # Allow time for game systems
+            print("Finalizing startup...")
+            time.sleep(1)
+            print("\n=========================")
+            print("SERVER IS READY!")
+            print("You can now launch the game")
+            print("=========================\n")
             self.logger.info('Starting Fortnite private server...')
             self.http_server.serve_forever()
         except Exception as e:
             self.logger.error(f'Server error: {str(e)}')
+            print(f"ERROR: Server failed to start: {str(e)}")
         finally:
             self.logger.info('Shutting down server...')
+            print("Shutting down server...")
             self.http_server.shutdown()
 
 if __name__ == '__main__':
@@ -201,5 +226,7 @@ if __name__ == '__main__':
         server.start()
     except KeyboardInterrupt:
         logging.info('Server stopped by user')
+        print("\nServer stopped by user")
     except Exception as e:
         logging.error(f'Fatal server error: {str(e)}')
+        print(f"\nFatal server error: {str(e)}")

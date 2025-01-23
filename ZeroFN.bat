@@ -189,7 +189,7 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=127.0.0.1:7777 ^
+-HTTP=http://127.0.0.1:7777 ^
 -AUTH_HOST=127.0.0.1:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
@@ -223,7 +223,9 @@ echo.
 echo [INFO] Starting ZeroFN server process...
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
 echo [SUCCESS] Server initialized
-timeout /t 3 >nul
+
+echo [INFO] Waiting 10 seconds for server to fully initialize...
+timeout /t 10 >nul
 
 cd /d "%GAME_EXE%\.."
 
@@ -257,7 +259,7 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=127.0.0.1:7777 ^
+-HTTP=http://127.0.0.1:7777 ^
 -AUTH_HOST=127.0.0.1:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^

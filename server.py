@@ -26,23 +26,36 @@ class FortniteServer:
         self.host = '0.0.0.0'  # Listen on all interfaces
         self.port = 7777
         
-        # Initialize HTTP server for auth bypass
-        self.http_server = HTTPServer((self.host, self.port), self.create_auth_handler())
+        # Initialize HTTP server
+        self.http_server = HTTPServer((self.host, self.port), self.create_request_handler())
+        
+        # Track connected clients
+        self.connected_clients = set()
+        self.clients_lock = threading.Lock()
         
         # Initialize matchmaking queue
         self.matchmaking_queue = []
         self.match_lock = threading.Lock()
         
-        self.logger.info(f'Auth bypass server listening on {self.host}:{self.port}')
+        self.logger.info(f'Fortnite private server listening on {self.host}:{self.port}')
 
-    def create_auth_handler(self):
+    def create_request_handler(self):
         outer_instance = self
         
-        class AuthHandler(BaseHTTPRequestHandler):
+        class RequestHandler(BaseHTTPRequestHandler):
             def log_message(self, format, *args):
                 outer_instance.logger.info(f"HTTP Request: {format%args}")
+            
+            def add_client(self):
+                client_ip = self.client_address[0]
+                with outer_instance.clients_lock:
+                    if client_ip not in outer_instance.connected_clients:
+                        outer_instance.connected_clients.add(client_ip)
+                        outer_instance.logger.info(f'New client connected from {client_ip}')
+                        outer_instance.logger.info(f'Total connected clients: {len(outer_instance.connected_clients)}')
                 
             def do_GET(self):
+                self.add_client()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -56,6 +69,8 @@ class FortniteServer:
                         "profileChanges": [{
                             "changeType": "fullProfileUpdate",
                             "profile": {
+                                "_id": "valid_profile",
+                                "accountId": "valid_account",
                                 "items": {
                                     # Default skins
                                     "SKIN_1": {
@@ -76,9 +91,17 @@ class FortniteServer:
                                         "templateId": "AthenaGlider:DefaultGlider",
                                         "attributes": {"favorite": False}  
                                     }
+                                },
+                                "stats": {
+                                    "attributes": {
+                                        "level": 100,
+                                        "xp": 999999
+                                    }
                                 }
                             }
-                        }]
+                        }],
+                        "serverTime": datetime.now().isoformat(),
+                        "responseVersion": 1
                     }
                 elif self.path.startswith('/fortnite/api/matchmaking/session'):
                     # Handle matchmaking
@@ -91,8 +114,10 @@ class FortniteServer:
                             response = {
                                 "status": "MATCHED",
                                 "matchId": str(random.randint(1000, 9999)),
-                                "players": players
+                                "players": players,
+                                "serverTime": datetime.now().isoformat()
                             }
+                            outer_instance.logger.info(f'Created match {response["matchId"]} with players {players}')
                         else:
                             # Add to queue
                             player_id = str(random.randint(1, 1000))
@@ -101,8 +126,10 @@ class FortniteServer:
                             response = {
                                 "status": "QUEUED",
                                 "queuePosition": len(outer_instance.matchmaking_queue),
-                                "estimatedWaitTime": 30
+                                "estimatedWaitTime": 30,
+                                "serverTime": datetime.now().isoformat()
                             }
+                            outer_instance.logger.info(f'Added player {player_id} to matchmaking queue')
                 else:
                     # Default auth response
                     response = {
@@ -119,15 +146,27 @@ class FortniteServer:
                         "client_service": "fortnite",
                         "displayName": "ZeroFN Player",
                         "app": "fortnite",
-                        "in_app_id": "valid_app_id"
+                        "in_app_id": "valid_app_id",
+                        "serverTime": datetime.now().isoformat()
                     }
+                    outer_instance.logger.info(f'Authenticated client {self.client_address[0]}')
 
                 self.wfile.write(json.dumps(response).encode())
 
             def do_POST(self):
+                self.add_client()
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_data = self.rfile.read(content_length)
+                
+                try:
+                    request_json = json.loads(post_data.decode())
+                    outer_instance.logger.info(f'Received POST request: {request_json}')
+                except:
+                    outer_instance.logger.warning('Could not parse POST data as JSON')
+                
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Origin', '*') 
                 self.end_headers()
 
                 response = {
@@ -135,19 +174,20 @@ class FortniteServer:
                     "expires_in": 28800,
                     "expires_at": "9999-12-31T23:59:59.999Z",
                     "token_type": "bearer",
-                    "account_id": "valid_account", 
-                    "client_id": "valid_client",
+                    "account_id": "valid_account",
+                    "client_id": "valid_client", 
                     "internal_client": True,
                     "client_service": "fortnite",
                     "displayName": "ZeroFN Player",
                     "app": "fortnite",
+                    "serverTime": datetime.now().isoformat()
                 }
 
                 self.wfile.write(json.dumps(response).encode())
 
     def start(self):
         try:
-            self.logger.info('Starting auth bypass server...')
+            self.logger.info('Starting Fortnite private server...')
             self.http_server.serve_forever()
         except Exception as e:
             self.logger.error(f'Server error: {str(e)}')

@@ -5,6 +5,7 @@ import time
 import requests
 import base64
 import logging
+import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 from pathlib import Path
@@ -22,337 +23,137 @@ logging.basicConfig(
 class FortniteServer:
     def __init__(self):
         self.logger = logging.getLogger('FortniteServer')
-        self.host = '127.0.0.1'
+        self.host = '0.0.0.0'  # Listen on all interfaces
         self.port = 7777
-        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl" # Custom registered client ID
-        self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA" # Official Epic client secret
-        self.auth_tokens = {}
-        self.lobbies = {}
+        
+        # Initialize HTTP server for auth bypass
+        self.http_server = HTTPServer((self.host, self.port), self.create_auth_handler())
+        
+        # Initialize matchmaking queue
         self.matchmaking_queue = []
-        self.online_players = {}  # Track online players
-        self.friend_lists = {}    # Track friend lists
-        self.party_invites = {}   # Track party invites
-        self.player_seasons = {}  # Track which season each player is on
-        self.party_chat = {}      # Party chat history
+        self.match_lock = threading.Lock()
         
-        # Initialize HTTP server for Epic auth callback
-        self.http_server = HTTPServer((self.host, self.port), self.create_callback_handler())
-        
-        # Initialize TCP server for game connections
-        self.game_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        self.game_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.game_server.bind((self.host, self.port+1))
-        self.game_server.listen(5)
-        
-        self.logger.info(f'HTTP Server listening on {self.host}:{self.port}')
-        self.logger.info(f'Game Server listening on {self.host}:{self.port+1}')
+        self.logger.info(f'Auth bypass server listening on {self.host}:{self.port}')
 
-    def create_callback_handler(self):
+    def create_auth_handler(self):
         outer_instance = self
         
-        class CallbackHandler(BaseHTTPRequestHandler):
+        class AuthHandler(BaseHTTPRequestHandler):
             def log_message(self, format, *args):
                 outer_instance.logger.info(f"HTTP Request: {format%args}")
                 
             def do_GET(self):
-                if self.path.startswith('/epic/auth'):
-                    auth_code = self.path.split('code=')[1]
-                    outer_instance.logger.info(f'Received auth code: {auth_code[:10]}...')
-                    outer_instance.handle_epic_auth(auth_code)
-                    
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'text/html')
-                    self.end_headers()
-                    success_html = """
-                    <html>
-                        <head>
-                            <style>
-                                body { 
-                                    background: #0b0d17;
-                                    color: white;
-                                    font-family: 'Segoe UI', sans-serif;
-                                    display: flex;
-                                    justify-content: center;
-                                    align-items: center;
-                                    height: 100vh;
-                                    margin: 0;
-                                }
-                                .success-card {
-                                    background: rgba(21, 24, 35, 0.95);
-                                    padding: 2rem;
-                                    border-radius: 15px;
-                                    text-align: center;
-                                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-                                }
-                                .success-icon {
-                                    color: #00c853;
-                                    font-size: 48px;
-                                }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="success-card">
-                                <h2>✓ Login Successful!</h2>
-                                <p>You can now close this window and return to the launcher.</p>
-                            </div>
-                        </body>
-                    </html>
-                    """
-                    self.wfile.write(success_html.encode())
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
 
-    def handle_epic_auth(self, auth_code):
-        self.logger.info('Processing Epic authentication...')
-        auth_str = f"{self.client_id}:{self.client_secret}"
-        auth_bytes = auth_str.encode('ascii')
-        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-        
-        headers = {
-            'Authorization': f'Basic {auth_b64}',
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-        
-        data = {
-            'grant_type': 'authorization_code',
-            'code': auth_code,
-            'token_type': 'eg1'
-        }
-        
-        try:
-            response = requests.post(
-                'https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token',
-                headers=headers,
-                data=data
-            )
-            
-            if response.status_code == 200:
-                self.auth_tokens[auth_code] = response.json()
-                self.logger.info('Successfully authenticated user')
-                self.logger.debug(f'Access token: {self.auth_tokens[auth_code]["access_token"][:10]}...')
-            else:
-                self.logger.error(f'Auth failed with status {response.status_code}: {response.text}')
-        except Exception as e:
-            self.logger.error(f'Auth request failed: {str(e)}')
+                if self.path.startswith('/fortnite/api/game/v2/profile'):
+                    # Return cosmetics inventory
+                    response = {
+                        "profileRevision": 1,
+                        "profileId": "athena",
+                        "profileChanges": [{
+                            "changeType": "fullProfileUpdate",
+                            "profile": {
+                                "items": {
+                                    # Default skins
+                                    "SKIN_1": {
+                                        "templateId": "AthenaCharacter:CID_001_Athena_Commando_F_Default",
+                                        "attributes": {"favorite": False}
+                                    },
+                                    "SKIN_2": {
+                                        "templateId": "AthenaCharacter:CID_002_Athena_Commando_F_Default", 
+                                        "attributes": {"favorite": False}
+                                    },
+                                    # Default pickaxes
+                                    "PICKAXE_1": {
+                                        "templateId": "AthenaPickaxe:DefaultPickaxe",
+                                        "attributes": {"favorite": False}
+                                    },
+                                    # Default gliders
+                                    "GLIDER_1": {
+                                        "templateId": "AthenaGlider:DefaultGlider",
+                                        "attributes": {"favorite": False}  
+                                    }
+                                }
+                            }
+                        }]
+                    }
+                elif self.path.startswith('/fortnite/api/matchmaking/session'):
+                    # Handle matchmaking
+                    with outer_instance.match_lock:
+                        if len(outer_instance.matchmaking_queue) >= 2:
+                            # Create match with players in queue
+                            players = outer_instance.matchmaking_queue[:2]
+                            outer_instance.matchmaking_queue = outer_instance.matchmaking_queue[2:]
+                            
+                            response = {
+                                "status": "MATCHED",
+                                "matchId": str(random.randint(1000, 9999)),
+                                "players": players
+                            }
+                        else:
+                            # Add to queue
+                            player_id = str(random.randint(1, 1000))
+                            outer_instance.matchmaking_queue.append(player_id)
+                            
+                            response = {
+                                "status": "QUEUED",
+                                "queuePosition": len(outer_instance.matchmaking_queue),
+                                "estimatedWaitTime": 30
+                            }
+                else:
+                    # Default auth response
+                    response = {
+                        "access_token": "eg1~valid_token",
+                        "expires_in": 28800,
+                        "expires_at": "9999-12-31T23:59:59.999Z",
+                        "token_type": "bearer",
+                        "refresh_token": "eg1~valid_refresh", 
+                        "refresh_expires": 115200,
+                        "refresh_expires_at": "9999-12-31T23:59:59.999Z",
+                        "account_id": "valid_account",
+                        "client_id": "valid_client",
+                        "internal_client": True,
+                        "client_service": "fortnite",
+                        "displayName": "ZeroFN Player",
+                        "app": "fortnite",
+                        "in_app_id": "valid_app_id"
+                    }
 
-    def handle_game_client(self, client, addr):
-        player_id = str(addr[1])
-        self.logger.info(f'New game client connected - Player ID: {player_id}')
-        
-        self.online_players[player_id] = {
-            'addr': addr,
-            'client': client,
-            'party_id': None,
-            'status': 'online'
-        }
-        
-        try:
-            while True:
-                data = client.recv(1024).decode()
-                if not data:
-                    self.logger.info(f'Client {player_id} disconnected')
-                    break
-                    
-                self.logger.debug(f'Received from {player_id}: {data}')
-                request = json.loads(data)
-                response = self.handle_game_request(request, player_id)
-                
-                response_json = json.dumps(response)
-                self.logger.debug(f'Sending to {player_id}: {response_json}')
-                client.send(response_json.encode())
-                
-        except json.JSONDecodeError as e:
-            self.logger.error(f'Invalid JSON from client {player_id}: {str(e)}')
-        except Exception as e:
-            self.logger.error(f'Error handling client {player_id}: {str(e)}')
-        finally:
-            if player_id in self.matchmaking_queue:
-                self.matchmaking_queue.remove(player_id)
-                self.logger.info(f'Removed {player_id} from matchmaking queue')
-            if player_id in self.online_players:
-                del self.online_players[player_id]
-                self.logger.info(f'Removed {player_id} from online players')
-            client.close()
+                self.wfile.write(json.dumps(response).encode())
 
-    def handle_game_request(self, request, player_id):
-        req_type = request.get('type')
-        self.logger.info(f'Handling {req_type} request from {player_id}')
-        
-        if req_type == 'login':
-            season = request.get('season', '1')
-            self.player_seasons[player_id] = season
-            self.logger.info(f'Player {player_id} logged in - Season {season}')
-            return {
-                'status': 'success',
-                'accountId': player_id,
-                'displayName': f'Player_{player_id}',
-                'inventory': self.get_default_inventory(),
-                'friends': self.friend_lists.get(player_id, [])
-            }
-            
-        elif req_type == 'add_friend':
-            friend_id = request.get('friend_id')
-            self.logger.info(f'Player {player_id} attempting to add friend {friend_id}')
-            if friend_id in self.online_players:
-                if player_id not in self.friend_lists:
-                    self.friend_lists[player_id] = []
-                self.friend_lists[player_id].append(friend_id)
-                self.logger.info(f'Friend {friend_id} added to {player_id}\'s friend list')
-                return {'status': 'success', 'message': 'Friend added!'}
-            return {'status': 'error', 'message': 'Player not found'}
-            
-        elif req_type == 'invite_to_party':
-            friend_id = request.get('friend_id')
-            self.logger.info(f'Player {player_id} inviting {friend_id} to party')
-            if friend_id in self.online_players:
-                if self.player_seasons[player_id] == self.player_seasons[friend_id]:
-                    self.party_invites[friend_id] = player_id
-                    self.logger.info(f'Party invite sent from {player_id} to {friend_id}')
-                    return {'status': 'success', 'message': 'Invite sent!'}
-                self.logger.warning(f'Party invite failed - Season mismatch between {player_id} and {friend_id}')
-                return {'status': 'error', 'message': 'Players must be in same season'}
-            return {'status': 'error', 'message': 'Player not online'}
-            
-        elif req_type == 'accept_invite':
-            self.logger.info(f'Player {player_id} accepting party invite')
-            if player_id in self.party_invites:
-                party_leader = self.party_invites[player_id]
-                party_id = f'party_{int(time.time())}'
-                self.online_players[player_id]['party_id'] = party_id
-                self.online_players[party_leader]['party_id'] = party_id
-                self.party_chat[party_id] = []
-                self.logger.info(f'Created party {party_id} with leader {party_leader} and member {player_id}')
-                return {'status': 'success', 'party_id': party_id}
-            return {'status': 'error', 'message': 'No pending invites'}
-            
-        elif req_type == 'party_chat':
-            message = request.get('message')
-            party_id = self.online_players[player_id]['party_id']
-            self.logger.info(f'Party chat message from {player_id} in party {party_id}')
-            if party_id:
-                self.party_chat[party_id].append({
-                    'player': player_id,
-                    'message': message,
-                    'timestamp': time.time()
-                })
-                return {'status': 'success'}
-            return {'status': 'error', 'message': 'Not in a party'}
-            
-        elif req_type == 'matchmaking':
-            season = self.player_seasons[player_id]
-            party_id = self.online_players[player_id]['party_id']
-            self.logger.info(f'Player {player_id} requesting matchmaking for season {season}')
-            
-            if party_id:
-                party_members = [pid for pid, data in self.online_players.items() 
-                               if data['party_id'] == party_id]
-                for member in party_members:
-                    if member not in self.matchmaking_queue:
-                        self.matchmaking_queue.append(member)
-                        self.logger.info(f'Added party member {member} to matchmaking queue')
-            else:
-                self.matchmaking_queue.append(player_id)
-                self.logger.info(f'Added solo player {player_id} to matchmaking queue')
-                
-            same_season_players = [p for p in self.matchmaking_queue 
-                                 if self.player_seasons[p] == season]
-            
-            if len(same_season_players) >= 2:
-                lobby_id = f'lobby_{int(time.time())}'
-                players = same_season_players[:2]
-                self.lobbies[lobby_id] = {
-                    'players': players,
-                    'season': season,
-                    'status': 'starting'
+            def do_POST(self):
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+
+                response = {
+                    "access_token": "eg1~valid_token",
+                    "expires_in": 28800,
+                    "expires_at": "9999-12-31T23:59:59.999Z",
+                    "token_type": "bearer",
+                    "account_id": "valid_account", 
+                    "client_id": "valid_client",
+                    "internal_client": True,
+                    "client_service": "fortnite",
+                    "displayName": "ZeroFN Player",
+                    "app": "fortnite",
                 }
-                for p in players:
-                    self.matchmaking_queue.remove(p)
-                self.logger.info(f'Created match in lobby {lobby_id} with players {players}')
-                return {
-                    'status': 'match_found',
-                    'lobby_id': lobby_id,
-                    'players': players,
-                    'season': season
-                }
-            return {
-                'status': 'queued',
-                'position': len(self.matchmaking_queue)
-            }
-            
-        self.logger.warning(f'Invalid request type {req_type} from {player_id}')
-        return {'status': 'error', 'message': 'Invalid request type'}
 
-    def get_default_inventory(self):
-        return {
-            'vbucks': 13500,
-            'battle_pass': True,
-            'level': 100
-        }
-
-    def get_available_skins(self):
-        return [
-            # Season 1 Skins
-            {'id': 'CID_001', 'name': 'Renegade Raider', 'rarity': 'Rare'},
-            {'id': 'CID_002', 'name': 'Aerial Assault Trooper', 'rarity': 'Rare'},
-            # Season 2 Skins
-            {'id': 'CID_003', 'name': 'Black Knight', 'rarity': 'Legendary'},
-            {'id': 'CID_004', 'name': 'Blue Squire', 'rarity': 'Rare'},
-            {'id': 'CID_005', 'name': 'Royale Knight', 'rarity': 'Rare'},
-            {'id': 'CID_006', 'name': 'Sparkle Specialist', 'rarity': 'Epic'},
-            # Holiday Skins
-            {'id': 'CID_007', 'name': 'Skull Trooper', 'rarity': 'Epic'},
-            {'id': 'CID_008', 'name': 'Ghoul Trooper', 'rarity': 'Epic'},
-            {'id': 'CID_009', 'name': 'Crackshot', 'rarity': 'Legendary'},
-            {'id': 'CID_010', 'name': 'Red-Nosed Raider', 'rarity': 'Rare'}
-        ]
-
-    def get_available_pickaxes(self):
-        return [
-            # Season 1 Pickaxes
-            {'id': 'PID_001', 'name': 'Raiders Revenge', 'rarity': 'Epic'},
-            {'id': 'PID_002', 'name': 'AC/DC', 'rarity': 'Rare'},
-            # Season 2 Pickaxes  
-            {'id': 'PID_003', 'name': 'Axecalibur', 'rarity': 'Rare'},
-            {'id': 'PID_004', 'name': 'Pulse Axe', 'rarity': 'Rare'},
-            # Holiday Pickaxes
-            {'id': 'PID_005', 'name': 'Reaper Scythe', 'rarity': 'Epic'},
-            {'id': 'PID_006', 'name': 'Candy Axe', 'rarity': 'Epic'}
-        ]
-
-    def get_available_gliders(self):
-        return [
-            # Season 1 Gliders
-            {'id': 'GID_001', 'name': 'Aerial Assault One', 'rarity': 'Rare'},
-            {'id': 'GID_002', 'name': 'Mako', 'rarity': 'Rare'},
-            # Season 2 Gliders
-            {'id': 'GID_003', 'name': 'Sir Glider the Brave', 'rarity': 'Rare'},
-            {'id': 'GID_004', 'name': 'Winter Wing', 'rarity': 'Rare'},
-            # Holiday Gliders
-            {'id': 'GID_005', 'name': 'Snowflake', 'rarity': 'Epic'},
-            {'id': 'GID_006', 'name': 'Cozy Coaster', 'rarity': 'Epic'}
-        ]
+                self.wfile.write(json.dumps(response).encode())
 
     def start(self):
         try:
-            # Start HTTP server thread for auth callbacks
-            http_thread = threading.Thread(target=self.http_server.serve_forever)
-            http_thread.daemon = True
-            http_thread.start()
-            self.logger.info('HTTP server thread started')
-            
-            # Accept game clients
-            self.logger.info('Starting main game server loop')
-            while True:
-                client, addr = self.game_server.accept()
-                self.logger.info(f'New connection from {addr[0]}:{addr[1]}')
-                client_thread = threading.Thread(target=self.handle_game_client, args=(client, addr))
-                client_thread.daemon = True
-                client_thread.start()
-                
+            self.logger.info('Starting auth bypass server...')
+            self.http_server.serve_forever()
         except Exception as e:
             self.logger.error(f'Server error: {str(e)}')
         finally:
             self.logger.info('Shutting down server...')
             self.http_server.shutdown()
-            self.game_server.close()
 
 if __name__ == '__main__':
     try:

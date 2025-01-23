@@ -184,7 +184,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "%GAME_EXE%" -AUTH_LOGIN=dev -AUTH_PASSWORD=dev -AUTH_TYPE=epic -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -NOSSLPINNING -AUTH_HOST=0.0.0.0:7777
+start "" "%GAME_EXE%" -AUTH_LOGIN=dev -AUTH_PASSWORD=dev -AUTH_TYPE=epic -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -NOSSLPINNING -AUTH_HOST=0.0.0.0:7777 -HTTP=0.0.0.0:7777 -FORCECLIENT=0.0.0.0:7777 -FORCECLIENT_HOST=0.0.0.0:7777
 
 echo Game launched!
 timeout /t 2 >nul
@@ -205,7 +205,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "%GAME_EXE%" -AUTH_LOGIN=dev -AUTH_PASSWORD=dev -AUTH_TYPE=epic -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -NOSSLPINNING -AUTH_HOST=0.0.0.0:7777
+start "" "%GAME_EXE%" -AUTH_LOGIN=dev -AUTH_PASSWORD=dev -AUTH_TYPE=epic -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -NOSSLPINNING -AUTH_HOST=0.0.0.0:7777 -HTTP=0.0.0.0:7777 -FORCECLIENT=0.0.0.0:7777 -FORCECLIENT_HOST=0.0.0.0:7777
 
 echo Server and game started successfully!
 timeout /t 2 >nul

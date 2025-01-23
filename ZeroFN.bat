@@ -157,7 +157,7 @@ cd /d "%GAME_EXE%\.."
 
 echo [INFO] Starting ZeroFN server first...
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
-timeout /t 3 >nul
+timeout /t 15 >nul
 
 echo [INFO] Cleaning up existing processes...
 taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
@@ -175,7 +175,8 @@ echo [INFO] Setting compatibility flags...
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
 echo [INFO] Launching game with ZeroFN configuration...
-start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
+start "" "%GAME_EXE%" -HTTP=http://127.0.0.1:7777 ^
+-NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -AUTH_TYPE=epic ^
 -AUTH_LOGIN=ZeroFN@zerofn.com ^
 -AUTH_PASSWORD=zerofn ^
@@ -189,7 +190,6 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=http://127.0.0.1:7777 ^
 -AUTH_HOST=127.0.0.1:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
@@ -224,8 +224,8 @@ echo [INFO] Starting ZeroFN server process...
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
 echo [SUCCESS] Server initialized
 
-echo [INFO] Waiting 10 seconds for server to fully initialize...
-timeout /t 10 >nul
+echo [INFO] Waiting 15 seconds for server to fully initialize...
+timeout /t 15 >nul
 
 cd /d "%GAME_EXE%\.."
 
@@ -245,7 +245,8 @@ echo [INFO] Setting compatibility flags...
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
 echo [INFO] Launching game with ZeroFN configuration...
-start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
+start "" "%GAME_EXE%" -HTTP=http://127.0.0.1:7777 ^
+-NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -AUTH_TYPE=epic ^
 -AUTH_LOGIN=ZeroFN@zerofn.com ^
 -AUTH_PASSWORD=zerofn ^
@@ -259,7 +260,6 @@ start "" "%GAME_EXE%" -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -preferredregion=NAE ^
 -skippatchcheck ^
 -notexturestreaming ^
--HTTP=http://127.0.0.1:7777 ^
 -AUTH_HOST=127.0.0.1:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^

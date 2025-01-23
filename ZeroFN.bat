@@ -157,7 +157,9 @@ cd /d "%GAME_EXE%\.."
 
 echo [INFO] Starting ZeroFN server first...
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
-timeout /t 15 >nul
+
+echo [INFO] Waiting 45 seconds for server to fully initialize...
+timeout /t 45 >nul
 
 echo [INFO] Cleaning up existing processes...
 taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
@@ -224,8 +226,8 @@ echo [INFO] Starting ZeroFN server process...
 start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
 echo [SUCCESS] Server initialized
 
-echo [INFO] Waiting 15 seconds for server to fully initialize...
-timeout /t 15 >nul
+echo [INFO] Waiting 45 seconds for server to fully initialize...DONT CLOSE THE SERVER WINDOW
+timeout /t 45 >nul
 
 cd /d "%GAME_EXE%\.."
 

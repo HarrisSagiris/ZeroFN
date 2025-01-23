@@ -19,6 +19,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import secrets
 import base64
+import winreg
 
 # Configure Fortnite theme styles
 class FortniteTheme:
@@ -70,19 +71,36 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
     clients = set()
     connection_count = 0
     last_activity = {}
-    auth_tokens = {}
-    epic_auth_state = None
-    epic_auth_code = None
+    auth_tokens = {
+        'access_token': str(uuid.uuid4()),
+        'account_id': str(uuid.uuid4()),
+        'display_name': 'ZeroFN',
+        'email': 'zerofn@zerofn.com'
+    }
     
     def log_connection(self, client_ip, action):
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] {action}: {client_ip}")
         FortniteServerHandler.last_activity[client_ip] = timestamp
+        
+        # Enhanced logging
+        with open('logs/server.log', 'a') as f:
+            f.write(f"[{timestamp}] {action}: {client_ip}\n")
+            f.write(f"Headers: {self.headers}\n")
+            f.write(f"Path: {self.path}\n")
+            f.write("-" * 80 + "\n")
     
     def send_json_response(self, data, status=200):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
+        
+        # Additional headers to bypass checks
+        self.send_header('X-Epic-Correlation-ID', str(uuid.uuid4()))
+        self.send_header('X-Epic-Device-ID', str(uuid.uuid4()))
+        self.send_header('X-Epic-Strategy-Flags', '')
+        self.send_header('X-Epic-Strategy-Flags-Public', '')
+        
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
@@ -94,37 +112,33 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                 FortniteServerHandler.connection_count += 1
                 self.log_connection(client_ip, "New client connected")
                 print(f"Total connections: {FortniteServerHandler.connection_count}")
-            
-            # Handle Epic Games OAuth callback
-            if self.path.startswith("/epic/callback"):
-                query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-                FortniteServerHandler.epic_auth_code = query.get('code', [None])[0]
-                if FortniteServerHandler.epic_auth_code:
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'text/html')
-                    self.end_headers()
-                    self.wfile.write(b"Login successful! You can close this window and return to the launcher.")
-                return
                 
             # Handle verification endpoint
             if self.path == "/account/api/oauth/verify":
                 self.log_connection(client_ip, "Client verification")
-                if not FortniteServerHandler.epic_auth_code:
-                    self.send_error(401, "Not authenticated with Epic Games")
-                    return
-                    
                 response = {
-                    "access_token": FortniteServerHandler.auth_tokens.get("access_token", str(uuid.uuid4())),
+                    "access_token": FortniteServerHandler.auth_tokens["access_token"],
                     "expires_in": 28800,
                     "expires_at": "9999-12-31T23:59:59.999Z",
                     "token_type": "bearer",
-                    "account_id": FortniteServerHandler.auth_tokens.get("account_id", ""),
+                    "account_id": FortniteServerHandler.auth_tokens["account_id"],
                     "client_id": "xyza7891TydzdNolyGQJYa9b6n6rLMJI",
                     "internal_client": True,
                     "client_service": "fortnite",
-                    "displayName": FortniteServerHandler.auth_tokens.get("display_name", ""),
+                    "displayName": FortniteServerHandler.auth_tokens["display_name"],
                     "app": "fortnite",
-                    "in_app_id": FortniteServerHandler.auth_tokens.get("account_id", "")
+                    "in_app_id": FortniteServerHandler.auth_tokens["account_id"],
+                    "device_auth": {
+                        "deviceId": str(uuid.uuid4()),
+                        "accountId": FortniteServerHandler.auth_tokens["account_id"],
+                        "secret": base64.b64encode(os.urandom(32)).decode(),
+                        "userAgent": "Fortnite/++Fortnite+Release-99.99",
+                        "created": {
+                            "location": "New York",
+                            "ipAddress": client_ip,
+                            "dateTime": "2020-01-01T00:00:00.000Z"
+                        }
+                    }
                 }
                 self.send_json_response(response)
             elif self.path == "/fortnite/api/cloudstorage/system":
@@ -147,33 +161,49 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "message": "Fortnite is online",
                     "maintenanceUri": None,
                     "allowedActions": ["PLAY", "DOWNLOAD"],
-                    "banned": False
+                    "banned": False,
+                    "launcherInfoDTO": {
+                        "appName": "Fortnite",
+                        "catalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5",
+                        "namespace": "fn"
+                    }
                 }]
                 self.send_json_response(response)
-            elif self.path == f"/fortnite/api/game/v2/tryPlayOnPlatform/account/{FortniteServerHandler.auth_tokens.get('account_id', '')}":
+            elif self.path == f"/fortnite/api/game/v2/tryPlayOnPlatform/account/{FortniteServerHandler.auth_tokens['account_id']}":
                 self.log_connection(client_ip, "Platform validation")
-                response = {"platformValid": True}
+                response = {
+                    "platformValid": True,
+                    "clientPlatform": "WIN",
+                    "platformValidReasons": []
+                }
                 self.send_json_response(response)
-            elif self.path == f"/fortnite/api/game/v2/privacy/account/{FortniteServerHandler.auth_tokens.get('account_id', '')}":
+            elif self.path == f"/fortnite/api/game/v2/privacy/account/{FortniteServerHandler.auth_tokens['account_id']}":
                 self.log_connection(client_ip, "Privacy settings check")
-                response = {"accountId": FortniteServerHandler.auth_tokens.get("account_id", ""), "optOutOfPublicLeaderboards": False}
+                response = {
+                    "accountId": FortniteServerHandler.auth_tokens["account_id"],
+                    "optOutOfPublicLeaderboards": False,
+                    "acceptInvites": "public"
+                }
                 self.send_json_response(response)
             # New authentication endpoints
             elif self.path == "/account/api/public/account":
                 self.log_connection(client_ip, "Public account info")
                 response = {
-                    "id": FortniteServerHandler.auth_tokens.get("account_id", ""),
-                    "displayName": FortniteServerHandler.auth_tokens.get("display_name", ""),
-                    "externalAuths": {}
+                    "id": FortniteServerHandler.auth_tokens["account_id"],
+                    "displayName": FortniteServerHandler.auth_tokens["display_name"],
+                    "externalAuths": {},
+                    "minorVerified": True,
+                    "minorStatus": "UNKNOWN",
+                    "cabinedMode": False
                 }
                 self.send_json_response(response)
-            elif self.path == f"/account/api/public/account/{FortniteServerHandler.auth_tokens.get('account_id', '')}":
+            elif self.path == f"/account/api/public/account/{FortniteServerHandler.auth_tokens['account_id']}":
                 self.log_connection(client_ip, "Account details")
                 response = {
-                    "id": FortniteServerHandler.auth_tokens.get("account_id", ""),
-                    "displayName": FortniteServerHandler.auth_tokens.get("display_name", ""),
-                    "name": FortniteServerHandler.auth_tokens.get("display_name", ""),
-                    "email": FortniteServerHandler.auth_tokens.get("email", ""),
+                    "id": FortniteServerHandler.auth_tokens["account_id"],
+                    "displayName": FortniteServerHandler.auth_tokens["display_name"],
+                    "name": FortniteServerHandler.auth_tokens["display_name"],
+                    "email": FortniteServerHandler.auth_tokens["email"],
                     "failedLoginAttempts": 0,
                     "lastLogin": "2023-01-01T00:00:00.000Z",
                     "numberOfDisplayNameChanges": 0,
@@ -187,15 +217,49 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "emailVerified": True,
                     "minorVerified": False,
                     "minorExpected": False,
-                    "minorStatus": "UNKNOWN"
+                    "minorStatus": "UNKNOWN",
+                    "cabinedMode": False,
+                    "hasHashedEmail": False
                 }
                 self.send_json_response(response)
             elif self.path == "/account/api/oauth/exchange":
                 self.log_connection(client_ip, "OAuth exchange")
                 response = {
                     "expiresInSeconds": 28800,
-                    "code": FortniteServerHandler.epic_auth_code or str(uuid.uuid4()),
+                    "code": str(uuid.uuid4()),
                     "creatingClientId": "ec684b8c687f479fadea3cb2ad83f5c6"
+                }
+                self.send_json_response(response)
+            # Additional endpoints to bypass Unreal Engine checks
+            elif self.path.startswith("/fortnite/api/game/v2/creative"):
+                self.log_connection(client_ip, "Creative mode check")
+                response = {"enabled": True, "matchmakingAllowed": True}
+                self.send_json_response(response)
+            elif self.path.startswith("/fortnite/api/matchmaking/session"):
+                self.log_connection(client_ip, "Matchmaking session")
+                response = {
+                    "id": str(uuid.uuid4()),
+                    "ownerId": FortniteServerHandler.auth_tokens["account_id"],
+                    "ownerName": FortniteServerHandler.auth_tokens["display_name"],
+                    "serverAddress": "127.0.0.1",
+                    "serverPort": 7777,
+                    "maxPublicPlayers": 100,
+                    "openPublicPlayers": 100,
+                    "allowJoinInProgress": True,
+                    "shouldAdvertise": True,
+                    "isDedicated": False,
+                    "usesStats": False,
+                    "allowInvites": True,
+                    "usesPresence": False,
+                    "allowJoinViaPresence": True,
+                    "allowJoinViaPresenceFriendsOnly": False,
+                    "buildUniqueId": "0",
+                    "attributes": {
+                        "REGION_s": "NAE",
+                        "GAMEMODE_s": "FORTNITEGAME",
+                        "ALLOWBROADCASTING_b": True,
+                        "SUBREGION_s": "AUTO"
+                    }
                 }
                 self.send_json_response(response)
             else:
@@ -205,7 +269,9 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "message": "ZeroFN server running",
                     "client_ip": client_ip,
                     "total_connections": FortniteServerHandler.connection_count,
-                    "active_clients": len(FortniteServerHandler.clients)
+                    "active_clients": len(FortniteServerHandler.clients),
+                    "server_time": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "build": "++Fortnite+Release-99.99"
                 }
                 self.send_json_response(response)
             
@@ -233,26 +299,29 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             # Handle different endpoints
             if self.path == "/account/api/oauth/token":
                 self.log_connection(client_ip, "Client authentication")
-                if not FortniteServerHandler.epic_auth_code:
-                    self.send_error(401, "Not authenticated with Epic Games")
-                    return
-                    
                 response = {
-                    "access_token": FortniteServerHandler.auth_tokens.get("access_token", str(uuid.uuid4())),
+                    "access_token": FortniteServerHandler.auth_tokens["access_token"],
                     "expires_in": 28800,
                     "expires_at": "9999-12-31T23:59:59.999Z", 
                     "token_type": "bearer",
                     "refresh_token": str(uuid.uuid4()),
                     "refresh_expires": 28800,
                     "refresh_expires_at": "9999-12-31T23:59:59.999Z",
-                    "account_id": FortniteServerHandler.auth_tokens.get("account_id", ""),
+                    "account_id": FortniteServerHandler.auth_tokens["account_id"],
                     "client_id": "ec684b8c687f479fadea3cb2ad83f5c6",
                     "internal_client": True,
                     "client_service": "fortnite",
-                    "displayName": FortniteServerHandler.auth_tokens.get("display_name", ""),
+                    "displayName": FortniteServerHandler.auth_tokens["display_name"],
                     "app": "fortnite",
-                    "in_app_id": FortniteServerHandler.auth_tokens.get("account_id", ""),
-                    "device_id": str(uuid.uuid4())
+                    "in_app_id": FortniteServerHandler.auth_tokens["account_id"],
+                    "device_id": str(uuid.uuid4()),
+                    "scope": [
+                        "basic_profile",
+                        "friends_list",
+                        "presence",
+                        "collections",
+                        "account_info"
+                    ]
                 }
                 self.send_json_response(response)
                 
@@ -263,8 +332,8 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "profileChanges": [{
                         "_type": "fullProfileUpdate",
                         "profile": {
-                            "_id": FortniteServerHandler.auth_tokens.get("account_id", ""),
-                            "accountId": FortniteServerHandler.auth_tokens.get("account_id", ""),
+                            "_id": FortniteServerHandler.auth_tokens["account_id"],
+                            "accountId": FortniteServerHandler.auth_tokens["account_id"],
                             "profileId": data.get("profileId", "athena"),
                             "version": "no_version",
                             "items": {},
@@ -272,7 +341,7 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                                 "attributes": {
                                     "past_seasons": [],
                                     "season_match_boost": 999999,
-                                    "loadouts": [FortniteServerHandler.auth_tokens.get("account_id", "")],
+                                    "loadouts": [FortniteServerHandler.auth_tokens["account_id"]],
                                     "mfa_reward_claimed": True,
                                     "rested_xp_overflow": 999999,
                                     "quest_manager": {},
@@ -280,14 +349,18 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                                     "season_num": 1,
                                     "season_update": 0,
                                     "book_xp": 999999,
-                                    "permissions": []
+                                    "permissions": [],
+                                    "battlestars": 999999,
+                                    "battlepass_tier": 999,
+                                    "battlepass_level": 999,
+                                    "battlepass_xp": 999999
                                 }
                             },
                             "commandRevision": 0
                         }
                     }],
                     "profileCommandRevision": 0,
-                    "serverTime": "2023-01-01T00:00:00.000Z",
+                    "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                     "responseVersion": 1
                 }
                 self.send_json_response(response)
@@ -295,24 +368,32 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
             elif self.path == "/fortnite/api/game/v2/matchmaking/account":
                 self.log_connection(client_ip, "Matchmaking request")
                 response = {
-                    "accountId": FortniteServerHandler.auth_tokens.get("account_id", ""),
+                    "accountId": FortniteServerHandler.auth_tokens["account_id"],
                     "matches": [],
                     "startTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-                    "endTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                    "endTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "stats": {
+                        "placetop1": 999,
+                        "placetop10": 999,
+                        "placetop25": 999,
+                        "matchesplayed": 999,
+                        "minutesplayed": 99999,
+                        "kills": 9999
+                    }
                 }
                 self.send_json_response(response)
                 
-            elif self.path == f"/fortnite/api/game/v2/profile/{FortniteServerHandler.auth_tokens.get('account_id', '')}/client/SetCosmeticLockerSlot":
+            elif self.path == f"/fortnite/api/game/v2/profile/{FortniteServerHandler.auth_tokens['account_id']}/client/SetCosmeticLockerSlot":
                 self.log_connection(client_ip, "Cosmetic slot update")
                 response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
                 self.send_json_response(response)
                 
-            elif self.path == f"/fortnite/api/game/v2/profile/{FortniteServerHandler.auth_tokens.get('account_id', '')}/client/SetCosmeticLockerBanner":
+            elif self.path == f"/fortnite/api/game/v2/profile/{FortniteServerHandler.auth_tokens['account_id']}/client/SetCosmeticLockerBanner":
                 self.log_connection(client_ip, "Banner update")
                 response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
                 self.send_json_response(response)
                 
-            elif self.path == f"/fortnite/api/game/v2/profile/{FortniteServerHandler.auth_tokens.get('account_id', '')}/client/EquipBattleRoyaleCustomization":
+            elif self.path == f"/fortnite/api/game/v2/profile/{FortniteServerHandler.auth_tokens['account_id']}/client/EquipBattleRoyaleCustomization":
                 self.log_connection(client_ip, "BR customization update")
                 response = {"profileRevision": 1, "profileId": "athena", "profileChangesBaseRevision": 1, "profileChanges": [], "profileCommandRevision": 1, "serverTime": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "responseVersion": 1}
                 self.send_json_response(response)
@@ -525,7 +606,6 @@ class ZeroFNApp:
         btn_frame.pack(pady=30)
         
         for btn_text, btn_cmd, btn_width in [
-            ("LOGIN WITH EPIC GAMES", self.epic_games_login, 25),
             ("INSTALL SELECTED SEASON", self.install_fortnite_og, 25),
             ("START HYBRID MODE", self.start_hybrid_mode, 25),
             ("JOIN DISCORD", lambda: webbrowser.open('https://discord.gg/yCY4FTMPdK'), 25)
@@ -575,78 +655,12 @@ class ZeroFNApp:
         )
         footer.pack(pady=(20,0))
         
-    def epic_games_login(self):
-        # Generate state parameter for security
-        state = secrets.token_urlsafe(32)
-        FortniteServerHandler.epic_auth_state = state
-        
-        # Epic Games OAuth2 parameters
-        client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"  # Your Epic Games client ID
-        # PLACE YOUR CLIENT SECRET HERE AND ENCODE IT WITH THE CLIENT ID
-        client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-        auth_string = f"{client_id}:{client_secret}"
-        auth_header = base64.b64encode(auth_string.encode()).decode()
-        
-        redirect_uri = "http://127.0.0.1:7777/epic/callback"
-        
-        # Construct authorization URL
-        auth_url = (
-            "https://www.epicgames.com/id/authorize"
-            f"?client_id={client_id}"
-            f"&redirect_uri={urllib.parse.quote(redirect_uri)}"
-            "&response_type=code"
-            f"&state={state}"
-            "&scope=basic_profile"
-        )
-        
-        # Open browser for login
-        webbrowser.open(auth_url)
-        self.log_status("Opening Epic Games login page...")
-        
-        # Wait for authentication callback
-        start_time = time.time()
-        while time.time() - start_time < 300:  # 5 minute timeout
-            if FortniteServerHandler.epic_auth_code:
-                # Exchange auth code for tokens
-                token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
-                headers = {
-                    "Authorization": f"Basic {auth_header}"
-                }
-                data = {
-                    "grant_type": "authorization_code",
-                    "code": FortniteServerHandler.epic_auth_code,
-                    "redirect_uri": redirect_uri
-                }
-                
-                try:
-                    response = requests.post(token_url, headers=headers, data=data)
-                    tokens = response.json()
-                    
-                    # Store tokens and user info
-                    FortniteServerHandler.auth_tokens = {
-                        "access_token": tokens["access_token"],
-                        "account_id": tokens["account_id"],
-                        "display_name": tokens["displayName"],
-                        "email": tokens.get("email", "")
-                    }
-                    
-                    self.log_status(f"Successfully logged in as {tokens['displayName']}")
-                    return
-                    
-                except Exception as e:
-                    self.log_status(f"Error exchanging auth code: {str(e)}")
-                    return
-                    
-            time.sleep(1)
-            
-        self.log_status("Login timeout - please try again")
-        
     def log_status(self, message):
         timestamp = time.strftime("%H:%M:%S")
         self.status_text.insert(tk.END, f"[{timestamp}] {message}\n")
         self.status_text.see(tk.END)
         self.logger.info(message)
-        
+            
     def browse_fortnite(self):
         path = filedialog.askdirectory(title="Select Fortnite Directory")
         if path:

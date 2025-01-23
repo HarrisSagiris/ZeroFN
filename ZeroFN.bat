@@ -2,14 +2,13 @@
 title ProjectZERO-ZeroFN
 color 0f
 
-REM Initialize username variable
-set "LOGGED_IN_USER="
+REM Initialize logged in state
+set "LOGGED_IN="
 
-REM Initial menu to choose between specifying a path or installing Fortnite OG
 :main_menu
 cls
 echo ==========================================
-echo                ZeroFN     %LOGGED_IN_USER%
+echo                ZeroFN     %LOGGED_IN%
 echo    Created by @Devharris and @Addamito
 echo ==========================================
 echo.
@@ -33,7 +32,7 @@ goto main_menu
 :season_select
 cls
 echo =====================================
-echo    Select Fortnite Season           %LOGGED_IN_USER%
+echo    Select Fortnite Season           %LOGGED_IN%
 echo    Powered by ZeroFN
 echo =====================================
 echo.
@@ -100,15 +99,14 @@ start "" "https://www.epicgames.com/id/api/redirect?clientId=xyza7891TydzdNolyGQ
 echo Please login to your Epic Games account in the browser.
 echo After logging in, you'll be redirected back to the launcher.
 echo.
-set /p LOGGED_IN_USER="Enter your Epic Games username: "
-echo Logged in as: %LOGGED_IN_USER%
+set "LOGGED_IN=[Logged in]"
 pause
 goto main_menu
 
 :install_fortnite_og
 cls
 echo =====================================
-echo    Installing Fortnite              %LOGGED_IN_USER%
+echo    Installing Fortnite              %LOGGED_IN%
 echo    Powered by ZeroFN
 echo =====================================
 echo.
@@ -157,7 +155,7 @@ goto locate_executable
 :specify_path
 cls
 echo =====================================
-echo    Specify FortniteOG Path          %LOGGED_IN_USER%
+echo    Specify FortniteOG Path          %LOGGED_IN%
 echo    Powered by ZeroFN
 echo =====================================
 echo.
@@ -196,7 +194,7 @@ goto menu
 :menu
 cls
 echo =====================================
-echo               ZeroFN    %LOGGED_IN_USER%
+echo               ZeroFN    %LOGGED_IN%
 echo   Powered by @Devharris and @Addamito
 echo =====================================
 echo.
@@ -218,7 +216,7 @@ goto menu
 :start_server_only
 cls
 echo =====================================
-echo    Starting ZeroFN server only  %LOGGED_IN_USER%
+echo    Starting ZeroFN server only  %LOGGED_IN%
 echo    Powered by Devharris
 echo =====================================
 echo.
@@ -233,7 +231,7 @@ goto menu
 :launch_game
 cls
 echo =====================================
-echo    Launching Game Client            %LOGGED_IN_USER%
+echo    Launching Game Client            %LOGGED_IN%
 echo    Powered by ZeroFN
 echo =====================================
 echo.
@@ -251,6 +249,9 @@ taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 taskkill /f /im FortniteLauncher.exe >nul 2>&1
 taskkill /f /im EpicGamesLauncher.exe >nul 2>&1
+taskkill /f /im UnrealCEFSubProcess.exe >nul 2>&1
+taskkill /f /im CrashReportClient.exe >nul 2>&1
+taskkill /f /im UE4Game.exe >nul 2>&1
 
 echo [INFO] Cleaning temporary files and logs...
 del /f /q "%localappdata%\FortniteGame\Saved\Logs\*.*" >nul 2>&1
@@ -292,7 +293,7 @@ goto menu
 :start_hybrid
 cls
 echo =====================================
-echo    Starting ZeroFN Hybrid Mode  %LOGGED_IN_USER%
+echo    Starting ZeroFN Hybrid Mode  %LOGGED_IN%
 echo    Powered by @Devharris
 echo =====================================
 echo.
@@ -315,6 +316,9 @@ taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 taskkill /f /im FortniteLauncher.exe >nul 2>&1
 taskkill /f /im EpicGamesLauncher.exe >nul 2>&1
+taskkill /f /im UnrealCEFSubProcess.exe >nul 2>&1
+taskkill /f /im CrashReportClient.exe >nul 2>&1
+taskkill /f /im UE4Game.exe >nul 2>&1
 
 echo [INFO] Cleaning temporary files and logs...
 del /f /q "%localappdata%\FortniteGame\Saved\Logs\*.*" >nul 2>&1

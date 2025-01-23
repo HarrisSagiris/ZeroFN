@@ -17,6 +17,11 @@ class FortniteServer:
         self.auth_tokens = {}
         self.lobbies = {}
         self.matchmaking_queue = []
+        self.online_players = {}  # Track online players
+        self.friend_lists = {}    # Track friend lists
+        self.party_invites = {}   # Track party invites
+        self.player_seasons = {}  # Track which season each player is on
+        self.party_chat = {}      # Party chat history
         
         # Initialize HTTP server for Epic auth callback
         self.http_server = HTTPServer((self.host, self.port), self.create_callback_handler())
@@ -109,6 +114,12 @@ class FortniteServer:
 
     def handle_game_client(self, client, addr):
         player_id = str(addr[1])
+        self.online_players[player_id] = {
+            'addr': addr,
+            'client': client,
+            'party_id': None,
+            'status': 'online'
+        }
         
         while True:
             try:
@@ -126,40 +137,101 @@ class FortniteServer:
                 
         if player_id in self.matchmaking_queue:
             self.matchmaking_queue.remove(player_id)
+        if player_id in self.online_players:
+            del self.online_players[player_id]
         client.close()
 
     def handle_game_request(self, request, player_id):
         req_type = request.get('type')
         
         if req_type == 'login':
+            season = request.get('season', '1')  # Get player's season
+            self.player_seasons[player_id] = season
             return {
                 'status': 'success',
                 'accountId': player_id,
                 'displayName': f'Player_{player_id}',
-                'inventory': self.get_default_inventory()
+                'inventory': self.get_default_inventory(),
+                'friends': self.friend_lists.get(player_id, [])
             }
             
-        elif req_type == 'loadout':
-            return {
-                'status': 'success',
-                'skins': self.get_available_skins(),
-                'emotes': self.get_available_emotes()
-            }
+        elif req_type == 'add_friend':
+            friend_id = request.get('friend_id')
+            if friend_id in self.online_players:
+                if player_id not in self.friend_lists:
+                    self.friend_lists[player_id] = []
+                self.friend_lists[player_id].append(friend_id)
+                return {'status': 'success', 'message': 'Friend added!'}
+            return {'status': 'error', 'message': 'Player not found'}
+            
+        elif req_type == 'invite_to_party':
+            friend_id = request.get('friend_id')
+            if friend_id in self.online_players:
+                if self.player_seasons[player_id] == self.player_seasons[friend_id]:
+                    self.party_invites[friend_id] = player_id
+                    return {'status': 'success', 'message': 'Invite sent!'}
+                return {'status': 'error', 'message': 'Players must be in same season'}
+            return {'status': 'error', 'message': 'Player not online'}
+            
+        elif req_type == 'accept_invite':
+            if player_id in self.party_invites:
+                party_leader = self.party_invites[player_id]
+                party_id = f'party_{int(time.time())}'
+                self.online_players[player_id]['party_id'] = party_id
+                self.online_players[party_leader]['party_id'] = party_id
+                self.party_chat[party_id] = []
+                return {'status': 'success', 'party_id': party_id}
+            return {'status': 'error', 'message': 'No pending invites'}
+            
+        elif req_type == 'party_chat':
+            message = request.get('message')
+            party_id = self.online_players[player_id]['party_id']
+            if party_id:
+                self.party_chat[party_id].append({
+                    'player': player_id,
+                    'message': message,
+                    'timestamp': time.time()
+                })
+                return {'status': 'success'}
+            return {'status': 'error', 'message': 'Not in a party'}
             
         elif req_type == 'matchmaking':
-            self.matchmaking_queue.append(player_id)
-            if len(self.matchmaking_queue) >= 2:
+            season = self.player_seasons[player_id]
+            party_id = self.online_players[player_id]['party_id']
+            
+            # Add whole party to queue if in party
+            if party_id:
+                party_members = [pid for pid, data in self.online_players.items() 
+                               if data['party_id'] == party_id]
+                for member in party_members:
+                    if member not in self.matchmaking_queue:
+                        self.matchmaking_queue.append(member)
+            else:
+                self.matchmaking_queue.append(player_id)
+                
+            # Try to match players in same season
+            same_season_players = [p for p in self.matchmaking_queue 
+                                 if self.player_seasons[p] == season]
+            
+            if len(same_season_players) >= 2:
                 lobby_id = f'lobby_{int(time.time())}'
-                players = self.matchmaking_queue[:2]
-                self.lobbies[lobby_id] = players
-                self.matchmaking_queue = self.matchmaking_queue[2:]
+                players = same_season_players[:2]
+                self.lobbies[lobby_id] = {
+                    'players': players,
+                    'season': season,
+                    'status': 'starting'
+                }
+                for p in players:
+                    self.matchmaking_queue.remove(p)
                 return {
                     'status': 'match_found',
                     'lobby_id': lobby_id,
-                    'players': players
+                    'players': players,
+                    'season': season
                 }
             return {
-                'status': 'queued'
+                'status': 'queued',
+                'position': len(self.matchmaking_queue)
             }
             
         return {'status': 'error', 'message': 'Invalid request type'}
@@ -173,17 +245,45 @@ class FortniteServer:
 
     def get_available_skins(self):
         return [
-            {'id': 'CID_001', 'name': 'Renegade Raider'},
-            {'id': 'CID_002', 'name': 'Skull Trooper'},
-            {'id': 'CID_003', 'name': 'Ghoul Trooper'},
-            {'id': 'CID_004', 'name': 'Black Knight'}
+            # Season 1 Skins
+            {'id': 'CID_001', 'name': 'Renegade Raider', 'rarity': 'Rare'},
+            {'id': 'CID_002', 'name': 'Aerial Assault Trooper', 'rarity': 'Rare'},
+            # Season 2 Skins
+            {'id': 'CID_003', 'name': 'Black Knight', 'rarity': 'Legendary'},
+            {'id': 'CID_004', 'name': 'Blue Squire', 'rarity': 'Rare'},
+            {'id': 'CID_005', 'name': 'Royale Knight', 'rarity': 'Rare'},
+            {'id': 'CID_006', 'name': 'Sparkle Specialist', 'rarity': 'Epic'},
+            # Holiday Skins
+            {'id': 'CID_007', 'name': 'Skull Trooper', 'rarity': 'Epic'},
+            {'id': 'CID_008', 'name': 'Ghoul Trooper', 'rarity': 'Epic'},
+            {'id': 'CID_009', 'name': 'Crackshot', 'rarity': 'Legendary'},
+            {'id': 'CID_010', 'name': 'Red-Nosed Raider', 'rarity': 'Rare'}
         ]
 
-    def get_available_emotes(self):
+    def get_available_pickaxes(self):
         return [
-            {'id': 'EID_001', 'name': 'Floss'},
-            {'id': 'EID_002', 'name': 'Take The L'},
-            {'id': 'EID_003', 'name': 'Orange Justice'}
+            # Season 1 Pickaxes
+            {'id': 'PID_001', 'name': 'Raiders Revenge', 'rarity': 'Epic'},
+            {'id': 'PID_002', 'name': 'AC/DC', 'rarity': 'Rare'},
+            # Season 2 Pickaxes  
+            {'id': 'PID_003', 'name': 'Axecalibur', 'rarity': 'Rare'},
+            {'id': 'PID_004', 'name': 'Pulse Axe', 'rarity': 'Rare'},
+            # Holiday Pickaxes
+            {'id': 'PID_005', 'name': 'Reaper Scythe', 'rarity': 'Epic'},
+            {'id': 'PID_006', 'name': 'Candy Axe', 'rarity': 'Epic'}
+        ]
+
+    def get_available_gliders(self):
+        return [
+            # Season 1 Gliders
+            {'id': 'GID_001', 'name': 'Aerial Assault One', 'rarity': 'Rare'},
+            {'id': 'GID_002', 'name': 'Mako', 'rarity': 'Rare'},
+            # Season 2 Gliders
+            {'id': 'GID_003', 'name': 'Sir Glider the Brave', 'rarity': 'Rare'},
+            {'id': 'GID_004', 'name': 'Winter Wing', 'rarity': 'Rare'},
+            # Holiday Gliders
+            {'id': 'GID_005', 'name': 'Snowflake', 'rarity': 'Epic'},
+            {'id': 'GID_006', 'name': 'Cozy Coaster', 'rarity': 'Epic'}
         ]
 
     def start(self):

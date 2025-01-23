@@ -14,15 +14,32 @@ echo Please choose an option:
 echo.
 echo [1] Specify FortniteOG Path
 echo [2] Install Fortnite OG (Downloads Fortnite OG to a folder named 'FortniteOG' in the current directory)
-echo [3] Join our Discord Community
-echo [4] Exit
+echo [3] Login with Epic Games Account
+echo [4] Join our Discord Community
+echo [5] Exit
 echo.
-set /p choice="Enter your choice (1-4): "
+set /p choice="Enter your choice (1-5): "
 
 if "%choice%"=="1" goto specify_path
 if "%choice%"=="2" goto install_fortnite_og
-if "%choice%"=="3" start https://discord.gg/yCY4FTMPdK && goto main_menu
-if "%choice%"=="4" exit
+if "%choice%"=="3" goto epic_login
+if "%choice%"=="4" start https://discord.gg/yCY4FTMPdK && goto main_menu
+if "%choice%"=="5" exit
+goto main_menu
+
+:epic_login
+cls
+echo =====================================
+echo    Epic Games Authentication
+echo    Powered by ZeroFN
+echo =====================================
+echo.
+echo Opening Epic Games login in your browser...
+start "" "https://www.epicgames.com/id/api/redirect?clientId=xyza7891TydzdNolyGQJYa9b6n6rLMJl&responseType=code&redirectUrl=http://127.0.0.1:7777/epic/callback"
+echo Please login to your Epic Games account in the browser.
+echo After logging in, you'll be redirected back to the launcher.
+echo.
+pause
 goto main_menu
 
 :install_fortnite_og
@@ -176,12 +193,12 @@ del /f /q "%localappdata%\FortniteGame\Saved\Config\CrashReportClient\*.*" >nul 
 echo [INFO] Setting compatibility flags...
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
-echo [INFO] Launching game with ZeroFN configuration...
+echo [INFO] Launching game with hybrid configuration...
 start "" "%GAME_EXE%" -HTTP=http://127.0.0.1:7777 ^
 -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -AUTH_TYPE=epic ^
--AUTH_LOGIN=ZeroFN@zerofn.com ^
--AUTH_PASSWORD=zerofn ^
+-AUTH_LOGIN=unused ^
+-AUTH_PASSWORD=unused ^
 -epicapp=Fortnite ^
 -epicenv=Prod ^
 -epiclocale=en-us ^
@@ -195,18 +212,12 @@ start "" "%GAME_EXE%" -HTTP=http://127.0.0.1:7777 ^
 -AUTH_HOST=127.0.0.1:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
--AUTH_EPIC=0 ^
--AUTH_EPIC_ONLY=0 ^
 -FORCECLIENT=127.0.0.1:7777 ^
--NOEPICWEB ^
--NOEPICFRIENDS ^
--NOEAC ^
 -NOBE ^
 -FORCECLIENT_HOST=127.0.0.1:7777
 
-echo [SUCCESS] Fortnite client launched and connected to custom server!
-echo [INFO] All Epic Games services have been disabled
-echo [INFO] Using only custom server for authentication
+echo [SUCCESS] Fortnite client launched in hybrid mode!
+echo [INFO] Using Epic authentication with custom server
 echo.
 timeout /t 3
 goto menu
@@ -246,12 +257,12 @@ del /f /q "%localappdata%\FortniteGame\Saved\Config\CrashReportClient\*.*" >nul 
 echo [INFO] Setting compatibility flags...
 reg add "HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers" /v "%GAME_EXE%" /t REG_SZ /d "~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE DISABLETHEMES" /f >nul 2>&1
 
-echo [INFO] Launching game with ZeroFN configuration...
+echo [INFO] Launching game with hybrid configuration...
 start "" "%GAME_EXE%" -HTTP=http://127.0.0.1:7777 ^
 -NOSPLASH -USEALLAVAILABLECORES -dx11 ^
 -AUTH_TYPE=epic ^
--AUTH_LOGIN=ZeroFN@zerofn.com ^
--AUTH_PASSWORD=zerofn ^
+-AUTH_LOGIN=unused ^
+-AUTH_PASSWORD=unused ^
 -epicapp=Fortnite ^
 -epicenv=Prod ^
 -epiclocale=en-us ^
@@ -265,19 +276,13 @@ start "" "%GAME_EXE%" -HTTP=http://127.0.0.1:7777 ^
 -AUTH_HOST=127.0.0.1:7777 ^
 -AUTH_SSL=0 ^
 -AUTH_VERIFY_SSL=0 ^
--AUTH_EPIC=0 ^
--AUTH_EPIC_ONLY=0 ^
 -FORCECLIENT=127.0.0.1:7777 ^
--NOEPICWEB ^
--NOEPICFRIENDS ^
--NOEAC ^
 -NOBE ^
 -FORCECLIENT_HOST=127.0.0.1:7777
 
-echo [SUCCESS] Game client launched and connected to custom server!
+echo [SUCCESS] Game client launched in hybrid mode!
 echo [INFO] Server is running in separate window with live logs
-echo [INFO] All Epic Games services have been disabled
-echo [INFO] Using only custom server for authentication
+echo [INFO] Using Epic authentication with custom server
 echo.
 echo Press any key to return to menu...
 pause >nul

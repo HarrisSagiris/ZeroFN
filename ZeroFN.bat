@@ -184,7 +184,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "%GAME_EXE%" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY
+start "" "%GAME_EXE%" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777
 
 echo Game launched!
 timeout /t 2 >nul
@@ -205,7 +205,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "%GAME_EXE%" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY
+start "" "%GAME_EXE%" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=ZeroFN@zerofn.com -AUTH_PASSWORD=zerofn -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777
 
 echo Server and game started successfully!
 timeout /t 2 >nul

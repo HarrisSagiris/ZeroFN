@@ -2,12 +2,15 @@
 title ProjectZERO-ZeroFN
 color 0f
 
+REM Initialize username variable
+set "LOGGED_IN_USER="
+
 REM Initial menu to choose between specifying a path or installing Fortnite OG
 :main_menu
 cls
 echo ==========================================
-echo    ProjectZERO 
-echo    Created by root404 and the ZeroFN team
+echo                ZeroFN     %LOGGED_IN_USER%
+echo    Created by @Devharris and @Addamito
 echo ==========================================
 echo.
 echo Please choose an option:
@@ -30,7 +33,7 @@ goto main_menu
 :season_select
 cls
 echo =====================================
-echo    Select Fortnite Season
+echo    Select Fortnite Season           %LOGGED_IN_USER%
 echo    Powered by ZeroFN
 echo =====================================
 echo.
@@ -97,13 +100,15 @@ start "" "https://www.epicgames.com/id/api/redirect?clientId=xyza7891TydzdNolyGQ
 echo Please login to your Epic Games account in the browser.
 echo After logging in, you'll be redirected back to the launcher.
 echo.
+set /p LOGGED_IN_USER="Enter your Epic Games username: "
+echo Logged in as: %LOGGED_IN_USER%
 pause
 goto main_menu
 
 :install_fortnite_og
 cls
 echo =====================================
-echo    Installing Fortnite
+echo    Installing Fortnite              %LOGGED_IN_USER%
 echo    Powered by ZeroFN
 echo =====================================
 echo.
@@ -130,14 +135,14 @@ echo Extracting files to "%INSTALL_DIR%"...
 mkdir "%INSTALL_DIR%"
 if "%ARCHIVE_NAME:~-3%"=="zip" (
     tar -xf "%ARCHIVE_NAME%" -C "%INSTALL_DIR%"
-) else (
-    echo Please extract the RAR file manually to: %INSTALL_DIR%
-    echo Press any key after extraction is complete...
-    pause >nul
+) else if "%ARCHIVE_NAME:~-3%"=="rar" (
+    echo Extracting RAR file...
+    "C:\Program Files\WinRAR\WinRAR.exe" x -y "%ARCHIVE_NAME%" "%INSTALL_DIR%\"
 )
 if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo Error: Failed to extract files. Ensure 'tar' is available or manually extract "%ARCHIVE_NAME%".
+    echo Error: Failed to extract files. For RAR files, ensure WinRAR is installed at default location.
+    echo If WinRAR is not installed, please install it and try again.
     pause
     exit /b 1
 )
@@ -152,7 +157,7 @@ goto locate_executable
 :specify_path
 cls
 echo =====================================
-echo    Specify FortniteOG Path
+echo    Specify FortniteOG Path          %LOGGED_IN_USER%
 echo    Powered by ZeroFN
 echo =====================================
 echo.
@@ -191,8 +196,8 @@ goto menu
 :menu
 cls
 echo =====================================
-echo    ProjectZERO
-echo    Powered by ZeroFN
+echo               ZeroFN    %LOGGED_IN_USER%
+echo   Powered by @Devharris and @Addamito
 echo =====================================
 echo.
 echo Current Fortnite executable: %GAME_EXE%
@@ -213,8 +218,8 @@ goto menu
 :start_server_only
 cls
 echo =====================================
-echo    Starting ProjectZERO server only
-echo    Powered by ZeroFN
+echo    Starting ZeroFN server only  %LOGGED_IN_USER%
+echo    Powered by Devharris
 echo =====================================
 echo.
 echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
@@ -228,7 +233,7 @@ goto menu
 :launch_game
 cls
 echo =====================================
-echo    Launching Game Client
+echo    Launching Game Client            %LOGGED_IN_USER%
 echo    Powered by ZeroFN
 echo =====================================
 echo.
@@ -287,8 +292,8 @@ goto menu
 :start_hybrid
 cls
 echo =====================================
-echo    Starting ProjectZERO Hybrid Mode (Game + Server)
-echo    Powered by ZeroFN
+echo    Starting ZeroFN Hybrid Mode  %LOGGED_IN_USER%
+echo    Powered by @Devharris
 echo =====================================
 echo.
 echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777

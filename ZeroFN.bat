@@ -141,7 +141,55 @@ echo.
 echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
 echo [INFO] Using game files from: %GAME_EXE%
 echo.
-start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
+
+REM Create Python server script
+echo import socket>server.py
+echo import threading>>server.py
+echo import json>>server.py
+echo import time>>server.py
+echo from datetime import datetime>>server.py
+echo.>>server.py
+echo class FortniteServer:>>server.py
+echo     def __init__(self):>>server.py
+echo         self.host = '127.0.0.1'>>server.py
+echo         self.port = 7777>>server.py
+echo         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)>>server.py
+echo         self.server.bind((self.host, self.port))>>server.py
+echo         self.server.listen(5)>>server.py
+echo         print(f'[INFO] Server listening on {self.host}:{self.port}')>>server.py
+echo.>>server.py
+echo     def handle_client(self, client):>>server.py
+echo         while True:>>server.py
+echo             try:>>server.py
+echo                 data = client.recv(1024).decode()>>server.py
+echo                 if not data:>>server.py
+echo                     break>>server.py
+echo                 response = self.generate_response()>>server.py
+echo                 client.send(response.encode())>>server.py
+echo             except:>>server.py
+echo                 break>>server.py
+echo         client.close()>>server.py
+echo.>>server.py
+echo     def generate_response(self):>>server.py
+echo         return json.dumps({>>server.py
+echo             "status": "success",>>server.py
+echo             "accountId": "zerofn_player",>>server.py
+echo             "displayName": "ZeroFN Player",>>server.py
+echo             "token": "zerofn_token">>server.py
+echo         })>>server.py
+echo.>>server.py
+echo     def start(self):>>server.py
+echo         while True:>>server.py
+echo             client, addr = self.server.accept()>>server.py
+echo             print(f'[INFO] Client connected from {addr[0]}:{addr[1]}')>>server.py
+echo             client_thread = threading.Thread(target=self.handle_client, args=(client,))>>server.py
+echo             client_thread.start()>>server.py
+echo.>>server.py
+echo if __name__ == '__main__':>>server.py
+echo     server = FortniteServer()>>server.py
+echo     server.start()>>server.py
+
+start cmd /k "title ZeroFN Server && python server.py"
 echo [SUCCESS] Server window opened with live logs
 pause
 goto menu
@@ -154,12 +202,6 @@ echo    Powered by ZeroFN
 echo =====================================
 echo.
 cd /d "%GAME_EXE%\.."
-
-echo [INFO] Starting ZeroFN server first...
-start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
-
-echo [INFO] Waiting 45 seconds for server to fully initialize...
-timeout /t 45 >nul
 
 echo [INFO] Cleaning up existing processes...
 taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
@@ -222,12 +264,58 @@ echo [INFO] Initializing ZeroFN server on 127.0.0.1:7777
 echo [INFO] Using game files from: %GAME_EXE%
 echo.
 
-echo [INFO] Starting ZeroFN server process...
-start cmd /k "title ZeroFN Server && echo [INFO] Starting server process... && python server.py"
+REM Create Python server script
+echo import socket>server.py
+echo import threading>>server.py
+echo import json>>server.py
+echo import time>>server.py
+echo from datetime import datetime>>server.py
+echo.>>server.py
+echo class FortniteServer:>>server.py
+echo     def __init__(self):>>server.py
+echo         self.host = '127.0.0.1'>>server.py
+echo         self.port = 7777>>server.py
+echo         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)>>server.py
+echo         self.server.bind((self.host, self.port))>>server.py
+echo         self.server.listen(5)>>server.py
+echo         print(f'[INFO] Server listening on {self.host}:{self.port}')>>server.py
+echo.>>server.py
+echo     def handle_client(self, client):>>server.py
+echo         while True:>>server.py
+echo             try:>>server.py
+echo                 data = client.recv(1024).decode()>>server.py
+echo                 if not data:>>server.py
+echo                     break>>server.py
+echo                 response = self.generate_response()>>server.py
+echo                 client.send(response.encode())>>server.py
+echo             except:>>server.py
+echo                 break>>server.py
+echo         client.close()>>server.py
+echo.>>server.py
+echo     def generate_response(self):>>server.py
+echo         return json.dumps({>>server.py
+echo             "status": "success",>>server.py
+echo             "accountId": "zerofn_player",>>server.py
+echo             "displayName": "ZeroFN Player",>>server.py
+echo             "token": "zerofn_token">>server.py
+echo         })>>server.py
+echo.>>server.py
+echo     def start(self):>>server.py
+echo         while True:>>server.py
+echo             client, addr = self.server.accept()>>server.py
+echo             print(f'[INFO] Client connected from {addr[0]}:{addr[1]}')>>server.py
+echo             client_thread = threading.Thread(target=self.handle_client, args=(client,))>>server.py
+echo             client_thread.start()>>server.py
+echo.>>server.py
+echo if __name__ == '__main__':>>server.py
+echo     server = FortniteServer()>>server.py
+echo     server.start()>>server.py
+
+start cmd /k "title ZeroFN Server && python server.py"
 echo [SUCCESS] Server initialized
 
-echo [INFO] Waiting 45 seconds for server to fully initialize...DONT CLOSE THE SERVER WINDOW
-timeout /t 45 >nul
+echo [INFO] Waiting 5 seconds for server to fully initialize...DONT CLOSE THE SERVER WINDOW
+timeout /t 5 >nul
 
 cd /d "%GAME_EXE%\.."
 

@@ -581,9 +581,9 @@ class ZeroFNApp:
         FortniteServerHandler.epic_auth_state = state
         
         # Epic Games OAuth2 parameters
-        client_id = "ec684b8c687f479fadea3cb2ad83f5c6"  # Your Epic Games client ID
+        client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"  # Your Epic Games client ID
         # PLACE YOUR CLIENT SECRET HERE AND ENCODE IT WITH THE CLIENT ID
-        client_secret = "YOUR_CLIENT_SECRET_HERE"
+        client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
         auth_string = f"{client_id}:{client_secret}"
         auth_header = base64.b64encode(auth_string.encode()).decode()
         

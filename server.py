@@ -7,13 +7,13 @@ import time
 import random
 from datetime import datetime
 
-# Configure logging
+# Configure logging with more detailed output
 if not os.path.exists('logs'):
     os.makedirs('logs')
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG, # Changed to DEBUG for more detailed logs
+    format='%(asctime)s - %(levelname)s - [%(threadName)s] %(message)s',
     handlers=[
         logging.StreamHandler(),
         logging.FileHandler('logs/zerofn_server.log')
@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger('FortniteServer')
 
 class FortniteAuthServer:
-    def __init__(self, host='127.0.0.1', port=7777):  # Changed to listen on 127.0.0.1:7777
+    def __init__(self, host='127.0.0.1', port=7777):
         self.host = host
         self.port = port
         self.running = True
@@ -34,44 +34,45 @@ class FortniteAuthServer:
         self.matchmaking_queue = []
         self.match_instances = {}
         self.last_update = time.time()
-        self.update_interval = 1.0  # Update every second
+        self.update_interval = 1.0
+        logger.info(f"Server initialized on {host}:{port}")
 
     def load_cosmetics(self):
-        # Enhanced cosmetics list with popular Fortnite items
+        logger.debug("Loading cosmetics data...")
         return {
             "characters": [
                 "CID_001_Athena_Commando_F_Default",
-                "CID_286_Athena_Commando_F_NeonCat", # Lynx
-                "CID_313_Athena_Commando_M_KpopFashion", # IKONIK
-                "CID_434_Athena_Commando_F_StealthHonor", # Renegade Raider
-                "CID_028_Athena_Commando_F", # Brite Bomber
-                "CID_081_Athena_Commando_M_BlueDragon", # Blue Team Leader
-                "CID_175_Athena_Commando_M_Celestial", # Galaxy
-                "CID_342_Athena_Commando_M_StreetRacer", # Travis Scott
+                "CID_286_Athena_Commando_F_NeonCat",
+                "CID_313_Athena_Commando_M_KpopFashion",
+                "CID_434_Athena_Commando_F_StealthHonor",
+                "CID_028_Athena_Commando_F",
+                "CID_081_Athena_Commando_M_BlueDragon",
+                "CID_175_Athena_Commando_M_Celestial",
+                "CID_342_Athena_Commando_M_StreetRacer",
             ],
             "backpacks": [
                 "BID_004_BlackKnight",
-                "BID_023_GhoulTrooper", 
-                "BID_095_GalaxyStar",
+                "BID_023_GhoulTrooper",
+                "BID_095_GalaxyStar", 
                 "BID_122_RustLord",
                 "BID_142_SpaceExplorer",
             ],
             "pickaxes": [
-                "Pickaxe_ID_012_District", # Raider's Revenge
-                "Pickaxe_ID_013_Teslacoil", # AC/DC
-                "Pickaxe_ID_015_Holiday", # Candy Axe
-                "Pickaxe_ID_029_WinterCamo", # Cold Steel
+                "Pickaxe_ID_012_District",
+                "Pickaxe_ID_013_Teslacoil",
+                "Pickaxe_ID_015_Holiday",
+                "Pickaxe_ID_029_WinterCamo",
             ],
             "gliders": [
                 "Glider_ID_001_Default",
-                "Glider_ID_002_Victory", 
-                "Glider_ID_003_Founder",
+                "Glider_ID_002_Victory",
+                "Glider_ID_003_Founder", 
                 "Glider_ID_008_StormSail",
             ],
             "emotes": [
                 "EID_DanceMoves",
-                "EID_Floss",
-                "EID_TakeTheL", 
+                "EID_Floss", 
+                "EID_TakeTheL",
                 "EID_Fresh",
                 "EID_RideThePony",
                 "EID_Dab",
@@ -83,51 +84,52 @@ class FortniteAuthServer:
     def start(self):
         try:
             self.server_socket.bind((self.host, self.port))
-            self.server_socket.listen(5)  # Allow multiple connections
-            logger.info(f'ZeroFN Server listening on {self.host}:{self.port}')
-            logger.info('Waiting for Fortnite client connections...')
+            self.server_socket.listen(5)
+            logger.info(f'ZeroFN Server started successfully on {self.host}:{self.port}')
+            logger.info('Ready to accept Fortnite client connections')
 
-            # Start update thread
-            update_thread = threading.Thread(target=self.update_loop)
+            update_thread = threading.Thread(target=self.update_loop, name="UpdateThread")
             update_thread.daemon = True
             update_thread.start()
+            logger.debug("Update loop thread started")
 
             while self.running:
                 try:
                     client_socket, address = self.server_socket.accept()
-                    logger.info(f'Fortnite client connected from {address}')
+                    logger.info(f'New client connection from {address}')
                     
-                    # Handle each client in a separate thread
                     client_thread = threading.Thread(
                         target=self.handle_client,
-                        args=(client_socket, address)
+                        args=(client_socket, address),
+                        name=f"ClientThread-{address[0]}:{address[1]}"
                     )
                     client_thread.daemon = True
                     client_thread.start()
+                    logger.debug(f"Started client handler thread for {address}")
                     
                 except Exception as e:
-                    logger.error(f'Connection error: {e}')
+                    logger.error(f'Connection error: {str(e)}')
                     continue
 
         except Exception as e:
-            logger.error(f'Server error: {e}')
+            logger.error(f'Fatal server error: {str(e)}')
             self.shutdown()
 
     def update_loop(self):
+        logger.debug("Update loop started")
         while self.running:
             current_time = time.time()
             if current_time - self.last_update >= self.update_interval:
                 self.last_update = current_time
                 self.update_game_state()
-            time.sleep(0.1)  # Small sleep to prevent CPU overuse
+            time.sleep(0.1)
 
     def update_game_state(self):
-        # Update active sessions
         for session_id in list(self.active_sessions.keys()):
             session = self.active_sessions[session_id]
             session['last_update'] = datetime.now().isoformat()
+            logger.debug(f"Updated session {session_id}")
 
-        # Update matchmaking queue
         if len(self.matchmaking_queue) >= 2:
             match_id = f'match_{random.randint(1000, 9999)}'
             players = self.matchmaking_queue[:2]
@@ -137,6 +139,7 @@ class FortniteAuthServer:
                 'start_time': datetime.now().isoformat(),
                 'status': 'in_progress'
             }
+            logger.info(f"Created new match {match_id} with players {players}")
 
     def handle_client(self, client_socket, address):
         try:
@@ -147,33 +150,42 @@ class FortniteAuthServer:
                 'connected_time': datetime.now().isoformat(),
                 'last_update': datetime.now().isoformat()
             }
+            logger.info(f"New session {session_id} created for {address}")
             
             while self.running:
                 try:
                     data = client_socket.recv(4096)
                     if not data:
+                        logger.info(f"Client {address} disconnected")
                         break
 
                     request = data.decode('utf-8')
-                    logger.info(f'Received request from client: {request[:100]}...')
+                    logger.debug(f'Request from {address}: {request[:200]}...')
 
                     request_lines = request.split('\r\n')
                     request_line = request_lines[0]
                     method, path, _ = request_line.split(' ')
+                    logger.info(f"Processing {method} request for {path}")
 
                     response_body = ""
                     if "/account/api/oauth/token" in path:
                         response_body = self.generate_auth_token_response()
+                        logger.info("Generated auth token response")
                     elif "/fortnite/api/game/v2/profile" in path:
                         response_body = self.generate_profile_response()
+                        logger.info("Generated profile response")
                     elif "/content/api/pages/fortnite-game" in path:
                         response_body = self.generate_game_info()
+                        logger.info("Generated game info response")
                     elif "/lightswitch/api/service/bulk/status" in path:
                         response_body = self.generate_lightswitch_response()
+                        logger.info("Generated lightswitch response")
                     elif "/account/api/public/account" in path:
                         response_body = self.generate_account_response()
+                        logger.info("Generated account response")
                     else:
                         response_body = self.generate_auth_token_response()
+                        logger.info("Generated default auth response")
 
                     headers = [
                         'HTTP/1.1 200 OK',
@@ -187,25 +199,26 @@ class FortniteAuthServer:
 
                     response = '\r\n'.join(headers) + '\r\n\r\n' + response_body
                     client_socket.send(response.encode())
-                    logger.info(f'Sent response to client')
+                    logger.debug(f'Sent response to {address}')
 
                 except socket.timeout:
                     continue
                 except Exception as e:
-                    logger.error(f'Error handling request: {e}')
+                    logger.error(f'Error handling request from {address}: {str(e)}')
                     break
 
         except Exception as e:
-            logger.error(f'Client handler error: {e}')
+            logger.error(f'Client handler error for {address}: {str(e)}')
         finally:
             if session_id in self.active_sessions:
                 del self.active_sessions[session_id]
             client_socket.close()
-            logger.info(f'Client {address} disconnected')
+            logger.info(f'Cleaned up session {session_id} for {address}')
 
     def generate_auth_token(self):
         token = f'eg1~ZeroFN_{random.randint(1000000, 9999999)}'
         self.auth_tokens[token] = time.time()
+        logger.debug(f"Generated new auth token: {token}")
         return token
 
     def generate_auth_token_response(self):
@@ -262,7 +275,7 @@ class FortniteAuthServer:
                         "image": "https://i.imgur.com/example.jpg",
                         "tileImage": "https://i.imgur.com/example.jpg",
                         "title": "Welcome to ZeroFN",
-                        "body": "Enjoy your game!",
+                        "body": "Login bypassed successfully! Enjoy your game!",
                     }]
                 }
             }
@@ -272,7 +285,7 @@ class FortniteAuthServer:
         return json.dumps([{
             "serviceInstanceId": "fortnite",
             "status": "UP",
-            "message": "Fortnite is online",
+            "message": "Fortnite servers are UP",
             "maintenanceUri": None,
             "allowedActions": ["PLAY", "DOWNLOAD"],
             "banned": False,
@@ -287,16 +300,32 @@ class FortniteAuthServer:
         return json.dumps({
             "id": "ZeroFN_Player",
             "displayName": "ZeroFN Player",
-            "externalAuths": {}
+            "externalAuths": {},
+            "email": "zerofn@localhost",
+            "failedLoginAttempts": 0,
+            "lastLogin": datetime.now().isoformat(),
+            "numberOfDisplayNameChanges": 0,
+            "ageGroup": "ADULT",
+            "headless": False,
+            "country": "US",
+            "lastName": "Player",
+            "preferredLanguage": "en",
+            "canUpdateDisplayName": True,
+            "tfaEnabled": False,
+            "emailVerified": True,
+            "minorVerified": False,
+            "minorExpected": False,
+            "minorStatus": "UNKNOWN"
         })
 
     def shutdown(self):
-        logger.info('Shutting down ZeroFN server...')
+        logger.info('Initiating server shutdown...')
         self.running = False
         try:
             self.server_socket.close()
-        except Exception:
-            pass
+            logger.info('Server socket closed')
+        except Exception as e:
+            logger.error(f'Error during shutdown: {str(e)}')
         logger.info('Server shutdown complete')
 
 

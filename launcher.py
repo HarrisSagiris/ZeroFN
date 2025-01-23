@@ -22,6 +22,18 @@ import base64
 import zipfile
 from PIL import Image, ImageTk
 
+# Check if running with admin privileges, if not, restart with admin rights
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+if not is_admin():
+    # Re-run the program with admin rights
+    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    sys.exit()
+
 # Modern Epic Games theme with glassmorphism effects
 class EpicTheme:
     BG_COLOR = '#0b0d17' 
@@ -133,6 +145,28 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                 query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
                 FortniteServerHandler.epic_auth_code = query.get('code', [None])[0]
                 if FortniteServerHandler.epic_auth_code:
+                    # Exchange auth code for tokens using correct client credentials
+                    token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
+                    client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
+                    client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
+                    
+                    auth_str = f"{client_id}:{client_secret}"
+                    auth_bytes = auth_str.encode('ascii')
+                    auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                    
+                    headers = {
+                        'Authorization': f'Basic {auth_b64}',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                    
+                    data = {
+                        'grant_type': 'authorization_code',
+                        'code': FortniteServerHandler.epic_auth_code
+                    }
+                    
+                    response = requests.post(token_url, headers=headers, data=data)
+                    FortniteServerHandler.auth_tokens = response.json()
+                    
                     self.send_response(200)
                     self.send_header('Content-Type', 'text/html')
                     self.end_headers()
@@ -187,7 +221,7 @@ class FortniteServerHandler(BaseHTTPRequestHandler):
                     "expires_at": "9999-12-31T23:59:59.999Z",
                     "token_type": "bearer",
                     "account_id": FortniteServerHandler.auth_tokens["account_id"],
-                    "client_id": "xyza7891TydzdNolyGQJYa9b6n6rLMJI",
+                    "client_id": "xyza7891TydzdNolyGQJYa9b6n6rLMJl",
                     "internal_client": True,
                     "client_service": "fortnite",
                     "displayName": FortniteServerHandler.auth_tokens["display_name"],
@@ -395,7 +429,7 @@ class LauncherApp:
 
         login_btn = ttk.Button(launch_frame,
                              text="LOGIN TO ACCOUNT",
-                             command=lambda: webbrowser.open('https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D3446cd72694c4a4485d81b77adbb2141%26responseType%3Dcode'),
+                             command=lambda: webbrowser.open('https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3Dxyza7891TydzdNolyGQJYa9b6n6rLMJl%26responseType%3Dcode'),
                              style='Primary.Epic.TButton')
         login_btn.pack(side=tk.LEFT, padx=(0, 15))
 
@@ -566,7 +600,7 @@ class LauncherApp:
             server_thread = threading.Thread(target=self.server.start, daemon=True)
             server_thread.start()
             
-            # Launch game
+            # Launch game with admin privileges
             game_exe = Path(self.fortnite_path.get()) / "FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe"
             
             if not game_exe.exists():
@@ -602,7 +636,10 @@ class LauncherApp:
                 "-DISABLEEPICGAMESVERIFY"
             ]
 
-            self.game_process = subprocess.Popen(launch_args)
+            # Launch with admin privileges using ShellExecute
+            args_str = " ".join(f'"{arg}"' for arg in launch_args)
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", str(game_exe), args_str, None, 1)
+            
             self.log_message("Game launched successfully!")
             
             # Wait for client connection

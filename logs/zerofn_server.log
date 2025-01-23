@@ -1,0 +1,103 @@
+2025-01-23 18:02:34,184 - DEBUG - [MainThread] Loading cosmetics data...
+2025-01-23 18:02:34,184 - INFO - [MainThread] Server initialized on 127.0.0.1:7777
+2025-01-23 18:02:34,185 - INFO - [MainThread] ZeroFN Server started successfully on 127.0.0.1:7777
+2025-01-23 18:02:34,185 - INFO - [MainThread] Ready to accept Fortnite client connections
+2025-01-23 18:02:34,185 - DEBUG - [UpdateThread] Update loop started
+2025-01-23 18:02:34,185 - DEBUG - [MainThread] Update loop thread started
+2025-01-23 18:08:29,848 - DEBUG - [MainThread] Loading cosmetics data...
+2025-01-23 18:08:29,849 - INFO - [MainThread] Server initialized on 127.0.0.1:7777
+2025-01-23 18:08:29,849 - INFO - [MainThread] ZeroFN Server started successfully on 127.0.0.1:7777
+2025-01-23 18:08:29,849 - INFO - [MainThread] Ready to accept Fortnite client connections
+2025-01-23 18:08:29,849 - DEBUG - [UpdateThread] Update loop started
+2025-01-23 18:08:29,849 - DEBUG - [MainThread] Update loop thread started
+2025-01-23 18:08:37,095 - INFO - [MainThread] New client connection from ('127.0.0.1', 63605)
+2025-01-23 18:08:37,095 - DEBUG - [MainThread] Started client handler thread for ('127.0.0.1', 63605)
+2025-01-23 18:08:37,095 - INFO - [ClientThread-127.0.0.1:63605] New session session_6259 created for ('127.0.0.1', 63605)
+2025-01-23 18:08:37,095 - DEBUG - [ClientThread-127.0.0.1:63605] Request from ('127.0.0.1', 63605): GET / HTTP/1.1
+Host: 127.0.0.1:7777
+Connection: keep-alive
+sec-ch-ua: "Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "Windows"
+Upgrade...
+2025-01-23 18:08:37,095 - INFO - [ClientThread-127.0.0.1:63605] Processing GET request for /
+2025-01-23 18:08:37,095 - DEBUG - [ClientThread-127.0.0.1:63605] Generated new auth token: eg1~ZeroFN_8474139
+2025-01-23 18:08:37,095 - INFO - [ClientThread-127.0.0.1:63605] Generated default auth response
+2025-01-23 18:08:37,095 - DEBUG - [ClientThread-127.0.0.1:63605] Sent response to ('127.0.0.1', 63605)
+2025-01-23 18:08:37,862 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:37,882 - DEBUG - [ClientThread-127.0.0.1:63605] Request from ('127.0.0.1', 63605): GET /favicon.ico HTTP/1.1
+Host: 127.0.0.1:7777
+Connection: keep-alive
+sec-ch-ua-platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chr...
+2025-01-23 18:08:37,884 - INFO - [ClientThread-127.0.0.1:63605] Processing GET request for /favicon.ico
+2025-01-23 18:08:37,884 - DEBUG - [ClientThread-127.0.0.1:63605] Generated new auth token: eg1~ZeroFN_8407791
+2025-01-23 18:08:37,884 - INFO - [ClientThread-127.0.0.1:63605] Generated default auth response
+2025-01-23 18:08:37,884 - DEBUG - [ClientThread-127.0.0.1:63605] Sent response to ('127.0.0.1', 63605)
+2025-01-23 18:08:38,865 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:39,867 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:40,869 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:41,871 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:42,872 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:43,875 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:44,877 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:45,880 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:46,883 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:47,885 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:48,887 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:49,890 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:50,892 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:51,896 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:52,897 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:53,900 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:54,903 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:55,905 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:56,907 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:57,909 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:58,910 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:08:59,912 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:00,914 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:01,916 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:02,919 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:03,921 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:04,924 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:05,925 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:06,927 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:07,932 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:08,933 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:09,935 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:10,938 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:11,940 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:12,942 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:13,945 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:14,948 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:15,951 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:16,956 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:17,959 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:18,962 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:19,966 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:20,969 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:21,972 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:22,975 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:23,979 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:24,982 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:25,985 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:09:26,987 - DEBUG - [UpdateThread] Updated session session_6259
+2025-01-23 18:13:00,819 - DEBUG - [MainThread] Loading cosmetics data...
+2025-01-23 18:13:00,819 - INFO - [MainThread] Server initialized on 127.0.0.1:7777
+2025-01-23 18:13:00,819 - INFO - [MainThread] ZeroFN Server started successfully on 127.0.0.1:7777
+2025-01-23 18:13:00,819 - INFO - [MainThread] Ready to accept Fortnite client connections
+2025-01-23 18:13:00,820 - DEBUG - [UpdateThread] Update loop started
+2025-01-23 18:13:00,820 - DEBUG - [MainThread] Update loop thread started
+2025-01-23 18:20:58,460 - DEBUG - [MainThread] Loading cosmetics data...
+2025-01-23 18:20:58,460 - INFO - [MainThread] Server initialized on 127.0.0.1:7777
+2025-01-23 18:20:58,460 - INFO - [MainThread] ZeroFN Server started successfully on 127.0.0.1:7777
+2025-01-23 18:20:58,461 - INFO - [MainThread] Ready to accept Fortnite client connections
+2025-01-23 18:20:58,461 - DEBUG - [UpdateThread] Update loop started
+2025-01-23 18:20:58,461 - DEBUG - [MainThread] Update loop thread started
+2025-01-23 18:29:50,603 - DEBUG - [MainThread] Loading cosmetics data...
+2025-01-23 18:29:50,603 - INFO - [MainThread] Server initialized on 127.0.0.1:7777
+2025-01-23 18:29:50,603 - INFO - [MainThread] ZeroFN Server started successfully on 127.0.0.1:7777
+2025-01-23 18:29:50,603 - INFO - [MainThread] Ready to accept Fortnite client connections
+2025-01-23 18:29:50,604 - DEBUG - [UpdateThread] Update loop started
+2025-01-23 18:29:50,604 - DEBUG - [MainThread] Update loop thread started

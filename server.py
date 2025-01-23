@@ -4,12 +4,24 @@ import json
 import time
 import requests
 import base64
+import logging
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 from pathlib import Path
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler('server.log'),
+        logging.StreamHandler()
+    ]
+)
+
 class FortniteServer:
     def __init__(self):
+        self.logger = logging.getLogger('FortniteServer')
         self.host = '127.0.0.1'
         self.port = 7777
         self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl" # Custom registered client ID
@@ -28,19 +40,24 @@ class FortniteServer:
         
         # Initialize TCP server for game connections
         self.game_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        self.game_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.game_server.bind((self.host, self.port+1))
         self.game_server.listen(5)
         
-        print(f'[INFO] HTTP Server listening on {self.host}:{self.port}')
-        print(f'[INFO] Game Server listening on {self.host}:{self.port+1}')
+        self.logger.info(f'HTTP Server listening on {self.host}:{self.port}')
+        self.logger.info(f'Game Server listening on {self.host}:{self.port+1}')
 
     def create_callback_handler(self):
         outer_instance = self
         
         class CallbackHandler(BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                outer_instance.logger.info(f"HTTP Request: {format%args}")
+                
             def do_GET(self):
                 if self.path.startswith('/epic/auth'):
                     auth_code = self.path.split('code=')[1]
+                    outer_instance.logger.info(f'Received auth code: {auth_code[:10]}...')
                     outer_instance.handle_epic_auth(auth_code)
                     
                     self.send_response(200)
@@ -84,6 +101,7 @@ class FortniteServer:
                     self.wfile.write(success_html.encode())
 
     def handle_epic_auth(self, auth_code):
+        self.logger.info('Processing Epic authentication...')
         auth_str = f"{self.client_id}:{self.client_secret}"
         auth_bytes = auth_str.encode('ascii')
         auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
@@ -99,21 +117,26 @@ class FortniteServer:
             'token_type': 'eg1'
         }
         
-        response = requests.post(
-            'https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token',
-            headers=headers,
-            data=data
-        )
-        
-        if response.status_code == 200:
-            self.auth_tokens[auth_code] = response.json()
-            print(f'[INFO] Successfully authenticated user')
-            print(f'[INFO] Access token: {self.auth_tokens[auth_code]["access_token"]}')
-        else:
-            print(f'[ERROR] Auth failed: {response.text}')
+        try:
+            response = requests.post(
+                'https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token',
+                headers=headers,
+                data=data
+            )
+            
+            if response.status_code == 200:
+                self.auth_tokens[auth_code] = response.json()
+                self.logger.info('Successfully authenticated user')
+                self.logger.debug(f'Access token: {self.auth_tokens[auth_code]["access_token"][:10]}...')
+            else:
+                self.logger.error(f'Auth failed with status {response.status_code}: {response.text}')
+        except Exception as e:
+            self.logger.error(f'Auth request failed: {str(e)}')
 
     def handle_game_client(self, client, addr):
         player_id = str(addr[1])
+        self.logger.info(f'New game client connected - Player ID: {player_id}')
+        
         self.online_players[player_id] = {
             'addr': addr,
             'client': client,
@@ -121,32 +144,42 @@ class FortniteServer:
             'status': 'online'
         }
         
-        while True:
-            try:
+        try:
+            while True:
                 data = client.recv(1024).decode()
                 if not data:
+                    self.logger.info(f'Client {player_id} disconnected')
                     break
                     
+                self.logger.debug(f'Received from {player_id}: {data}')
                 request = json.loads(data)
                 response = self.handle_game_request(request, player_id)
-                client.send(json.dumps(response).encode())
                 
-            except Exception as e:
-                print(f'[ERROR] Client error: {e}')
-                break
+                response_json = json.dumps(response)
+                self.logger.debug(f'Sending to {player_id}: {response_json}')
+                client.send(response_json.encode())
                 
-        if player_id in self.matchmaking_queue:
-            self.matchmaking_queue.remove(player_id)
-        if player_id in self.online_players:
-            del self.online_players[player_id]
-        client.close()
+        except json.JSONDecodeError as e:
+            self.logger.error(f'Invalid JSON from client {player_id}: {str(e)}')
+        except Exception as e:
+            self.logger.error(f'Error handling client {player_id}: {str(e)}')
+        finally:
+            if player_id in self.matchmaking_queue:
+                self.matchmaking_queue.remove(player_id)
+                self.logger.info(f'Removed {player_id} from matchmaking queue')
+            if player_id in self.online_players:
+                del self.online_players[player_id]
+                self.logger.info(f'Removed {player_id} from online players')
+            client.close()
 
     def handle_game_request(self, request, player_id):
         req_type = request.get('type')
+        self.logger.info(f'Handling {req_type} request from {player_id}')
         
         if req_type == 'login':
-            season = request.get('season', '1')  # Get player's season
+            season = request.get('season', '1')
             self.player_seasons[player_id] = season
+            self.logger.info(f'Player {player_id} logged in - Season {season}')
             return {
                 'status': 'success',
                 'accountId': player_id,
@@ -157,35 +190,43 @@ class FortniteServer:
             
         elif req_type == 'add_friend':
             friend_id = request.get('friend_id')
+            self.logger.info(f'Player {player_id} attempting to add friend {friend_id}')
             if friend_id in self.online_players:
                 if player_id not in self.friend_lists:
                     self.friend_lists[player_id] = []
                 self.friend_lists[player_id].append(friend_id)
+                self.logger.info(f'Friend {friend_id} added to {player_id}\'s friend list')
                 return {'status': 'success', 'message': 'Friend added!'}
             return {'status': 'error', 'message': 'Player not found'}
             
         elif req_type == 'invite_to_party':
             friend_id = request.get('friend_id')
+            self.logger.info(f'Player {player_id} inviting {friend_id} to party')
             if friend_id in self.online_players:
                 if self.player_seasons[player_id] == self.player_seasons[friend_id]:
                     self.party_invites[friend_id] = player_id
+                    self.logger.info(f'Party invite sent from {player_id} to {friend_id}')
                     return {'status': 'success', 'message': 'Invite sent!'}
+                self.logger.warning(f'Party invite failed - Season mismatch between {player_id} and {friend_id}')
                 return {'status': 'error', 'message': 'Players must be in same season'}
             return {'status': 'error', 'message': 'Player not online'}
             
         elif req_type == 'accept_invite':
+            self.logger.info(f'Player {player_id} accepting party invite')
             if player_id in self.party_invites:
                 party_leader = self.party_invites[player_id]
                 party_id = f'party_{int(time.time())}'
                 self.online_players[player_id]['party_id'] = party_id
                 self.online_players[party_leader]['party_id'] = party_id
                 self.party_chat[party_id] = []
+                self.logger.info(f'Created party {party_id} with leader {party_leader} and member {player_id}')
                 return {'status': 'success', 'party_id': party_id}
             return {'status': 'error', 'message': 'No pending invites'}
             
         elif req_type == 'party_chat':
             message = request.get('message')
             party_id = self.online_players[player_id]['party_id']
+            self.logger.info(f'Party chat message from {player_id} in party {party_id}')
             if party_id:
                 self.party_chat[party_id].append({
                     'player': player_id,
@@ -198,18 +239,19 @@ class FortniteServer:
         elif req_type == 'matchmaking':
             season = self.player_seasons[player_id]
             party_id = self.online_players[player_id]['party_id']
+            self.logger.info(f'Player {player_id} requesting matchmaking for season {season}')
             
-            # Add whole party to queue if in party
             if party_id:
                 party_members = [pid for pid, data in self.online_players.items() 
                                if data['party_id'] == party_id]
                 for member in party_members:
                     if member not in self.matchmaking_queue:
                         self.matchmaking_queue.append(member)
+                        self.logger.info(f'Added party member {member} to matchmaking queue')
             else:
                 self.matchmaking_queue.append(player_id)
+                self.logger.info(f'Added solo player {player_id} to matchmaking queue')
                 
-            # Try to match players in same season
             same_season_players = [p for p in self.matchmaking_queue 
                                  if self.player_seasons[p] == season]
             
@@ -223,6 +265,7 @@ class FortniteServer:
                 }
                 for p in players:
                     self.matchmaking_queue.remove(p)
+                self.logger.info(f'Created match in lobby {lobby_id} with players {players}')
                 return {
                     'status': 'match_found',
                     'lobby_id': lobby_id,
@@ -234,6 +277,7 @@ class FortniteServer:
                 'position': len(self.matchmaking_queue)
             }
             
+        self.logger.warning(f'Invalid request type {req_type} from {player_id}')
         return {'status': 'error', 'message': 'Invalid request type'}
 
     def get_default_inventory(self):
@@ -287,19 +331,34 @@ class FortniteServer:
         ]
 
     def start(self):
-        # Start HTTP server thread for auth callbacks
-        http_thread = threading.Thread(target=self.http_server.serve_forever)
-        http_thread.daemon = True
-        http_thread.start()
-        
-        # Accept game clients
-        while True:
-            client, addr = self.game_server.accept()
-            print(f'[INFO] Game client connected from {addr[0]}:{addr[1]}')
-            client_thread = threading.Thread(target=self.handle_game_client, args=(client, addr))
-            client_thread.daemon = True
-            client_thread.start()
+        try:
+            # Start HTTP server thread for auth callbacks
+            http_thread = threading.Thread(target=self.http_server.serve_forever)
+            http_thread.daemon = True
+            http_thread.start()
+            self.logger.info('HTTP server thread started')
+            
+            # Accept game clients
+            self.logger.info('Starting main game server loop')
+            while True:
+                client, addr = self.game_server.accept()
+                self.logger.info(f'New connection from {addr[0]}:{addr[1]}')
+                client_thread = threading.Thread(target=self.handle_game_client, args=(client, addr))
+                client_thread.daemon = True
+                client_thread.start()
+                
+        except Exception as e:
+            self.logger.error(f'Server error: {str(e)}')
+        finally:
+            self.logger.info('Shutting down server...')
+            self.http_server.shutdown()
+            self.game_server.close()
 
 if __name__ == '__main__':
-    server = FortniteServer()
-    server.start()
+    try:
+        server = FortniteServer()
+        server.start()
+    except KeyboardInterrupt:
+        logging.info('Server stopped by user')
+    except Exception as e:
+        logging.error(f'Fatal server error: {str(e)}')

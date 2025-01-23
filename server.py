@@ -9,6 +9,8 @@ import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 from pathlib import Path
+import subprocess
+import os
 
 print("Starting ZeroFN Server...")
 print("Initializing components...")
@@ -29,13 +31,23 @@ class FortniteServer:
     def __init__(self):
         print("Setting up server configuration...")
         self.logger = logging.getLogger('FortniteServer')
-        self.host = '0.0.0.0'  # Listen on all interfaces
+        self.host = '127.0.0.1'  # Listen only on localhost
         self.port = 7777
         
-        print("Initializing HTTP server...")
-        # Initialize HTTP server
-        self.http_server = HTTPServer((self.host, self.port), self.create_request_handler())
-        
+        try:
+            print("Initializing HTTP server...")
+            # Initialize HTTP server
+            self.http_server = HTTPServer((self.host, self.port), self.create_request_handler())
+            print(f'Successfully bound to {self.host}:{self.port}')
+        except Exception as e:
+            print(f"ERROR: Could not bind to port {self.port}. Error: {str(e)}")
+            # Check if port is in use
+            try:
+                subprocess.run(['netstat', '-ano', '|', 'findstr', str(self.port)], shell=True)
+            except:
+                pass
+            raise e
+            
         print("Setting up client tracking system...")
         # Track connected clients
         self.connected_clients = set()
@@ -46,7 +58,6 @@ class FortniteServer:
         self.matchmaking_queue = []
         self.match_lock = threading.Lock()
         
-        print(f'Server bound to {self.host}:{self.port}')
         self.logger.info(f'Fortnite private server listening on {self.host}:{self.port}')
 
     def create_request_handler(self):
@@ -65,8 +76,9 @@ class FortniteServer:
                         outer_instance.logger.info(f'Total connected clients: {len(outer_instance.connected_clients)}')
                         print(f'New client connected from {client_ip}')
                         print(f'Total connected clients: {len(outer_instance.connected_clients)}')
-                
+
             def do_GET(self):
+                print(f"Received GET request for path: {self.path}")
                 self.add_client()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
@@ -163,9 +175,11 @@ class FortniteServer:
                     }
                     outer_instance.logger.info(f'Authenticated client {self.client_address[0]}')
 
+                print(f"Sending response: {json.dumps(response)}")
                 self.wfile.write(json.dumps(response).encode())
 
             def do_POST(self):
+                print(f"Received POST request for path: {self.path}")
                 self.add_client()
                 content_length = int(self.headers.get('Content-Length', 0))
                 post_data = self.rfile.read(content_length)
@@ -173,8 +187,10 @@ class FortniteServer:
                 try:
                     request_json = json.loads(post_data.decode())
                     outer_instance.logger.info(f'Received POST request: {request_json}')
+                    print(f"POST data: {request_json}")
                 except:
                     outer_instance.logger.warning('Could not parse POST data as JSON')
+                    print("Failed to parse POST data as JSON")
                 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
@@ -195,6 +211,7 @@ class FortniteServer:
                     "serverTime": datetime.now().isoformat()
                 }
 
+                print(f"Sending response: {json.dumps(response)}")
                 self.wfile.write(json.dumps(response).encode())
 
     def start(self):

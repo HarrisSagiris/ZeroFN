@@ -12,8 +12,8 @@ class FortniteServer:
     def __init__(self):
         self.host = '127.0.0.1'
         self.port = 7777
-        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-        self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
+        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl" # Custom registered client ID
+        self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA" # Official Epic client secret
         self.auth_tokens = {}
         self.lobbies = {}
         self.matchmaking_queue = []
@@ -34,16 +34,49 @@ class FortniteServer:
         
         class CallbackHandler(BaseHTTPRequestHandler):
             def do_GET(self):
-                if self.path.startswith('/epic/callback'):
+                if self.path.startswith('/epic/auth'):
                     auth_code = self.path.split('code=')[1]
                     outer_instance.handle_epic_auth(auth_code)
                     
                     self.send_response(200)
                     self.send_header('Content-Type', 'text/html')
                     self.end_headers()
-                    self.wfile.write(b"Login successful! You can close this window.")
-                    
-        return CallbackHandler
+                    success_html = """
+                    <html>
+                        <head>
+                            <style>
+                                body { 
+                                    background: #0b0d17;
+                                    color: white;
+                                    font-family: 'Segoe UI', sans-serif;
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: center;
+                                    height: 100vh;
+                                    margin: 0;
+                                }
+                                .success-card {
+                                    background: rgba(21, 24, 35, 0.95);
+                                    padding: 2rem;
+                                    border-radius: 15px;
+                                    text-align: center;
+                                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                                }
+                                .success-icon {
+                                    color: #00c853;
+                                    font-size: 48px;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="success-card">
+                                <h2>✓ Login Successful!</h2>
+                                <p>You can now close this window and return to the launcher.</p>
+                            </div>
+                        </body>
+                    </html>
+                    """
+                    self.wfile.write(success_html.encode())
 
     def handle_epic_auth(self, auth_code):
         auth_str = f"{self.client_id}:{self.client_secret}"
@@ -57,7 +90,8 @@ class FortniteServer:
         
         data = {
             'grant_type': 'authorization_code',
-            'code': auth_code
+            'code': auth_code,
+            'token_type': 'eg1'
         }
         
         response = requests.post(
@@ -69,6 +103,9 @@ class FortniteServer:
         if response.status_code == 200:
             self.auth_tokens[auth_code] = response.json()
             print(f'[INFO] Successfully authenticated user')
+            print(f'[INFO] Access token: {self.auth_tokens[auth_code]["access_token"]}')
+        else:
+            print(f'[ERROR] Auth failed: {response.text}')
 
     def handle_game_client(self, client, addr):
         player_id = str(addr[1])

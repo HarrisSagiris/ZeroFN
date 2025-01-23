@@ -21,11 +21,69 @@ echo.
 set /p choice="Enter your choice (1-5): "
 
 if "%choice%"=="1" goto specify_path
-if "%choice%"=="2" goto install_fortnite_og
+if "%choice%"=="2" goto season_select
 if "%choice%"=="3" goto epic_login
 if "%choice%"=="4" start https://discord.gg/yCY4FTMPdK && goto main_menu
 if "%choice%"=="5" exit
 goto main_menu
+
+:season_select
+cls
+echo =====================================
+echo    Select Fortnite Season
+echo    Powered by ZeroFN
+echo =====================================
+echo.
+echo Please select which season you want to install:
+echo.
+echo [1] Season 1 
+echo [2] Season 2 (OG)
+echo [3] Season 3
+echo [4] Season 4
+echo [5] Season 5
+echo [6] Season 6
+echo [7] Season 7
+echo [8] Back to Main Menu
+echo.
+set /p season="Enter your choice (1-8): "
+
+if "%season%"=="1" (
+    set "DOWNLOAD_URL=https://public.simplyblk.xyz/1.7.2.zip"
+    set "ARCHIVE_NAME=1.7.2.zip"
+    goto install_fortnite_og
+)
+if "%season%"=="2" (
+    set "DOWNLOAD_URL=https://public.simplyblk.xyz/1.11.zip"
+    set "ARCHIVE_NAME=1.11.zip"
+    goto install_fortnite_og
+)
+if "%season%"=="3" (
+    set "DOWNLOAD_URL=https://public.simplyblk.xyz/3.0.zip"
+    set "ARCHIVE_NAME=3.0.zip"
+    goto install_fortnite_og
+)
+if "%season%"=="4" (
+    set "DOWNLOAD_URL=https://public.simplyblk.xyz/4.0.zip"
+    set "ARCHIVE_NAME=4.0.zip"
+    goto install_fortnite_og
+)
+if "%season%"=="5" (
+    set "DOWNLOAD_URL=https://public.simplyblk.xyz/5.00.rar"
+    set "ARCHIVE_NAME=5.00.rar"
+    goto install_fortnite_og
+)
+if "%season%"=="6" (
+    set "DOWNLOAD_URL=https://public.simplyblk.xyz/6.00.rar"
+    set "ARCHIVE_NAME=6.00.rar"
+    goto install_fortnite_og
+)
+if "%season%"=="7" (
+    set "DOWNLOAD_URL=https://public.simplyblk.xyz/7.00.rar"
+    set "ARCHIVE_NAME=7.00.rar"
+    goto install_fortnite_og
+)
+if "%season%"=="8" goto main_menu
+goto season_select
 
 :epic_login
 cls
@@ -35,7 +93,7 @@ echo    Powered by ZeroFN
 echo =====================================
 echo.
 echo Opening Epic Games login in your browser...
-start "" "https://www.epicgames.com/id/api/redirect?clientId=xyza7891TydzdNolyGQJYa9b6n6rLMJl&responseType=code&redirectUrl=http://127.0.0.1:7777/epic/callback"
+start "" "https://www.epicgames.com/id/api/redirect?clientId=xyza7891TydzdNolyGQJYa9b6n6rLMJl&responseType=code&redirectUrl=eos.xyza7891TydzdNolyGQJYa9b6n6rLMJl://epic/auth"
 echo Please login to your Epic Games account in the browser.
 echo After logging in, you'll be redirected back to the launcher.
 echo.
@@ -45,13 +103,11 @@ goto main_menu
 :install_fortnite_og
 cls
 echo =====================================
-echo    Installing Fortnite OG
+echo    Installing Fortnite
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-set "DOWNLOAD_URL=https://public.simplyblk.xyz/1.11.zip"
 set "INSTALL_DIR=%cd%\FortniteOG"
-set "ARCHIVE_NAME=1.11.zip"
 
 if exist "%INSTALL_DIR%" (
     echo The directory "%INSTALL_DIR%" already exists.
@@ -61,7 +117,7 @@ if exist "%INSTALL_DIR%" (
 )
 
 echo This procedure depends on your internet speeds..it can take time..
-echo Downloading Fortnite OG files from: %DOWNLOAD_URL%
+echo Downloading Fortnite files from: %DOWNLOAD_URL%
 curl -o "%ARCHIVE_NAME%" "%DOWNLOAD_URL%"
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -72,7 +128,13 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo Extracting files to "%INSTALL_DIR%"...
 mkdir "%INSTALL_DIR%"
-tar -xf "%ARCHIVE_NAME%" -C "%INSTALL_DIR%"
+if "%ARCHIVE_NAME:~-3%"=="zip" (
+    tar -xf "%ARCHIVE_NAME%" -C "%INSTALL_DIR%"
+) else (
+    echo Please extract the RAR file manually to: %INSTALL_DIR%
+    echo Press any key after extraction is complete...
+    pause >nul
+)
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo Error: Failed to extract files. Ensure 'tar' is available or manually extract "%ARCHIVE_NAME%".
@@ -81,7 +143,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo Fortnite OG successfully installed in "%INSTALL_DIR%".
+echo Fortnite successfully installed in "%INSTALL_DIR%".
 del "%ARCHIVE_NAME%"
 pause
 set "GAME_PATH=%INSTALL_DIR%"
@@ -118,7 +180,7 @@ if not exist "%GAME_EXE%" (
     echo Error: Could not locate FortniteClient-Win64-Shipping.exe at:
     echo %GAME_EXE%
     echo.
-    echo Please ensure your FortniteOG installation is complete and contains all required files.
+    echo Please ensure your Fortnite installation is complete and contains all required files.
     pause
     goto specify_path
 )

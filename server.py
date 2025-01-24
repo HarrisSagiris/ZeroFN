@@ -34,7 +34,7 @@ class FortniteServer:
         print("Setting up server configuration...")
         self.logger = logging.getLogger('FortniteServer')
         self.host = '127.0.0.1'  # Listen only on localhost
-        self.port = 7777
+        self.port = 7778
         
         # Epic Games OAuth credentials
         self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
@@ -222,7 +222,7 @@ class FortniteServer:
                     }
                 elif self.path.startswith('/fortnite/api/game/v2/matchmakingservice/ticket'):
                     response = {
-                        "serviceUrl": "ws://127.0.0.1:7777",
+                        "serviceUrl": "ws://127.0.0.1:7778",
                         "ticketType": "mms-player",
                         "payload": "mms-player",
                         "signature": "mms-player-signature"

@@ -247,7 +247,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "eos.xyza7891TydzdNolyGQJYa9b6n6rLMJl://epic/auth"
+            redirect_uri = "http://127.0.0.1:7777/epic/callback"
             state = base64.b64encode(os.urandom(32)).decode('utf-8')
             
             auth_params = {
@@ -273,7 +273,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "eos.xyza7891TydzdNolyGQJYa9b6n6rLMJl://epic/auth"
+                redirect_uri = "http://127.0.0.1:7777/epic/callback"
                 
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',

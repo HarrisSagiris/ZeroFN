@@ -222,20 +222,19 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
+                redirect_uri = "http://127.0.0.1:7777/epic/callback"
                 
                 auth_string = f"{client_id}:{client_secret}"
                 auth_base64 = base64.b64encode(auth_string.encode()).decode()
                 
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': f'Basic {auth_base64}',
-                    'User-Agent': 'ZeroFNClient/1.0'
+                    'Authorization': f'Basic {auth_base64}'
                 }
                 
                 data = {
                     'grant_type': 'authorization_code',
                     'code': auth_code,
-                    'token_type': 'eg1',
                     'redirect_uri': redirect_uri
                 }
 

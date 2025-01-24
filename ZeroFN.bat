@@ -46,36 +46,76 @@ if "%LOGGED_IN%"=="" (
     echo Please choose an option:
     echo.
     echo [1] Install/Update Fortnite OG
-    echo [2] Launch Game
-    echo [3] Manage Installation
-    echo [4] Join Discord Community
-    echo [5] Logout
-    echo [6] Exit
+    echo [2] Launch Game (Client Only)
+    echo [3] Launch Game and server (Hybrid Mode)
+    echo [4] Manage Installation
+    echo [5] Join Discord Community
+    echo [6] Logout
+    echo [7] Exit
     echo.
-    choice /c 123456 /n /m "Enter your choice (1-6): "
+    choice /c 1234567 /n /m "Enter your choice (1-7): "
     set choice=!errorlevel!
 
     if "!choice!"=="1" goto season_select
-    if "!choice!"=="2" goto quick_launch
-    if "!choice!"=="3" goto manage_installation
-    if "!choice!"=="4" start https://discord.gg/yCY4FTMPdK && goto main_menu
-    if "!choice!"=="5" (
+    if "!choice!"=="2" goto launch_game
+    if "!choice!"=="3" goto hybrid_launch
+    if "!choice!"=="4" goto manage_installation
+    if "!choice!"=="5" start https://discord.gg/yCY4FTMPdK && goto main_menu
+    if "!choice!"=="6" (
         del /f /q auth_token.json 2>nul
         set "LOGGED_IN="
         goto main_menu
     )
-    if "!choice!"=="6" exit /b
+    if "!choice!"=="7" exit /b
 )
 goto main_menu
 
-:quick_launch
+:hybrid_launch
 if "!SAVED_GAME_PATH!"=="" (
     echo No installation found. Please install the game first.
     timeout /t 3 >nul
     goto main_menu
 )
-set "GAME_PATH=!SAVED_GAME_PATH!"
-goto start_both
+
+cls
+echo Starting ZeroFN Server...
+taskkill /f /im python.exe >nul 2>&1
+start "ZeroFN Server" /min cmd /c "python server.py"
+echo Server started! Waiting for initialization...
+timeout /t 5 >nul
+
+cd /d "!SAVED_GAME_PATH!\FortniteGame\Binaries\Win64"
+
+taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
+taskkill /f /im EasyAntiCheat.exe >nul 2>&1
+taskkill /f /im BEService.exe >nul 2>&1
+
+start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=%AUTH_TOKEN% -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777
+
+echo Game launched in hybrid mode!
+timeout /t 2 >nul
+goto main_menu
+
+:launch_game
+if "!SAVED_GAME_PATH!"=="" (
+    echo No installation found. Please install the game first.
+    timeout /t 3 >nul
+    goto main_menu
+)
+
+cls
+echo Launching game in client-only mode...
+cd /d "!SAVED_GAME_PATH!\FortniteGame\Binaries\Win64"
+
+taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
+taskkill /f /im EasyAntiCheat.exe >nul 2>&1
+taskkill /f /im BEService.exe >nul 2>&1
+
+start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=%AUTH_TOKEN% -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming
+
+echo Game launched!
+timeout /t 2 >nul
+goto main_menu
 
 :manage_installation
 cls
@@ -118,7 +158,7 @@ echo.
 echo Available versions:
 echo.
 echo [1] Chapter 1 Season 1 (1.7.2)
-echo [2] OG Season (1.11)
+echo [2] OG Season (1.11) - only that works in ZeroFN v1.1 
 echo [3] Back to Main Menu
 echo.
 choice /c 123 /n /m "Enter your choice (1-3): "
@@ -268,44 +308,3 @@ echo.
 echo Path updated successfully!
 timeout /t 2 >nul
 goto main_menu
-
-:start_server
-cls
-echo Starting ZeroFN Server...
-start "ZeroFN Server" /min cmd /c "python server.py"
-echo Server started!
-timeout /t 2 >nul
-goto menu
-
-:launch_game
-cls
-echo Launching Fortnite...
-cd /d "!GAME_PATH!\FortniteGame\Binaries\Win64"
-
-taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
-taskkill /f /im EasyAntiCheat.exe >nul 2>&1
-taskkill /f /im BEService.exe >nul 2>&1
-
-start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=%AUTH_TOKEN% -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777
-
-echo Game launched!
-timeout /t 2 >nul
-goto menu
-
-:start_both
-cls
-echo Starting server and game...
-
-REM Check if server is already running
-tasklist /fi "windowtitle eq ZeroFN Server" >nul 2>&1
-if !errorlevel! equ 0 (
-    echo Server is already running...
-) else (
-    echo Starting ZeroFN Server...
-    start "ZeroFN Server" /min cmd /c "python server.py"
-    echo Server started! Waiting for initialization...
-    timeout /t 5 >nul
-)
-
-call :launch_game
-goto menu

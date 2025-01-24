@@ -104,7 +104,7 @@ ProjectZERO-ZeroFN is a custom batch script that provides a streamlined interfac
 
 ## Contributors
 
-- **@Harris**: Core Developer
+- **@Devharris**: Core Developer
 - **@Addamito**: Support and Testing
 
 ---

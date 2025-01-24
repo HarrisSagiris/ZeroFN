@@ -40,22 +40,23 @@ class FortniteServer:
         try:
             with open('auth_token.json', 'r') as f:
                 self.auth_token = json.load(f)
-                # Add default refresh token if missing
-                if 'refresh_token' not in self.auth_token:
-                    self.auth_token['refresh_token'] = 'default_refresh_token'
                 print("Found existing auth token")
-        except:
-            self.auth_token = {
-                'access_token': 'default_token',
-                'refresh_token': 'default_refresh_token',
-                'expires_in': 3600,
-                'expires_at': '2024-12-31T23:59:59',
-                'token_type': 'bearer',
-                'account_id': 'default_account',
-                'client_id': 'default_client',
-                'displayName': 'ZeroFN Player'
-            }
-            print("No existing auth token found, using default")
+                print(f"Logged in as: {self.auth_token.get('displayName', 'Unknown')}")
+        except FileNotFoundError:
+            print("No auth token found. Please log in first!")
+            print("Starting auth server...")
+            from auth import start_auth_server
+            auth_thread = threading.Thread(target=start_auth_server)
+            auth_thread.daemon = True
+            auth_thread.start()
+            
+            # Wait for auth token to be created
+            while not os.path.exists('auth_token.json'):
+                time.sleep(1)
+                
+            with open('auth_token.json', 'r') as f:
+                self.auth_token = json.load(f)
+                print(f"Successfully logged in as: {self.auth_token.get('displayName', 'Unknown')}")
         
         try:
             print("Initializing HTTP server...")
@@ -110,7 +111,7 @@ class FortniteServer:
                 if not outer_instance.auth_token:
                     # Redirect to auth server if no token
                     self.send_response(302)
-                    self.send_header('Location', 'http://localhost:8000')
+                    self.send_header('Location', 'http://localhost:7777')
                     self.end_headers()
                     return
 
@@ -171,7 +172,7 @@ class FortniteServer:
                         "client_id": "ec684b8c687f479fadea3cb2ad83f5c6",
                         "internal_client": True,
                         "client_service": "fortnite",
-                        "refresh_token": "refresh_token",
+                        "refresh_token": outer_instance.auth_token['refresh_token'],
                         "refresh_expires": 115200,
                         "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
@@ -231,7 +232,7 @@ class FortniteServer:
                         "client_id": "ec684b8c687f479fadea3cb2ad83f5c6",
                         "internal_client": True,
                         "client_service": "fortnite",
-                        "refresh_token": "refresh_token",
+                        "refresh_token": outer_instance.auth_token['refresh_token'],
                         "refresh_expires": 115200,
                         "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),

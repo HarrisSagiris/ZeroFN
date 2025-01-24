@@ -76,7 +76,12 @@ echo The window will automatically close when done.
 echo.
 :wait_login
 if exist "auth_token.json" (
-    set "LOGGED_IN=(Logged In)"
+    for /f "tokens=* usebackq delims=" %%a in (`powershell -Command "Get-Content auth_token.json | ConvertFrom-Json | Select -ExpandProperty displayName"`) do set "USERNAME=%%a"
+    if "!USERNAME!"=="" (
+        set "LOGGED_IN=(Guest)"
+    ) else (
+        set "LOGGED_IN=(Playing as !USERNAME!)"
+    )
     for /f "tokens=* usebackq" %%a in ("auth_token.json") do set AUTH_TOKEN=%%a
     echo Login successful!
     timeout /t 2 >nul

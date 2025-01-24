@@ -32,69 +32,86 @@ class AuthHandler(BaseHTTPRequestHandler):
                         align-items: center;
                         height: 100vh;
                         margin: 0;
-                        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+                        background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
                         color: white;
                     }
                     .login-container {
-                        background: rgba(45, 45, 45, 0.9);
-                        padding: 50px;
-                        border-radius: 15px;
+                        background: rgba(30, 30, 47, 0.95);
+                        padding: 60px;
+                        border-radius: 20px;
                         text-align: center;
-                        box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3);
-                        backdrop-filter: blur(10px);
-                        border: 1px solid rgba(255,255,255,0.1);
+                        box-shadow: 0 12px 40px 0 rgba(0,0,0,0.4);
+                        backdrop-filter: blur(15px);
+                        border: 2px solid rgba(255,255,255,0.1);
+                        max-width: 500px;
+                        width: 90%;
                     }
                     h1 {
-                        color: #0095f6;
+                        background: linear-gradient(45deg, #00c3ff, #0095f6);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
                         margin-bottom: 30px;
-                        font-size: 2.5em;
+                        font-size: 3em;
                         text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
                     }
                     p {
-                        font-size: 1.2em;
-                        margin-bottom: 30px;
-                        color: #cccccc;
+                        font-size: 1.3em;
+                        margin-bottom: 40px;
+                        color: #e0e0e0;
+                        line-height: 1.6;
                     }
                     .login-btn {
                         background: linear-gradient(45deg, #0095f6, #00c3ff);
                         color: white;
-                        padding: 15px 40px;
+                        padding: 18px 45px;
                         border: none;
-                        border-radius: 25px;
+                        border-radius: 30px;
                         cursor: pointer;
-                        font-size: 18px;
+                        font-size: 20px;
                         font-weight: bold;
-                        transition: transform 0.2s, box-shadow 0.2s;
+                        transition: all 0.3s ease;
                         text-transform: uppercase;
-                        letter-spacing: 1px;
-                        margin-bottom: 15px;
+                        letter-spacing: 1.5px;
+                        margin-bottom: 20px;
                         display: block;
                         width: 100%;
+                        box-shadow: 0 5px 15px rgba(0,149,246,0.3);
                     }
                     .guest-btn {
-                        background: linear-gradient(45deg, #666666, #888888);
+                        background: linear-gradient(45deg, #555566, #666677);
                         color: white;
-                        padding: 15px 40px;
+                        padding: 18px 45px;
                         border: none;
-                        border-radius: 25px;
+                        border-radius: 30px;
                         cursor: pointer;
-                        font-size: 18px;
+                        font-size: 20px;
                         font-weight: bold;
-                        transition: transform 0.2s, box-shadow 0.2s;
+                        transition: all 0.3s ease;
                         text-transform: uppercase;
-                        letter-spacing: 1px;
+                        letter-spacing: 1.5px;
                         width: 100%;
+                        box-shadow: 0 5px 15px rgba(85,85,102,0.3);
                     }
-                    .login-btn:hover, .guest-btn:hover {
-                        transform: translateY(-2px);
-                        box-shadow: 0 5px 15px rgba(0,149,246,0.4);
+                    .login-btn:hover {
+                        transform: translateY(-3px);
+                        box-shadow: 0 8px 25px rgba(0,149,246,0.5);
+                    }
+                    .guest-btn:hover {
+                        transform: translateY(-3px);
+                        box-shadow: 0 8px 25px rgba(85,85,102,0.5);
+                    }
+                    .logo {
+                        width: 120px;
+                        height: 120px;
+                        margin-bottom: 20px;
                     }
                 </style>
             </head>
             <body>
                 <div class="login-container">
+                    <img src="https://i.imgur.com/XYZ123.png" alt="ZeroFN Logo" class="logo">
                     <h1>Welcome to ZeroFN</h1>
-                    <p>Please login with your Epic Games account or continue as guest</p>
+                    <p>Experience Fortnite like never before.<br>Login with your Epic Games account or continue as guest.</p>
                     <a href="/login">
                         <button class="login-btn">Login with Epic Games</button>
                     </a>
@@ -108,52 +125,90 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode())
 
         elif self.path == '/guest':
-            # Create guest token
+            # Create guest token with more realistic values
             guest_token = {
-                "access_token": "guest_token",
-                "expires_in": 3600,
-                "expires_at": "2099-12-31T23:59:59.999Z", 
+                "access_token": f"eg1~guest~{base64.b64encode(os.urandom(32)).decode('utf-8')}",
+                "expires_in": 28800,
+                "expires_at": "2099-12-31T23:59:59.999Z",
                 "token_type": "bearer",
-                "account_id": "guest_account",
-                "client_id": "guest",
-                "displayName": "Guest Player",
+                "account_id": f"guest_{int(time.time())}",
+                "client_id": "xyza7891TydzdNolyGQJYa9b6n6rLMJl",
+                "displayName": f"Guest-{random.randint(1000,9999)}",
                 "internal_client": True,
                 "client_service": "fortnite",
                 "app": "fortnite"
             }
 
-            # Save token to file
             with open('auth_token.json', 'w') as f:
                 json.dump(guest_token, f)
 
-            # Set environment variable
             os.environ['LOGGED_IN'] = "(Guest)"
 
-            # Send success response
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
 
             success_html = """
-            <html><head><meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close"></head>
-            <body style="background:#1a1a1a;color:white;font-family:sans-serif;text-align:center;padding-top:50px">
-            <h2>Successfully logged in as Guest</h2>
-            <p>This window will close automatically...</p>
-            </body></html>
+            <html>
+            <head>
+                <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
+                        color: white;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                    }
+                    .success-container {
+                        text-align: center;
+                        padding: 40px;
+                        background: rgba(30, 30, 47, 0.95);
+                        border-radius: 20px;
+                        box-shadow: 0 12px 40px 0 rgba(0,0,0,0.4);
+                    }
+                    h2 {
+                        color: #00ff00;
+                        font-size: 2em;
+                        margin-bottom: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="success-container">
+                    <h2>Successfully logged in as Guest</h2>
+                    <p>This window will close automatically...</p>
+                </div>
+            </body>
+            </html>
             """
             self.wfile.write(success_html.encode())
 
-            # Close server after delay
             def shutdown():
                 time.sleep(3)
                 self.server.shutdown()
             threading.Thread(target=shutdown).start()
 
         elif self.path == '/login':
-            # Epic Games OAuth redirect
+            # Enhanced Epic Games OAuth flow
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
             redirect_uri = "http://127.0.0.1:7777/epic/callback"
-            auth_url = f"https://www.epicgames.com/id/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}&scope=basic_profile"
+            state = base64.b64encode(os.urandom(32)).decode('utf-8')
+            
+            auth_params = {
+                'client_id': client_id,
+                'response_type': 'code',
+                'redirect_uri': redirect_uri,
+                'scope': 'basic_profile friends_list presence',
+                'state': state,
+                'prompt': 'login'
+            }
+            
+            auth_url = f"https://www.epicgames.com/id/authorize?{urllib.parse.urlencode(auth_params)}"
+            
             self.send_response(302)
             self.send_header('Location', auth_url)
             self.end_headers()
@@ -163,7 +218,6 @@ class AuthHandler(BaseHTTPRequestHandler):
             auth_code = query.get('code', [None])[0]
 
             if auth_code:
-                # Exchange code for token
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
@@ -173,7 +227,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                 
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': f'Basic {auth_base64}'
+                    'Authorization': f'Basic {auth_base64}',
+                    'User-Agent': 'ZeroFNClient/1.0'
                 }
                 
                 data = {
@@ -184,29 +239,39 @@ class AuthHandler(BaseHTTPRequestHandler):
                 }
 
                 try:
+                    # Disable SSL verification for token request
                     response = requests.post(token_url, headers=headers, data=data, verify=False)
                     response.raise_for_status()
                     
-                    # Save auth token and redirect back to ZeroFN
                     token_data = response.json()
                     
-                    # Get account display name
-                    account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/public/account"
-                    account_headers = {
-                        'Authorization': f'Bearer {token_data["access_token"]}'
-                    }
-                    account_response = requests.get(account_url, headers=account_headers, verify=False)
-                    if account_response.status_code == 200:
-                        account_data = account_response.json()
-                        token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
+                    # Get account details with retry mechanism
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        try:
+                            account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/public/account"
+                            account_headers = {
+                                'Authorization': f'Bearer {token_data["access_token"]}',
+                                'User-Agent': 'ZeroFNClient/1.0'
+                            }
+                            account_response = requests.get(account_url, headers=account_headers, verify=False)
+                            account_response.raise_for_status()
+                            
+                            account_data = account_response.json()
+                            token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
+                            token_data['account_id'] = account_data.get('id')
+                            break
+                        except:
+                            if attempt == max_retries - 1:
+                                raise
+                            time.sleep(1)
                     
+                    # Save enhanced token data
                     with open('auth_token.json', 'w') as f:
-                        json.dump(token_data, f)
+                        json.dump(token_data, f, indent=4)
                     
-                    # Set environment variable for batch file
                     os.environ['LOGGED_IN'] = "(Logged In)"
                     
-                    # Show success page and auto-close
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html')
                     self.end_headers()
@@ -218,7 +283,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                         <style>
                             body {
                                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                                background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+                                background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
                                 color: white;
                                 display: flex;
                                 justify-content: center;
@@ -228,20 +293,33 @@ class AuthHandler(BaseHTTPRequestHandler):
                             }
                             .success-container {
                                 text-align: center;
-                                padding: 40px;
-                                background: rgba(45, 45, 45, 0.9);
-                                border-radius: 15px;
-                                box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3);
+                                padding: 50px;
+                                background: rgba(30, 30, 47, 0.95);
+                                border-radius: 20px;
+                                box-shadow: 0 12px 40px 0 rgba(0,0,0,0.4);
+                                max-width: 600px;
+                                width: 90%;
                             }
                             h1 {
                                 color: #00ff00;
+                                font-size: 2.5em;
                                 margin-bottom: 20px;
+                            }
+                            p {
+                                font-size: 1.2em;
+                                margin: 10px 0;
+                            }
+                            .welcome {
+                                color: #0095f6;
+                                font-size: 1.5em;
+                                margin-top: 20px;
                             }
                         </style>
                     </head>
                     <body>
                         <div class="success-container">
                             <h1>Login Successful!</h1>
+                            <p class="welcome">Welcome, """ + token_data['displayName'] + """!</p>
                             <p>You can now close this window and return to ZeroFN.</p>
                             <p>Window will close automatically in 3 seconds...</p>
                         </div>
@@ -250,7 +328,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                     """
                     self.wfile.write(success_html.encode())
                     
-                    # Schedule server shutdown
                     def shutdown():
                         time.sleep(3)
                         self.server.shutdown()
@@ -258,47 +335,68 @@ class AuthHandler(BaseHTTPRequestHandler):
                     return
                     
                 except requests.exceptions.RequestException as e:
-                    print(f"Error during token exchange: {str(e)}")
+                    print(f"Error during authentication: {str(e)}")
+                    self.send_error_page("Authentication failed. Please try again.")
+                except Exception as e:
+                    print(f"Unexpected error: {str(e)}")
+                    self.send_error_page("An unexpected error occurred. Please try again.")
 
-            # If we get here, something went wrong
-            self.send_response(400)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-            error_html = """
-            <html>
-            <head>
-                <style>
-                    body {
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-                        color: white;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        height: 100vh;
-                        margin: 0;
-                    }
-                    .error-container {
-                        text-align: center;
-                        padding: 40px;
-                        background: rgba(45, 45, 45, 0.9);
-                        border-radius: 15px;
-                        box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3);
-                    }
-                    h1 {
-                        color: #ff0000;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="error-container">
-                    <h1>Authentication Failed</h1>
-                    <p>Please try again or contact support if the issue persists.</p>
-                </div>
-            </body>
-            </html>
-            """
-            self.wfile.write(error_html.encode())
+            else:
+                self.send_error_page("Invalid authentication code received.")
+
+    def send_error_page(self, message):
+        self.send_response(400)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        error_html = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
+                    color: white;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                }}
+                .error-container {{
+                    text-align: center;
+                    padding: 50px;
+                    background: rgba(30, 30, 47, 0.95);
+                    border-radius: 20px;
+                    box-shadow: 0 12px 40px 0 rgba(0,0,0,0.4);
+                }}
+                h1 {{
+                    color: #ff0000;
+                    margin-bottom: 20px;
+                }}
+                .retry-btn {{
+                    background: linear-gradient(45deg, #666666, #888888);
+                    color: white;
+                    padding: 15px 40px;
+                    border: none;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-size: 18px;
+                    margin-top: 20px;
+                    text-decoration: none;
+                    display: inline-block;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="error-container">
+                <h1>Authentication Failed</h1>
+                <p>{message}</p>
+                <a href="/" class="retry-btn">Try Again</a>
+            </div>
+        </body>
+        </html>
+        """
+        self.wfile.write(error_html.encode())
 
 def start_auth_server():
     server = HTTPServer(('127.0.0.1', 7777), AuthHandler)

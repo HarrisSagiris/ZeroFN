@@ -153,7 +153,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             # Epic Games OAuth redirect
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
             redirect_uri = "http://127.0.0.1:7777/epic/callback"
-            auth_url = f"https://www.epicgames.com/id/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}"
+            auth_url = f"https://www.epicgames.com/id/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}&scope=basic_profile"
             self.send_response(302)
             self.send_header('Location', auth_url)
             self.end_headers()
@@ -182,12 +182,24 @@ class AuthHandler(BaseHTTPRequestHandler):
                     'token_type': 'eg1',
                     'redirect_uri': "http://127.0.0.1:7777/epic/callback"
                 }
-                
-                response = requests.post(token_url, headers=headers, data=data)
-                
-                if response.status_code == 200:
+
+                try:
+                    response = requests.post(token_url, headers=headers, data=data, verify=False)
+                    response.raise_for_status()
+                    
                     # Save auth token and redirect back to ZeroFN
                     token_data = response.json()
+                    
+                    # Get account display name
+                    account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/public/account"
+                    account_headers = {
+                        'Authorization': f'Bearer {token_data["access_token"]}'
+                    }
+                    account_response = requests.get(account_url, headers=account_headers, verify=False)
+                    if account_response.status_code == 200:
+                        account_data = account_response.json()
+                        token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
+                    
                     with open('auth_token.json', 'w') as f:
                         json.dump(token_data, f)
                     
@@ -244,6 +256,9 @@ class AuthHandler(BaseHTTPRequestHandler):
                         self.server.shutdown()
                     threading.Thread(target=shutdown).start()
                     return
+                    
+                except requests.exceptions.RequestException as e:
+                    print(f"Error during token exchange: {str(e)}")
 
             # If we get here, something went wrong
             self.send_response(400)

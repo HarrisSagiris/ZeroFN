@@ -204,29 +204,61 @@ class AuthHandler(BaseHTTPRequestHandler):
                 }
 
                 try:
-                    response = requests.post(token_url, headers=headers, data=data, verify=False)
-                    response.raise_for_status()
+                    # Add retry mechanism
+                    max_retries = 3
+                    retry_count = 0
+                    
+                    while retry_count < max_retries:
+                        try:
+                            response = requests.post(token_url, headers=headers, data=data, verify=False, timeout=10)
+                            response.raise_for_status()
+                            break
+                        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+                            retry_count += 1
+                            if retry_count == max_retries:
+                                raise
+                            time.sleep(1)  # Wait before retrying
                     
                     token_data = response.json()
                     
-                    # Get account details
+                    # Get account details with retry
+                    retry_count = 0
                     account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/verify"
                     account_headers = {
                         'Authorization': f'Bearer {token_data["access_token"]}',
                         'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                     }
-                    account_response = requests.get(account_url, headers=account_headers, verify=False)
-                    account_response.raise_for_status()
+                    
+                    while retry_count < max_retries:
+                        try:
+                            account_response = requests.get(account_url, headers=account_headers, verify=False, timeout=10)
+                            account_response.raise_for_status()
+                            break
+                        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+                            retry_count += 1
+                            if retry_count == max_retries:
+                                raise
+                            time.sleep(1)
                     
                     account_data = account_response.json()
                     token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
                     token_data['account_id'] = account_data.get('account_id')
 
-                    # Get friends list
+                    # Get friends list with retry
+                    retry_count = 0
                     friends_url = f"https://friends-public-service-prod.ol.epicgames.com/friends/api/v1/{token_data['account_id']}/summary"
-                    friends_response = requests.get(friends_url, headers=account_headers, verify=False)
-                    if friends_response.status_code == 200:
-                        token_data['friends'] = friends_response.json()
+                    
+                    while retry_count < max_retries:
+                        try:
+                            friends_response = requests.get(friends_url, headers=account_headers, verify=False, timeout=10)
+                            if friends_response.status_code == 200:
+                                token_data['friends'] = friends_response.json()
+                            break
+                        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+                            retry_count += 1
+                            if retry_count == max_retries:
+                                break  # Skip friends list if it fails
+                            time.sleep(1)
                     
                     # Save token data
                     with open('auth_token.json', 'w') as f:
@@ -319,13 +351,13 @@ class AuthHandler(BaseHTTPRequestHandler):
                     
                 except requests.exceptions.RequestException as e:
                     print(f"Error during authentication: {str(e)}")
-                    self.send_error_page("Authentication failed. Please try again.")
+                    self.send_error_page("Authentication failed. Please check your internet connection and try again.")
                 except Exception as e:
                     print(f"Unexpected error: {str(e)}")
-                    self.send_error_page("An unexpected error occurred. Please try again.")
+                    self.send_error_page("An unexpected error occurred. Please try logging in again.")
 
             else:
-                self.send_error_page("Invalid authentication code received.")
+                self.send_error_page("Invalid authentication code received. Please try logging in again.")
 
         elif self.path == '/close':
             self.send_response(200)

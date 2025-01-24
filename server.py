@@ -13,6 +13,7 @@ from pathlib import Path
 import subprocess
 import os
 import jwt
+from urllib.parse import unquote
 
 print("Starting ZeroFN Server...")
 print("Initializing components...")
@@ -167,6 +168,26 @@ class FortniteServer:
             def do_GET(self):
                 print(f"Received GET request for path: {self.path}")
                 self.add_client()
+                
+                # Handle Epic callback
+                if self.path.startswith('/epic/callback'):
+                    try:
+                        # URL decode the state and code parameters
+                        state = unquote(self.path.split('state=')[1].split('&')[0])
+                        code = unquote(self.path.split('code=')[1])
+                        
+                        # Process the callback
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/html')
+                        self.end_headers()
+                        self.wfile.write(b"Authorization successful! You can close this window.")
+                        return
+                    except Exception as e:
+                        self.send_response(400)
+                        self.send_header('Content-Type', 'text/html')
+                        self.end_headers()
+                        self.wfile.write(f"Error processing callback: {str(e)}".encode())
+                        return
                 
                 # Check if auth token exists and refresh if needed
                 if not outer_instance.auth_token or outer_instance.should_refresh_token():

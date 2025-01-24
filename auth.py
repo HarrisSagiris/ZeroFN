@@ -272,23 +272,18 @@ class AuthHandler(BaseHTTPRequestHandler):
             if auth_code:
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-                client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
+                client_secret = "ZWY2NjIxOTFjMTY0NGUxYmFiZWJhNmM4NmM1ZGQ3MzI6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ="
                 redirect_uri = "http://127.0.0.1:7777/epic/callback"
-                
-                auth_str = f"{client_id}:{client_secret}"
-                auth_bytes = auth_str.encode('ascii')
-                auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-                
+
                 headers = {
-                    'Authorization': f'Basic {auth_b64}',
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
+                    'Authorization': f'Basic {client_secret}',
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 }
                 
                 data = {
                     'grant_type': 'authorization_code',
                     'code': auth_code,
-                    'redirect_uri': redirect_uri
+                    'token_type': 'eg1'
                 }
 
                 try:
@@ -300,8 +295,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     # Get account details
                     account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/verify"
                     account_headers = {
-                        'Authorization': f'Bearer {token_data["access_token"]}',
-                        'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
+                        'Authorization': f'Bearer {token_data["access_token"]}'
                     }
                     account_response = requests.get(account_url, headers=account_headers, verify=False)
                     account_response.raise_for_status()
@@ -309,6 +303,13 @@ class AuthHandler(BaseHTTPRequestHandler):
                     account_data = account_response.json()
                     token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
                     token_data['account_id'] = account_data.get('account_id')
+
+                    # Get friends list
+                    friends_url = f"https://friends-public-service-prod.ol.epicgames.com/friends/api/v1/{account_data['account_id']}/summary"
+                    friends_response = requests.get(friends_url, headers=account_headers, verify=False)
+                    if friends_response.status_code == 200:
+                        friends_data = friends_response.json()
+                        token_data['friends'] = friends_data.get('friends', [])
                     
                     # Save token data
                     with open('auth_token.json', 'w') as f:

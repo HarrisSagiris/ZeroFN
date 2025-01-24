@@ -236,7 +236,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     'grant_type': 'authorization_code',
                     'code': auth_code,
                     'token_type': 'eg1',
-                    'redirect_uri': "http://127.0.0.1:7777/epic/callback"
+                    'redirect_uri': redirect_uri
                 }
 
                 try:

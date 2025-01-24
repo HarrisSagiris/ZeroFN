@@ -247,7 +247,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "eos.xyza7891TydzdNolyGQJYa9b6n6rLMJl://epic/auth"
+            redirect_uri = "http://127.0.0.1:7777/epic/callback"
             state = base64.b64encode(os.urandom(32)).decode('utf-8')
             
             auth_params = {
@@ -273,9 +273,14 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "eos.xyza7891TydzdNolyGQJYa9b6n6rLMJl://epic/auth"
+                redirect_uri = "http://127.0.0.1:7777/epic/callback"
+                
+                auth_str = f"{client_id}:{client_secret}"
+                auth_bytes = auth_str.encode('ascii')
+                auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
                 
                 headers = {
+                    'Authorization': f'Basic {auth_b64}',
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                 }
@@ -283,40 +288,29 @@ class AuthHandler(BaseHTTPRequestHandler):
                 data = {
                     'grant_type': 'authorization_code',
                     'code': auth_code,
-                    'client_id': client_id,
-                    'client_secret': client_secret,
                     'redirect_uri': redirect_uri
                 }
 
                 try:
-                    # Disable SSL verification for token request and use urllib.parse.urlencode
-                    response = requests.post(token_url, headers=headers, data=urllib.parse.urlencode(data), verify=False)
+                    response = requests.post(token_url, headers=headers, data=data, verify=False)
                     response.raise_for_status()
                     
                     token_data = response.json()
                     
-                    # Get account details with retry mechanism
-                    max_retries = 3
-                    for attempt in range(max_retries):
-                        try:
-                            account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/public/account"
-                            account_headers = {
-                                'Authorization': f'Bearer {token_data["access_token"]}',
-                                'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
-                            }
-                            account_response = requests.get(account_url, headers=account_headers, verify=False)
-                            account_response.raise_for_status()
-                            
-                            account_data = account_response.json()
-                            token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
-                            token_data['account_id'] = account_data.get('id')
-                            break
-                        except:
-                            if attempt == max_retries - 1:
-                                raise
-                            time.sleep(1)
+                    # Get account details
+                    account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/verify"
+                    account_headers = {
+                        'Authorization': f'Bearer {token_data["access_token"]}',
+                        'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
+                    }
+                    account_response = requests.get(account_url, headers=account_headers, verify=False)
+                    account_response.raise_for_status()
                     
-                    # Save enhanced token data
+                    account_data = account_response.json()
+                    token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
+                    token_data['account_id'] = account_data.get('account_id')
+                    
+                    # Save token data
                     with open('auth_token.json', 'w') as f:
                         json.dump(token_data, f, indent=4)
                     
@@ -414,6 +408,17 @@ class AuthHandler(BaseHTTPRequestHandler):
 
             else:
                 self.send_error_page("Invalid authentication code received.")
+
+        elif self.path == '/close':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(b"<html><body><script>window.close()</script></body></html>")
+            
+            def shutdown():
+                time.sleep(1)
+                self.server.shutdown()
+            threading.Thread(target=shutdown).start()
 
     def send_error_page(self, message):
         self.send_response(400)

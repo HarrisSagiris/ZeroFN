@@ -36,12 +36,21 @@ class FortniteServer:
         self.host = '127.0.0.1'  # Listen only on localhost
         self.port = 7777
         
+        # Epic Games OAuth credentials
+        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
+        self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
+        
         # Check for auth token
         try:
             with open('auth_token.json', 'r') as f:
                 self.auth_token = json.load(f)
                 print("Found existing auth token")
                 print(f"Logged in as: {self.auth_token.get('displayName', 'Unknown')}")
+                
+                # Validate and refresh token if needed
+                if self.should_refresh_token():
+                    self.refresh_auth_token()
+                    
         except FileNotFoundError:
             print("No auth token found. Please log in first!")
             print("Starting auth server...")
@@ -82,6 +91,56 @@ class FortniteServer:
         
         self.logger.info(f'Fortnite private server listening on {self.host}:{self.port}')
 
+    def should_refresh_token(self):
+        """Check if token needs refreshing"""
+        if not self.auth_token:
+            return True
+            
+        expires_at = datetime.fromisoformat(self.auth_token.get('expires_at', '2000-01-01T00:00:00'))
+        return datetime.now() >= expires_at
+
+    def refresh_auth_token(self):
+        """Refresh the Epic Games auth token"""
+        try:
+            refresh_token = self.auth_token.get('refresh_token')
+            if not refresh_token:
+                raise Exception("No refresh token available")
+                
+            auth_string = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
+            
+            headers = {
+                'Authorization': f'Basic {auth_string}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            
+            data = {
+                'grant_type': 'refresh_token',
+                'refresh_token': refresh_token
+            }
+            
+            response = requests.post(
+                'https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token',
+                headers=headers,
+                data=data,
+                verify=False
+            )
+            
+            if response.status_code == 200:
+                new_token = response.json()
+                new_token['expires_at'] = (datetime.now() + datetime.timedelta(seconds=new_token['expires_in'])).isoformat()
+                
+                self.auth_token = new_token
+                with open('auth_token.json', 'w') as f:
+                    json.dump(new_token, f)
+                    
+                self.logger.info("Successfully refreshed auth token")
+            else:
+                raise Exception(f"Token refresh failed: {response.text}")
+                
+        except Exception as e:
+            self.logger.error(f"Error refreshing token: {str(e)}")
+            raise
+
     def create_request_handler(self):
         outer_instance = self
         
@@ -107,13 +166,16 @@ class FortniteServer:
             def do_GET(self):
                 print(f"Received GET request for path: {self.path}")
                 
-                # Check if auth token exists
-                if not outer_instance.auth_token:
-                    # Redirect to auth server if no token
-                    self.send_response(302)
-                    self.send_header('Location', 'http://localhost:7777')
-                    self.end_headers()
-                    return
+                # Check if auth token exists and refresh if needed
+                if not outer_instance.auth_token or outer_instance.should_refresh_token():
+                    try:
+                        outer_instance.refresh_auth_token()
+                    except:
+                        # Redirect to auth server if refresh fails
+                        self.send_response(302)
+                        self.send_header('Location', 'http://localhost:7777')
+                        self.end_headers()
+                        return
 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
@@ -169,10 +231,10 @@ class FortniteServer:
                         "expires_at": "9999-12-31T23:59:59.999Z",
                         "token_type": "bearer",
                         "account_id": outer_instance.auth_token.get('account_id'),
-                        "client_id": "ec684b8c687f479fadea3cb2ad83f5c6",
+                        "client_id": outer_instance.client_id,
                         "internal_client": True,
                         "client_service": "fortnite",
-                        "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token'),
+                        "refresh_token": outer_instance.auth_token.get('refresh_token'),
                         "refresh_expires": 115200,
                         "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
@@ -185,9 +247,9 @@ class FortniteServer:
                         "expires_in": outer_instance.auth_token.get('expires_in'),
                         "expires_at": outer_instance.auth_token.get('expires_at'),
                         "token_type": outer_instance.auth_token.get('token_type'),
-                        "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token'),
+                        "refresh_token": outer_instance.auth_token.get('refresh_token'),
                         "account_id": outer_instance.auth_token.get('account_id'),
-                        "client_id": outer_instance.auth_token.get('client_id'),
+                        "client_id": outer_instance.client_id,
                         "internal_client": True,
                         "client_service": "fortnite",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
@@ -201,12 +263,16 @@ class FortniteServer:
             def do_POST(self):
                 print(f"Received POST request for path: {self.path}")
                 
-                if not outer_instance.auth_token:
-                    self.send_response(401)
-                    self.send_header('Content-Type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
-                    return
+                # Check if auth token exists and refresh if needed
+                if not outer_instance.auth_token or outer_instance.should_refresh_token():
+                    try:
+                        outer_instance.refresh_auth_token()
+                    except:
+                        self.send_response(401)
+                        self.send_header('Content-Type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"error": "Not authenticated"}).encode())
+                        return
 
                 content_length = int(self.headers.get('Content-Length', 0))
                 post_data = self.rfile.read(content_length)
@@ -229,10 +295,10 @@ class FortniteServer:
                         "expires_at": "9999-12-31T23:59:59.999Z", 
                         "token_type": "bearer",
                         "account_id": outer_instance.auth_token.get('account_id'),
-                        "client_id": "ec684b8c687f479fadea3cb2ad83f5c6",
+                        "client_id": outer_instance.client_id,
                         "internal_client": True,
                         "client_service": "fortnite",
-                        "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token'),
+                        "refresh_token": outer_instance.auth_token.get('refresh_token'),
                         "refresh_expires": 115200,
                         "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
@@ -245,9 +311,9 @@ class FortniteServer:
                         "expires_in": outer_instance.auth_token.get('expires_in'),
                         "expires_at": outer_instance.auth_token.get('expires_at'),
                         "token_type": outer_instance.auth_token.get('token_type'),
-                        "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token'),
+                        "refresh_token": outer_instance.auth_token.get('refresh_token'),
                         "account_id": outer_instance.auth_token.get('account_id'),
-                        "client_id": outer_instance.auth_token.get('client_id'),
+                        "client_id": outer_instance.client_id,
                         "internal_client": True,
                         "client_service": "fortnite",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
@@ -257,8 +323,6 @@ class FortniteServer:
 
                 print(f"Sending response: {json.dumps(response)}")
                 self.wfile.write(json.dumps(response).encode())
-
-        return RequestHandler
 
     def start(self):
         try:

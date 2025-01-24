@@ -17,6 +17,13 @@ if not exist "%CONFIG_FILE%" (
 REM Load saved game path
 for /f "tokens=* usebackq" %%a in (`powershell -Command "Get-Content '%CONFIG_FILE%' | ConvertFrom-Json | Select -ExpandProperty game_path"`) do set "SAVED_GAME_PATH=%%a"
 
+REM Load auth token if exists
+if exist "auth_token.json" (
+    for /f "tokens=* usebackq delims=" %%a in (`powershell -Command "Get-Content auth_token.json | ConvertFrom-Json | Select -ExpandProperty access_token"`) do set "AUTH_TOKEN=%%a"
+    for /f "tokens=* usebackq delims=" %%a in (`powershell -Command "Get-Content auth_token.json | ConvertFrom-Json | Select -ExpandProperty displayName"`) do set "USERNAME=%%a"
+    if not "!USERNAME!"=="" set "LOGGED_IN=(Logged in as !USERNAME!)"
+)
+
 :main_menu
 cls
 echo ==========================================
@@ -64,6 +71,8 @@ if "%LOGGED_IN%"=="" (
     if "!choice!"=="6" (
         del /f /q auth_token.json 2>nul
         set "LOGGED_IN="
+        set "AUTH_TOKEN="
+        set "USERNAME="
         goto main_menu
     )
     if "!choice!"=="7" exit /b
@@ -73,6 +82,12 @@ goto main_menu
 :hybrid_launch
 if "!SAVED_GAME_PATH!"=="" (
     echo No installation found. Please install the game first.
+    timeout /t 3 >nul
+    goto main_menu
+)
+
+if "!AUTH_TOKEN!"=="" (
+    echo You must be logged in to launch the game.
     timeout /t 3 >nul
     goto main_menu
 )
@@ -90,7 +105,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=%AUTH_TOKEN% -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777
+start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777
 
 echo Game launched in hybrid mode!
 timeout /t 2 >nul
@@ -103,6 +118,12 @@ if "!SAVED_GAME_PATH!"=="" (
     goto main_menu
 )
 
+if "!AUTH_TOKEN!"=="" (
+    echo You must be logged in to launch the game.
+    timeout /t 3 >nul
+    goto main_menu
+)
+
 cls
 echo Launching game in client-only mode...
 cd /d "!SAVED_GAME_PATH!\FortniteGame\Binaries\Win64"
@@ -111,7 +132,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=%AUTH_TOKEN% -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming
+start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming
 
 echo Game launched!
 timeout /t 2 >nul
@@ -204,6 +225,10 @@ if !errorlevel! neq 0 (
     pip install requests >nul 2>&1
 )
 
+REM Kill any existing auth server
+taskkill /f /im python.exe >nul 2>&1
+
+REM Start auth server
 start "ZeroFN Auth Server" /min cmd /c "python auth.py"
 timeout /t 3 >nul
 
@@ -213,13 +238,15 @@ echo.
 
 :wait_login
 if exist "auth_token.json" (
+    for /f "tokens=* usebackq delims=" %%a in (`powershell -Command "Get-Content auth_token.json | ConvertFrom-Json | Select -ExpandProperty access_token"`) do set "AUTH_TOKEN=%%a"
     for /f "tokens=* usebackq delims=" %%a in (`powershell -Command "Get-Content auth_token.json | ConvertFrom-Json | Select -ExpandProperty displayName"`) do set "USERNAME=%%a"
+    
     if "!USERNAME!"=="" (
         set "LOGGED_IN=(Guest)"
     ) else (
-        set "LOGGED_IN=(Logged in successfull)"
+        set "LOGGED_IN=(Logged in as !USERNAME!)"
     )
-    echo Login successful!
+    echo Login successful! Welcome !USERNAME!!
     timeout /t 2 >nul
     goto main_menu
 )

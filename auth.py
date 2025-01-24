@@ -7,6 +7,7 @@ import os
 import threading
 import time
 import base64
+import random
 
 class AuthHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -202,7 +203,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 'client_id': client_id,
                 'response_type': 'code',
                 'redirect_uri': redirect_uri,
-                'scope': 'basic_profile friends_list presence',
+                'scope': 'basic_profile',
                 'state': state,
                 'prompt': 'login'
             }

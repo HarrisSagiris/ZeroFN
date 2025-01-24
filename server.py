@@ -13,7 +13,7 @@ from pathlib import Path
 import subprocess
 import os
 import jwt
-from urllib.parse import unquote
+from urllib.parse import unquote, parse_qs, urlparse
 
 print("Starting ZeroFN Server...")
 print("Initializing components...")
@@ -172,9 +172,16 @@ class FortniteServer:
                 # Handle Epic callback
                 if self.path.startswith('/epic/callback'):
                     try:
-                        # URL decode the state and code parameters
-                        state = unquote(self.path.split('state=')[1].split('&')[0])
-                        code = unquote(self.path.split('code=')[1])
+                        # Parse URL parameters properly
+                        parsed_url = urlparse(self.path)
+                        params = parse_qs(parsed_url.query)
+                        
+                        # Get state and code from parsed parameters
+                        state = params.get('state', [''])[0]
+                        code = params.get('code', [''])[0]
+                        
+                        if not state or not code:
+                            raise ValueError("Missing required parameters")
                         
                         # Process the callback
                         self.send_response(200)

@@ -20,6 +20,25 @@ class AuthHandler(BaseHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
+        # Handle favicon.ico request
+        if self.path == '/favicon.ico':
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        # Handle zerofn.jpg request 
+        if self.path == '/zerofn.jpg':
+            self.send_response(200)
+            self.send_header('Content-type', 'image/jpeg')
+            self.end_headers()
+            try:
+                with open('zerofn.jpg', 'rb') as f:
+                    self.wfile.write(f.read())
+            except:
+                # If image not found, return empty response
+                pass
+            return
+
         if self.path == '/':
             # Serve login page
             self.send_response(200)

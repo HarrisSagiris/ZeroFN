@@ -40,10 +40,22 @@ class FortniteServer:
         try:
             with open('auth_token.json', 'r') as f:
                 self.auth_token = json.load(f)
+                # Add default refresh token if missing
+                if 'refresh_token' not in self.auth_token:
+                    self.auth_token['refresh_token'] = 'default_refresh_token'
                 print("Found existing auth token")
         except:
-            self.auth_token = None
-            print("No existing auth token found")
+            self.auth_token = {
+                'access_token': 'default_token',
+                'refresh_token': 'default_refresh_token',
+                'expires_in': 3600,
+                'expires_at': '2024-12-31T23:59:59',
+                'token_type': 'bearer',
+                'account_id': 'default_account',
+                'client_id': 'default_client',
+                'displayName': 'ZeroFN Player'
+            }
+            print("No existing auth token found, using default")
         
         try:
             print("Initializing HTTP server...")
@@ -191,6 +203,7 @@ class FortniteServer:
                     "expires_in": outer_instance.auth_token['expires_in'],
                     "expires_at": outer_instance.auth_token['expires_at'],
                     "token_type": outer_instance.auth_token['token_type'],
+                    "refresh_token": outer_instance.auth_token['refresh_token'],
                     "account_id": outer_instance.auth_token['account_id'],
                     "client_id": outer_instance.auth_token['client_id'],
                     "internal_client": True,

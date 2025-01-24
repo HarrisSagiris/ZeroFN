@@ -6,6 +6,7 @@ import urllib.parse
 import os
 import threading
 import time
+import base64
 
 class AuthHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -157,7 +158,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.send_header('Location', auth_url)
             self.end_headers()
 
-        elif self.path.startswith('/callback'):
+        elif self.path.startswith('/epic/callback'):
             query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             auth_code = query.get('code', [None])[0]
 
@@ -167,9 +168,12 @@ class AuthHandler(BaseHTTPRequestHandler):
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
                 
+                auth_string = f"{client_id}:{client_secret}"
+                auth_base64 = base64.b64encode(auth_string.encode()).decode()
+                
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': f'Basic {client_id}:{client_secret}'
+                    'Authorization': f'Basic {auth_base64}'
                 }
                 
                 data = {
@@ -198,6 +202,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     success_html = """
                     <html>
                     <head>
+                        <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
                         <style>
                             body {
                                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -228,11 +233,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                             <p>You can now close this window and return to ZeroFN.</p>
                             <p>Window will close automatically in 3 seconds...</p>
                         </div>
-                        <script>
-                            setTimeout(function() {
-                                window.close();
-                            }, 3000);
-                        </script>
                     </body>
                     </html>
                     """
@@ -286,9 +286,9 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.wfile.write(error_html.encode())
 
 def start_auth_server():
-    server = HTTPServer(('localhost', 8000), AuthHandler)
-    print("Authentication server started at http://localhost:8000")
-    webbrowser.open('http://localhost:8000')
+    server = HTTPServer(('127.0.0.1', 7777), AuthHandler)
+    print("Authentication server started at http://127.0.0.1:7777")
+    webbrowser.open('http://127.0.0.1:7777')
     server.serve_forever()
 
 if __name__ == '__main__':

@@ -107,79 +107,49 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode())
 
         elif self.path == '/guest':
-            # Handle guest login
-            # Create a basic guest token
+            # Create guest token
             guest_token = {
                 "access_token": "guest_token",
                 "expires_in": 3600,
-                "expires_at": "2099-12-31T23:59:59.999Z",
+                "expires_at": "2099-12-31T23:59:59.999Z", 
                 "token_type": "bearer",
                 "account_id": "guest_account",
                 "client_id": "guest",
-                "displayName": "Guest Player"
+                "displayName": "Guest Player",
+                "internal_client": True,
+                "client_service": "fortnite",
+                "app": "fortnite"
             }
-            
+
+            # Save token to file
             with open('auth_token.json', 'w') as f:
                 json.dump(guest_token, f)
-            
+
+            # Set environment variable
             os.environ['LOGGED_IN'] = "(Guest)"
-            
-            # Show success page for guest login
+
+            # Send success response
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
-            
+
             success_html = """
-            <html>
-            <head>
-                <style>
-                    body {
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-                        color: white;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        height: 100vh;
-                        margin: 0;
-                    }
-                    .success-container {
-                        text-align: center;
-                        padding: 40px;
-                        background: rgba(45, 45, 45, 0.9);
-                        border-radius: 15px;
-                        box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3);
-                    }
-                    h1 {
-                        color: #00ff00;
-                        margin-bottom: 20px;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="success-container">
-                    <h1>Continuing as Guest</h1>
-                    <p>You can now close this window and return to ZeroFN.</p>
-                    <p>Window will close automatically in 3 seconds...</p>
-                </div>
-                <script>
-                    setTimeout(function() {
-                        window.close();
-                    }, 3000);
-                </script>
-            </body>
-            </html>
+            <html><head><meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close"></head>
+            <body style="background:#1a1a1a;color:white;font-family:sans-serif;text-align:center;padding-top:50px">
+            <h2>Successfully logged in as Guest</h2>
+            <p>This window will close automatically...</p>
+            </body></html>
             """
             self.wfile.write(success_html.encode())
-            
-            # Schedule server shutdown
+
+            # Close server after delay
             def shutdown():
                 time.sleep(3)
                 self.server.shutdown()
             threading.Thread(target=shutdown).start()
 
         elif self.path == '/login':
-            # Redirect to Epic Games OAuth
+            # Epic Games OAuth redirect
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
             redirect_uri = "http://127.0.0.1:7777/epic/callback"
             auth_url = f"https://www.epicgames.com/id/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}"
@@ -188,12 +158,11 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
         elif self.path.startswith('/callback'):
-            # Handle OAuth callback
-            query_components = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            auth_code = query_components.get('code', [None])[0]
-            
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            auth_code = query.get('code', [None])[0]
+
             if auth_code:
-                # Exchange auth code for access token
+                # Exchange code for token
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"

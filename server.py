@@ -165,6 +165,7 @@ class FortniteServer:
 
             def do_GET(self):
                 print(f"Received GET request for path: {self.path}")
+                self.add_client()
                 
                 # Check if auth token exists and refresh if needed
                 if not outer_instance.auth_token or outer_instance.should_refresh_token():
@@ -265,6 +266,7 @@ class FortniteServer:
 
             def do_POST(self):
                 print(f"Received POST request for path: {self.path}")
+                self.add_client()
                 
                 # Check if auth token exists and refresh if needed
                 if not outer_instance.auth_token or outer_instance.should_refresh_token():

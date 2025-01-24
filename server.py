@@ -8,7 +8,7 @@ import logging
 import random
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 import os
@@ -96,8 +96,8 @@ class FortniteServer:
         if not self.auth_token:
             return True
             
-        expires_at = datetime.fromisoformat(self.auth_token.get('expires_at', '2000-01-01T00:00:00'))
-        return datetime.now() >= expires_at
+        expires_at = datetime.fromisoformat(self.auth_token.get('expires_at', '2000-01-01T00:00:00')).replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) >= expires_at
 
     def refresh_auth_token(self):
         """Refresh the Epic Games auth token"""
@@ -127,7 +127,7 @@ class FortniteServer:
             
             if response.status_code == 200:
                 new_token = response.json()
-                new_token['expires_at'] = (datetime.now() + datetime.timedelta(seconds=new_token['expires_in'])).isoformat()
+                new_token['expires_at'] = (datetime.now(timezone.utc) + datetime.timedelta(seconds=new_token['expires_in'])).isoformat()
                 
                 self.auth_token = new_token
                 with open('auth_token.json', 'w') as f:
@@ -213,7 +213,7 @@ class FortniteServer:
                                 "commandRevision": random.randint(1000,9999)
                             }
                         }],
-                        "serverTime": datetime.now().isoformat(),
+                        "serverTime": datetime.now(timezone.utc).isoformat(),
                         "profileCommandRevision": random.randint(1000,9999),
                         "responseVersion": 1
                     }
@@ -254,7 +254,7 @@ class FortniteServer:
                         "client_service": "fortnite",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
                         "app": "fortnite",
-                        "serverTime": datetime.now().isoformat()
+                        "serverTime": datetime.now(timezone.utc).isoformat()
                     }
 
                 print(f"Sending response: {json.dumps(response)}")
@@ -318,7 +318,7 @@ class FortniteServer:
                         "client_service": "fortnite",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
                         "app": "fortnite",
-                        "serverTime": datetime.now().isoformat()
+                        "serverTime": datetime.now(timezone.utc).isoformat()
                     }
 
                 print(f"Sending response: {json.dumps(response)}")

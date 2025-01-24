@@ -55,6 +55,8 @@ class FortniteServer:
                 subprocess.run(['netstat', '-ano', '|', 'findstr', str(self.port)], shell=True)
             except:
                 pass
+            print("Press Enter to exit...")
+            input()
             raise e
             
         print("Setting up client tracking system...")
@@ -216,14 +218,19 @@ class FortniteServer:
             print("SERVER IS READY!")
             print("You can now launch the game")
             print("=========================\n")
+            print("Press Ctrl+C to stop the server")
             self.logger.info('Starting Fortnite private server...')
             self.http_server.serve_forever()
         except Exception as e:
             self.logger.error(f'Server error: {str(e)}')
             print(f"ERROR: Server failed to start: {str(e)}")
+            print("Press Enter to exit...")
+            input()
         finally:
             self.logger.info('Shutting down server...')
             print("Shutting down server...")
+            print("Press Enter to exit...")
+            input()
             self.http_server.shutdown()
 
 if __name__ == '__main__':
@@ -233,6 +240,10 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         logging.info('Server stopped by user')
         print("\nServer stopped by user")
+        print("Press Enter to exit...")
+        input()
     except Exception as e:
         logging.error(f'Fatal server error: {str(e)}')
         print(f"\nFatal server error: {str(e)}")
+        print("Press Enter to exit...")
+        input()

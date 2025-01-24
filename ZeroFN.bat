@@ -67,7 +67,7 @@ echo    Powered by ZeroFN
 echo =====================================
 echo.
 echo Starting authentication server...
-start "ZeroFN Auth Server" cmd /c "cd /d %~dp0 && python auth.py"
+start "ZeroFN Auth Server" /wait cmd /c "cd /d %~dp0 && python auth.py"
 timeout /t 3 >nul
 
 echo Waiting for login completion...
@@ -183,7 +183,7 @@ goto menu
 :start_server
 cls
 echo Starting ZeroFN Server...
-start "ZeroFN Server" cmd /c "cd /d %~dp0 && python server.py"
+start "ZeroFN Server" /wait cmd /k "cd /d %~dp0 && python server.py && pause"
 echo Server started!
 timeout /t 2 >nul
 goto menu
@@ -207,7 +207,7 @@ goto menu
 cls
 echo Starting server and game...
 echo Starting ZeroFN Server...
-start "ZeroFN Server" cmd /c "cd /d %~dp0 && python server.py"
+start "ZeroFN Server" /wait cmd /k "cd /d %~dp0 && python server.py"
 echo Server started! Waiting for server to initialize...
 timeout /t 5 >nul
 

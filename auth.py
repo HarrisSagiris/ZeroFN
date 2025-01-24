@@ -4,8 +4,14 @@ import json
 import requests
 import urllib.parse
 import os
+import threading
+import time
 
 class AuthHandler(BaseHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        self.server_should_close = False
+        super().__init__(*args, **kwargs)
+
     def do_GET(self):
         if self.path == '/':
             # Serve login page
@@ -165,11 +171,17 @@ class AuthHandler(BaseHTTPRequestHandler):
             </html>
             """
             self.wfile.write(success_html.encode())
+            
+            # Schedule server shutdown
+            def shutdown():
+                time.sleep(3)
+                self.server.shutdown()
+            threading.Thread(target=shutdown).start()
 
         elif self.path == '/login':
             # Redirect to Epic Games OAuth
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "http://localhost:8000/callback"
+            redirect_uri = "http://127.0.0.1:7777/epic/callback"
             auth_url = f"https://www.epicgames.com/id/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}"
             self.send_response(302)
             self.send_header('Location', auth_url)
@@ -195,7 +207,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     'grant_type': 'authorization_code',
                     'code': auth_code,
                     'token_type': 'eg1',
-                    'redirect_uri': "http://localhost:8000/callback"
+                    'redirect_uri': "http://127.0.0.1:7777/epic/callback"
                 }
                 
                 response = requests.post(token_url, headers=headers, data=data)
@@ -256,6 +268,12 @@ class AuthHandler(BaseHTTPRequestHandler):
                     </html>
                     """
                     self.wfile.write(success_html.encode())
+                    
+                    # Schedule server shutdown
+                    def shutdown():
+                        time.sleep(3)
+                        self.server.shutdown()
+                    threading.Thread(target=shutdown).start()
                     return
 
             # If we get here, something went wrong

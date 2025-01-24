@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 import subprocess
 import os
+import jwt
 
 print("Starting ZeroFN Server...")
 print("Initializing components...")
@@ -40,6 +41,9 @@ class FortniteServer:
         self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
         self.redirect_uri = f"http://{self.host}:{self.port}/auth/callback"
         
+        # JWT secret for token signing
+        self.jwt_secret = "zerofn_secret_key"
+        
         try:
             print("Initializing HTTP server...")
             self.http_server = HTTPServer((self.host, self.port), self.create_request_handler())
@@ -53,7 +57,7 @@ class FortniteServer:
             raise e
             
         print("Setting up client tracking system...")
-        self.connected_clients = set()
+        self.connected_clients = {}  # Store client tokens
         self.clients_lock = threading.Lock()
         
         print("Initializing matchmaking system...")
@@ -62,6 +66,20 @@ class FortniteServer:
         
         self.logger.info(f'Fortnite private server listening on {self.host}:{self.port}')
 
+    def generate_token(self, account_id):
+        # Generate JWT token with account info
+        payload = {
+            'sub': account_id,
+            'iss': 'ZeroFN',
+            'iat': datetime.utcnow(),
+            'exp': datetime.utcnow() + datetime.timedelta(hours=8),
+            'jti': str(random.randint(1000000, 9999999)),
+            'displayName': f'ZeroFN_Player_{account_id[:8]}',
+            'scope': 'fortnite:profile:* fortnite:stats:* fortnite:cloudstorage:*'
+        }
+        token = jwt.encode(payload, self.jwt_secret, algorithm='HS256')
+        return token
+
     def create_request_handler(self):
         outer_instance = self
         
@@ -69,51 +87,72 @@ class FortniteServer:
             def log_message(self, format, *args):
                 outer_instance.logger.info(f"HTTP Request: {format%args}")
             
-            def add_client(self):
+            def add_client(self, token=None):
                 client_ip = self.client_address[0]
                 with outer_instance.clients_lock:
-                    if client_ip not in outer_instance.connected_clients:
-                        outer_instance.connected_clients.add(client_ip)
-                        outer_instance.logger.info(f'New client connected from {client_ip}')
-                        outer_instance.logger.info(f'Total connected clients: {len(outer_instance.connected_clients)}')
-                        print(f'New client connected from {client_ip}')
-                        print(f'Total connected clients: {len(outer_instance.connected_clients)}')
+                    if token:
+                        outer_instance.connected_clients[client_ip] = token
+                        outer_instance.logger.info(f'Authenticated client {client_ip} with token')
+                    elif client_ip not in outer_instance.connected_clients:
+                        token = outer_instance.generate_token(str(random.randint(10000, 99999)))
+                        outer_instance.connected_clients[client_ip] = token
+                        outer_instance.logger.info(f'New client {client_ip} assigned token')
+                    print(f'Total connected clients: {len(outer_instance.connected_clients)}')
+
+            def validate_token(self, auth_header):
+                if not auth_header:
+                    return False
+                try:
+                    token = auth_header.split(' ')[1]
+                    jwt.decode(token, outer_instance.jwt_secret, algorithms=['HS256'])
+                    return True
+                except:
+                    return False
 
             def do_GET(self):
                 print(f"Received GET request for path: {self.path}")
-                self.add_client()
                 
+                # Handle Epic authentication flow
                 if self.path == '/login':
-                    # Redirect to Epic Games login
-                    auth_url = f"https://www.epicgames.com/id/authorize?client_id={outer_instance.client_id}&response_type=code&redirect_uri={outer_instance.redirect_uri}"
+                    auth_url = f"https://www.epicgames.com/id/api/redirect?clientId={outer_instance.client_id}&responseType=code&redirectUrl={outer_instance.redirect_uri}"
                     self.send_response(302)
                     self.send_header('Location', auth_url)
                     self.end_headers()
                     return
                     
                 elif self.path.startswith('/auth/callback'):
-                    # Handle OAuth callback
-                    auth_code = self.path.split('code=')[1]
-                    token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
-                    auth_str = f"{outer_instance.client_id}:{outer_instance.client_secret}"
-                    headers = {
-                        'Authorization': f'Basic {base64.b64encode(auth_str.encode()).decode()}',
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    }
-                    data = {
-                        'grant_type': 'authorization_code',
-                        'code': auth_code,
-                        'redirect_uri': outer_instance.redirect_uri
-                    }
-                    
-                    response = requests.post(token_url, headers=headers, data=data)
-                    auth_data = response.json()
+                    # Generate token without actual Epic validation
+                    account_id = f"zerofn_{random.randint(10000,99999)}"
+                    token = outer_instance.generate_token(account_id)
+                    self.add_client(token)
                     
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.end_headers()
-                    self.wfile.write(json.dumps(auth_data).encode())
+                    
+                    auth_response = {
+                        "access_token": token,
+                        "expires_in": 28800,
+                        "expires_at": "9999-12-31T23:59:59.999Z", 
+                        "token_type": "bearer",
+                        "refresh_token": token,
+                        "account_id": account_id,
+                        "client_id": outer_instance.client_id,
+                        "internal_client": True,
+                        "client_service": "fortnite",
+                        "displayName": f"ZeroFN_Player_{account_id[-4:]}",
+                        "app": "fortnite",
+                        "in_app_id": account_id,
+                        "device_id": f"zerofn_device_{random.randint(1000,9999)}"
+                    }
+                    
+                    self.wfile.write(json.dumps(auth_response).encode())
                     return
+
+                # Validate token for other endpoints
+                auth_header = self.headers.get('Authorization')
+                if not self.validate_token(auth_header):
+                    self.add_client()  # Generate new token if invalid
 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
@@ -121,121 +160,103 @@ class FortniteServer:
                 self.end_headers()
 
                 if self.path.startswith('/fortnite/api/game/v2/profile'):
-                    # Return cosmetics inventory
+                    # Enhanced cosmetics response
                     response = {
-                        "profileRevision": 1,
+                        "profileRevision": random.randint(1000,9999),
                         "profileId": "athena",
                         "profileChanges": [{
                             "changeType": "fullProfileUpdate",
                             "profile": {
-                                "_id": "valid_profile",
-                                "accountId": "valid_account",
+                                "_id": f"profile_{random.randint(10000,99999)}",
+                                "accountId": self.connected_clients.get(self.client_address[0], "default_account"),
                                 "items": {
-                                    # Default skins
+                                    # Expanded cosmetics
                                     "SKIN_1": {
                                         "templateId": "AthenaCharacter:CID_001_Athena_Commando_F_Default",
-                                        "attributes": {"favorite": False}
-                                    },
-                                    "SKIN_2": {
-                                        "templateId": "AthenaCharacter:CID_002_Athena_Commando_F_Default", 
-                                        "attributes": {"favorite": False}
-                                    },
-                                    # Default pickaxes
-                                    "PICKAXE_1": {
-                                        "templateId": "AthenaPickaxe:DefaultPickaxe",
-                                        "attributes": {"favorite": False}
-                                    },
-                                    # Default gliders
-                                    "GLIDER_1": {
-                                        "templateId": "AthenaGlider:DefaultGlider",
-                                        "attributes": {"favorite": False}  
+                                        "attributes": {
+                                            "favorite": True,
+                                            "item_seen": True,
+                                            "level": 100,
+                                            "xp": 999999,
+                                            "variants": []
+                                        }
                                     }
                                 },
                                 "stats": {
                                     "attributes": {
                                         "level": 100,
-                                        "xp": 999999
+                                        "xp": 999999,
+                                        "season_level": 100
                                     }
-                                }
+                                },
+                                "commandRevision": random.randint(1000,9999)
                             }
                         }],
                         "serverTime": datetime.now().isoformat(),
+                        "profileCommandRevision": random.randint(1000,9999),
                         "responseVersion": 1
                     }
+
                 elif self.path.startswith('/fortnite/api/matchmaking/session'):
-                    # Handle matchmaking
-                    with outer_instance.match_lock:
-                        if len(outer_instance.matchmaking_queue) >= 2:
-                            players = outer_instance.matchmaking_queue[:2]
-                            outer_instance.matchmaking_queue = outer_instance.matchmaking_queue[2:]
-                            
-                            response = {
-                                "status": "MATCHED",
-                                "matchId": str(random.randint(1000, 9999)),
-                                "players": players,
-                                "serverTime": datetime.now().isoformat()
-                            }
-                            outer_instance.logger.info(f'Created match {response["matchId"]} with players {players}')
-                        else:
-                            player_id = str(random.randint(1, 1000))
-                            outer_instance.matchmaking_queue.append(player_id)
-                            
-                            response = {
-                                "status": "QUEUED",
-                                "queuePosition": len(outer_instance.matchmaking_queue),
-                                "estimatedWaitTime": 30,
-                                "serverTime": datetime.now().isoformat()
-                            }
-                            outer_instance.logger.info(f'Added player {player_id} to matchmaking queue')
+                    response = self.handle_matchmaking()
                 else:
-                    # Default auth response
+                    # Default response with token refresh
+                    client_token = outer_instance.generate_token(str(random.randint(10000,99999)))
+                    self.add_client(client_token)
+                    
                     response = {
-                        "access_token": "eg1~valid_token",
+                        "access_token": client_token,
                         "expires_in": 28800,
                         "expires_at": "9999-12-31T23:59:59.999Z",
                         "token_type": "bearer",
-                        "refresh_token": "eg1~valid_refresh", 
+                        "refresh_token": client_token,
                         "refresh_expires": 115200,
                         "refresh_expires_at": "9999-12-31T23:59:59.999Z",
-                        "account_id": "valid_account",
+                        "account_id": f"zerofn_{random.randint(10000,99999)}",
                         "client_id": outer_instance.client_id,
                         "internal_client": True,
                         "client_service": "fortnite",
                         "displayName": "ZeroFN Player",
                         "app": "fortnite",
-                        "in_app_id": "valid_app_id",
+                        "in_app_id": f"zerofn_app_{random.randint(1000,9999)}",
+                        "device_auth": {
+                            "device_id": f"zerofn_device_{random.randint(1000,9999)}",
+                            "account_id": f"zerofn_{random.randint(10000,99999)}",
+                            "secret": base64.b64encode(os.urandom(32)).decode(),
+                            "user_agent": "ZeroFNClient/1.0.0"
+                        },
                         "serverTime": datetime.now().isoformat()
                     }
-                    outer_instance.logger.info(f'Authenticated client {self.client_address[0]}')
 
                 print(f"Sending response: {json.dumps(response)}")
                 self.wfile.write(json.dumps(response).encode())
 
             def do_POST(self):
                 print(f"Received POST request for path: {self.path}")
-                self.add_client()
                 content_length = int(self.headers.get('Content-Length', 0))
                 post_data = self.rfile.read(content_length)
                 
                 try:
                     request_json = json.loads(post_data.decode())
                     outer_instance.logger.info(f'Received POST request: {request_json}')
-                    print(f"POST data: {request_json}")
                 except:
                     outer_instance.logger.warning('Could not parse POST data as JSON')
-                    print("Failed to parse POST data as JSON")
+                
+                # Generate new token for POST request
+                client_token = outer_instance.generate_token(str(random.randint(10000,99999)))
+                self.add_client(client_token)
                 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*') 
+                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
 
                 response = {
-                    "access_token": "eg1~valid_token",
+                    "access_token": client_token,
                     "expires_in": 28800,
                     "expires_at": "9999-12-31T23:59:59.999Z",
                     "token_type": "bearer",
-                    "account_id": "valid_account",
+                    "account_id": f"zerofn_{random.randint(10000,99999)}",
                     "client_id": outer_instance.client_id,
                     "internal_client": True,
                     "client_service": "fortnite",
@@ -251,9 +272,9 @@ class FortniteServer:
         try:
             print("Starting server components...")
             print("Initializing network services...")
-            time.sleep(2)  # Allow time for network initialization
+            time.sleep(2)
             print("Setting up game systems...")
-            time.sleep(2)  # Allow time for game systems
+            time.sleep(2)
             print("Finalizing startup...")
             time.sleep(1)
             print("\n=========================")

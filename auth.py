@@ -24,8 +24,7 @@ class AuthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         # Handle favicon.ico request
         if self.path == '/favicon.ico':
-            self.send_response(200)  # Changed from 404 to 200
-            self.send_header('Content-type', 'image/x-icon')
+            self.send_response(404)
             self.end_headers()
             return
 
@@ -38,9 +37,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                 with open('zerofn.jpg', 'rb') as f:
                     self.wfile.write(f.read())
             except:
-                # If image not found, send a default response instead of empty
-                self.send_response(404)
-                self.end_headers()
+                # If image not found, return empty response
+                pass
             return
 
         if self.path == '/':
@@ -373,7 +371,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             threading.Thread(target=shutdown).start()
 
     def send_error_page(self, message):
-        self.send_response(200)  # Changed from 400 to 200 to avoid browser errors
+        self.send_response(400)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
         error_html = f"""

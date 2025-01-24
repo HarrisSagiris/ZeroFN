@@ -28,8 +28,9 @@ class AuthHandler(BaseHTTPRequestHandler):
             html = """
             <html>
             <head>
-                <title>Login</title>
+                <title>ZeroFN Login</title>
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                <link rel="icon" type="image/jpg" href="zerofn.jpg">
                 <style>
                     * {
                         margin: 0;
@@ -58,6 +59,15 @@ class AuthHandler(BaseHTTPRequestHandler):
                         max-width: 600px;
                         width: 90%;
                         animation: fadeInUp 1s ease;
+                    }
+                    .logo {
+                        width: 120px;
+                        height: 120px;
+                        margin-bottom: 30px;
+                        transition: transform 0.3s ease;
+                    }
+                    .logo:hover {
+                        transform: scale(1.05);
                     }
                     h1 {
                         font-family: 'Bebas Neue', sans-serif;
@@ -124,8 +134,9 @@ class AuthHandler(BaseHTTPRequestHandler):
             </head>
             <body>
                 <div class="login-container">
-                    <h1>Welcome</h1>
-                    <p>Login with your Epic Games account or continue as guest.</p>
+                    <img src="zerofn.jpg" alt="ZeroFN Logo" class="logo">
+                    <h1>Welcome to ZeroFN</h1>
+                    <p>Experience OG Fortnite like never before.<br>Login with your Epic Games account or continue as guest.</p>
                     <a href="/login">
                         <button class="login-btn">Login with Epic Games</button>
                     </a>
@@ -168,6 +179,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             <head>
                 <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                <link rel="icon" type="image/jpg" href="zerofn.jpg">
                 <style>
                     * {
                         margin: 0;
@@ -235,7 +247,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "http://127.0.0.1:7777/epic/auth/callback/zerofn"
+            redirect_uri = "http://127.0.0.1:7777/epic/callback"
             state = base64.b64encode(os.urandom(32)).decode('utf-8')
             
             auth_params = {
@@ -253,7 +265,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.send_header('Location', auth_url)
             self.end_headers()
 
-        elif self.path.startswith('/epic/auth/callback/zerofn'):
+        elif self.path.startswith('/epic/callback'):
             query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             auth_code = query.get('code', [None])[0]
 
@@ -261,7 +273,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "http://127.0.0.1:7777/epic/auth/callback/zerofn"
+                redirect_uri = "http://127.0.0.1:7777/epic/callback"
                 
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -296,7 +308,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                             account_response.raise_for_status()
                             
                             account_data = account_response.json()
-                            token_data['displayName'] = account_data.get('displayName', 'Player')
+                            token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
                             token_data['account_id'] = account_data.get('id')
                             break
                         except:
@@ -317,8 +329,9 @@ class AuthHandler(BaseHTTPRequestHandler):
                     success_html = """
                     <html>
                     <head>
-                        <meta http-equiv="refresh" content="3;url=eos.xyza7891TydzdNolyGQJYa9b6n6rLMJl://epic/auth">
+                        <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
                         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                        <link rel="icon" type="image/jpg" href="zerofn.jpg">
                         <style>
                             * {
                                 margin: 0;
@@ -378,7 +391,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                         <div class="success-container">
                             <h1>Login Successful!</h1>
                             <p class="welcome">Welcome, """ + token_data['displayName'] + """!</p>
-                            <p>You can now close this window and return to the launcher.</p>
+                            <p>You can now close this window and return to ZeroFN.</p>
                             <p>Window will close automatically in 3 seconds...</p>
                         </div>
                     </body>
@@ -410,6 +423,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         <html>
         <head>
             <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+            <link rel="icon" type="image/jpg" href="zerofn.jpg">
             <style>
                 * {{
                     margin: 0;

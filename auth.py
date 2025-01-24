@@ -133,7 +133,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             </head>
             <body>
                 <div class="login-container">
-                    <img src="https://i.imgur.com/XYZ123.png" alt="ZeroFN Logo" class="logo">
+                    <img src="zerofn.jpg" alt="ZeroFN Logo" class="logo">
                     <h1>Welcome to ZeroFN</h1>
                     <p>Experience OG Fortnite like never before.<br>Login with your Epic Games account or continue as guest.</p>
                     <a href="/login">

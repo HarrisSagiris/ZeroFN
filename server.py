@@ -45,7 +45,7 @@ class FortniteServer:
             with open('auth_token.json', 'r') as f:
                 self.auth_token = json.load(f)
                 print("Found existing auth token")
-                print(f"Logged in as: {self.auth_token.get('displayName', 'Unknown')}")
+                print(f"Logged in as: {self.auth_token.get('displayName', 'Unknown')} {os.environ.get('LOGGED_IN', '')}")
                 
                 # Validate and refresh token if needed
                 if self.should_refresh_token():
@@ -65,7 +65,7 @@ class FortniteServer:
                 
             with open('auth_token.json', 'r') as f:
                 self.auth_token = json.load(f)
-                print(f"Successfully logged in as: {self.auth_token.get('displayName', 'Unknown')}")
+                print(f"Successfully logged in as: {self.auth_token.get('displayName', 'Unknown')} {os.environ.get('LOGGED_IN', '')}")
         
         try:
             print("Initializing HTTP server...")
@@ -110,7 +110,8 @@ class FortniteServer:
             
             headers = {
                 'Authorization': f'Basic {auth_string}',
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
             }
             
             data = {
@@ -131,7 +132,7 @@ class FortniteServer:
                 
                 self.auth_token = new_token
                 with open('auth_token.json', 'w') as f:
-                    json.dump(new_token, f)
+                    json.dump(new_token, f, indent=4)
                     
                 self.logger.info("Successfully refreshed auth token")
             else:

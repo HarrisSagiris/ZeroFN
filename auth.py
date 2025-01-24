@@ -97,28 +97,10 @@ class AuthHandler(BaseHTTPRequestHandler):
                         margin-bottom: 20px;
                         box-shadow: 0 4px 15px rgba(252, 204, 77, 0.3);
                     }
-                    .guest-btn {
-                        background: rgba(35, 39, 42, 0.5);
-                        color: #ffffff;
-                        padding: 18px 45px;
-                        border: 2px solid #2b2b2b;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        font-size: 1.3rem;
-                        font-weight: bold;
-                        text-transform: uppercase;
-                        transition: all 0.3s ease;
-                        display: block;
-                        width: 100%;
-                    }
                     .login-btn:hover {
                         background: #ffc700;
                         transform: scale(1.05) translateY(-2px);
                         box-shadow: 0 6px 20px rgba(252, 204, 77, 0.4);
-                    }
-                    .guest-btn:hover {
-                        background: rgba(35, 39, 42, 0.8);
-                        transform: scale(1.05) translateY(-2px);
                     }
                     @keyframes fadeInUp {
                         from {
@@ -136,113 +118,15 @@ class AuthHandler(BaseHTTPRequestHandler):
                 <div class="login-container">
                     <img src="zerofn.jpg" alt="ZeroFN Logo" class="logo">
                     <h1>Welcome to ZeroFN</h1>
-                    <p>Experience OG Fortnite like never before.<br>Login with your Epic Games account or continue as guest.</p>
+                    <p>Experience OG Fortnite like never before.<br>Login with your Epic Games account to continue.</p>
                     <a href="/login">
                         <button class="login-btn">Login with Epic Games</button>
-                    </a>
-                    <a href="/guest">
-                        <button class="guest-btn">Continue as Guest</button>
                     </a>
                 </div>
             </body>
             </html>
             """
             self.wfile.write(html.encode())
-
-        elif self.path == '/guest':
-            # Create guest token with more realistic values
-            guest_token = {
-                "access_token": f"eg1~guest~{base64.b64encode(os.urandom(32)).decode('utf-8')}",
-                "expires_in": 28800,
-                "expires_at": "2099-12-31T23:59:59.999Z",
-                "token_type": "bearer",
-                "account_id": f"guest_{int(time.time())}",
-                "client_id": "xyza7891TydzdNolyGQJYa9b6n6rLMJl",
-                "displayName": f"Guest-{random.randint(1000,9999)}",
-                "internal_client": True,
-                "client_service": "fortnite",
-                "app": "fortnite",
-                "refresh_token": f"eg1~guest~{base64.b64encode(os.urandom(32)).decode('utf-8')}"
-            }
-
-            with open('auth_token.json', 'w') as f:
-                json.dump(guest_token, f)
-
-            os.environ['LOGGED_IN'] = "(Guest)"
-
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-
-            success_html = """
-            <html>
-            <head>
-                <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
-                <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-                <link rel="icon" type="image/jpg" href="zerofn.jpg">
-                <style>
-                    * {
-                        margin: 0;
-                        padding: 0;
-                        box-sizing: border-box;
-                    }
-                    body {
-                        font-family: 'Roboto', sans-serif;
-                        background: #0c0c0d;
-                        color: #ffffff;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        min-height: 100vh;
-                        margin: 0;
-                    }
-                    .success-container {
-                        text-align: center;
-                        padding: 60px;
-                        background: rgba(35, 39, 42, 0.5);
-                        border-radius: 20px;
-                        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-                        backdrop-filter: blur(15px);
-                        border: 2px solid #2b2b2b;
-                        animation: fadeInUp 1s ease;
-                    }
-                    h2 {
-                        font-family: 'Bebas Neue', sans-serif;
-                        color: #fccc4d;
-                        font-size: 2.5em;
-                        margin-bottom: 20px;
-                        text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
-                    }
-                    p {
-                        font-size: 1.2rem;
-                        color: #cccccc;
-                    }
-                    @keyframes fadeInUp {
-                        from {
-                            opacity: 0;
-                            transform: translateY(30px);
-                        }
-                        to {
-                            opacity: 1;
-                            transform: translateY(0);
-                        }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="success-container">
-                    <h2>Successfully logged in as Guest</h2>
-                    <p>This window will close automatically...</p>
-                </div>
-            </body>
-            </html>
-            """
-            self.wfile.write(success_html.encode())
-
-            def shutdown():
-                time.sleep(3)
-                self.server.shutdown()
-            threading.Thread(target=shutdown).start()
 
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
@@ -254,7 +138,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 'client_id': client_id,
                 'response_type': 'code',
                 'redirect_uri': redirect_uri,
-                'scope': 'basic_profile friends presence openid offline_access email accounts public_profile',
+                'scope': 'basic_profile friends_list presence openid offline_access email accounts public_profile',
                 'state': state,
                 'prompt': 'login'
             }
@@ -272,18 +156,23 @@ class AuthHandler(BaseHTTPRequestHandler):
             if auth_code:
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-                client_secret = "ZWY2NjIxOTFjMTY0NGUxYmFiZWJhNmM4NmM1ZGQ3MzI6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ="
+                client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
                 redirect_uri = "http://127.0.0.1:7777/epic/callback"
-
+                
+                auth_str = f"{client_id}:{client_secret}"
+                auth_bytes = auth_str.encode('ascii')
+                auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                
                 headers = {
-                    'Authorization': f'Basic {client_secret}',
-                    'Content-Type': 'application/x-www-form-urlencoded'
+                    'Authorization': f'Basic {auth_b64}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                 }
                 
                 data = {
                     'grant_type': 'authorization_code',
                     'code': auth_code,
-                    'token_type': 'eg1'
+                    'redirect_uri': redirect_uri
                 }
 
                 try:
@@ -295,7 +184,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                     # Get account details
                     account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/verify"
                     account_headers = {
-                        'Authorization': f'Bearer {token_data["access_token"]}'
+                        'Authorization': f'Bearer {token_data["access_token"]}',
+                        'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                     }
                     account_response = requests.get(account_url, headers=account_headers, verify=False)
                     account_response.raise_for_status()
@@ -305,11 +195,10 @@ class AuthHandler(BaseHTTPRequestHandler):
                     token_data['account_id'] = account_data.get('account_id')
 
                     # Get friends list
-                    friends_url = f"https://friends-public-service-prod.ol.epicgames.com/friends/api/v1/{account_data['account_id']}/summary"
+                    friends_url = f"https://friends-public-service-prod.ol.epicgames.com/friends/api/v1/{token_data['account_id']}/summary"
                     friends_response = requests.get(friends_url, headers=account_headers, verify=False)
                     if friends_response.status_code == 200:
-                        friends_data = friends_response.json()
-                        token_data['friends'] = friends_data.get('friends', [])
+                        token_data['friends'] = friends_response.json()
                     
                     # Save token data
                     with open('auth_token.json', 'w') as f:

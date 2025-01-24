@@ -67,21 +67,22 @@ echo    Powered by ZeroFN
 echo =====================================
 echo.
 echo Starting authentication server...
-start "ZeroFN Auth Server" cmd /c "cd /d %~dp0 && python server.py"
+start "ZeroFN Auth Server" cmd /c "cd /d %~dp0 && python auth.py"
 timeout /t 3 >nul
 
-echo Opening Epic Games login page...
-start "" "http://127.0.0.1:7777/login"
+echo Waiting for login completion...
+echo Please complete the login in your browser.
+echo The window will automatically close when done.
 echo.
-echo Please login through the opened browser window.
-echo After logging in, you will be redirected back to ZeroFN.
-echo.
-echo Press any key after completing login...
-pause >nul
-set "LOGGED_IN=[Logged in]"
-echo Successfully authenticated with Epic Games!
-timeout /t 2 >nul
-goto main_menu
+:wait_login
+if exist "auth_token.json" (
+    set "LOGGED_IN=(Logged In)"
+    echo Login successful!
+    timeout /t 2 >nul
+    goto main_menu
+)
+timeout /t 1 >nul
+goto wait_login
 
 :install_fortnite_og
 cls

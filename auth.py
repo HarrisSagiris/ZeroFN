@@ -137,7 +137,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 "expires_at": "2099-12-31T23:59:59.999Z",
                 "token_type": "bearer",
                 "account_id": f"guest_{int(time.time())}",
-                "client_id": "3446cd72694c4a4485d81b77adbb2141",
+                "client_id": "xyza7891TydzdNolyGQJYa9b6n6rLMJl",
                 "displayName": f"Guest-{random.randint(1000,9999)}",
                 "internal_client": True,
                 "client_service": "fortnite",
@@ -199,7 +199,7 @@ class AuthHandler(BaseHTTPRequestHandler):
 
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
-            client_id = "3446cd72694c4a4485d81b77adbb2141"
+            client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
             redirect_uri = "http://127.0.0.1:7777/epic/callback"
             state = base64.b64encode(os.urandom(32)).decode('utf-8')
             
@@ -224,20 +224,21 @@ class AuthHandler(BaseHTTPRequestHandler):
 
             if auth_code:
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
-                client_id = "3446cd72694c4a4485d81b77adbb2141"
-                client_secret = "e7a553f4-f96f-4d4a-b949-99cbfea4d584"
+                client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
+                client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
                 redirect_uri = "http://127.0.0.1:7777/epic/callback"
                 
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': f'Basic {base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()}',
                     'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                 }
                 
                 data = {
                     'grant_type': 'authorization_code',
                     'code': auth_code,
-                    'token_type': 'eg1'
+                    'client_id': client_id,
+                    'client_secret': client_secret,
+                    'redirect_uri': redirect_uri
                 }
 
                 try:
@@ -251,7 +252,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     max_retries = 3
                     for attempt in range(max_retries):
                         try:
-                            account_url = f"https://account-public-service-prod.ol.epicgames.com/account/api/public/account/{token_data['account_id']}"
+                            account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/public/account"
                             account_headers = {
                                 'Authorization': f'Bearer {token_data["access_token"]}',
                                 'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
@@ -261,6 +262,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                             
                             account_data = account_response.json()
                             token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
+                            token_data['account_id'] = account_data.get('id')
                             break
                         except:
                             if attempt == max_retries - 1:

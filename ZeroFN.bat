@@ -217,7 +217,7 @@ if exist "auth_token.json" (
     if "!USERNAME!"=="" (
         set "LOGGED_IN=(Guest)"
     ) else (
-        set "LOGGED_IN=(Logged in)"
+        set "LOGGED_IN=(Logged in successfull)"
     )
     echo Login successful!
     timeout /t 2 >nul

@@ -180,6 +180,9 @@ class FortniteServer:
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Credentials', 'true')
+                self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
                 self.end_headers()
 
                 if self.path.startswith('/fortnite/api/game/v2/profile'):
@@ -286,6 +289,9 @@ class FortniteServer:
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Credentials', 'true')
+                self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
                 self.end_headers()
 
                 if self.path.startswith('/account/api/oauth/token'):

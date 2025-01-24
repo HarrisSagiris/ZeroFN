@@ -153,7 +153,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "http://127.0.0.1:7777/epic/callback"
+            redirect_uri = "http://127.0.0.1:7777/epic/auth/callback/zerofn"
             AuthHandler.state = base64.b64encode(os.urandom(32)).decode('utf-8') # Store state as class variable
             
             auth_params = {
@@ -171,7 +171,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.send_header('Location', auth_url)
             self.end_headers()
 
-        elif self.path.startswith('/epic/callback'):
+        elif self.path.startswith('/epic/auth/callback/zerofn'):
             query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             auth_code = query.get('code', [None])[0]
             received_state = query.get('state', [None])[0]
@@ -185,7 +185,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "http://127.0.0.1:7777/epic/callback"
+                redirect_uri = "http://127.0.0.1:7777/epic/auth/callback/zerofn"
                 
                 auth_str = f"{client_id}:{client_secret}"
                 auth_bytes = auth_str.encode('ascii')

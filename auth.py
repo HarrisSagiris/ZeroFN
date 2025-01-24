@@ -8,6 +8,10 @@ import threading
 import time
 import base64
 import random
+import ssl
+
+# Disable SSL warnings
+requests.packages.urllib3.disable_warnings()
 
 class AuthHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -224,17 +228,16 @@ class AuthHandler(BaseHTTPRequestHandler):
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
                 redirect_uri = "http://127.0.0.1:7777/epic/callback"
                 
-                auth_string = f"{client_id}:{client_secret}"
-                auth_base64 = base64.b64encode(auth_string.encode()).decode()
-                
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': f'Basic {auth_base64}'
+                    'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                 }
                 
                 data = {
                     'grant_type': 'authorization_code',
                     'code': auth_code,
+                    'client_id': client_id,
+                    'client_secret': client_secret,
                     'redirect_uri': redirect_uri
                 }
 
@@ -252,7 +255,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                             account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/public/account"
                             account_headers = {
                                 'Authorization': f'Bearer {token_data["access_token"]}',
-                                'User-Agent': 'ZeroFNClient/1.0'
+                                'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                             }
                             account_response = requests.get(account_url, headers=account_headers, verify=False)
                             account_response.raise_for_status()

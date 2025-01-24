@@ -8,7 +8,7 @@ import logging
 import random
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import subprocess
 import os
@@ -132,7 +132,7 @@ class FortniteServer:
             
             if response.status_code == 200:
                 new_token = response.json()
-                new_token['expires_at'] = (datetime.now(timezone.utc) + datetime.timedelta(seconds=new_token['expires_in'])).isoformat()
+                new_token['expires_at'] = (datetime.now(timezone.utc) + timedelta(seconds=new_token['expires_in'])).isoformat()
                 
                 self.auth_token = new_token
                 with open('auth_token.json', 'w') as f:
@@ -167,6 +167,14 @@ class FortniteServer:
                         outer_instance.connected_clients[client_ip] = token
                         outer_instance.logger.info(f'New client {client_ip} assigned token')
                     print(f'Total connected clients: {len(outer_instance.connected_clients)}')
+
+            def do_OPTIONS(self):
+                self.send_response(200)
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+                self.send_header('Access-Control-Max-Age', '86400')
+                self.end_headers()
 
             def do_GET(self):
                 print(f"Received GET request for path: {self.path}")

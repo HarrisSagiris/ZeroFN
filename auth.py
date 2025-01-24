@@ -162,7 +162,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 "internal_client": True,
                 "client_service": "fortnite",
                 "app": "fortnite",
-                "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token')
+                "refresh_token": f"eg1~guest~{base64.b64encode(os.urandom(32)).decode('utf-8')}"
             }
 
             with open('auth_token.json', 'w') as f:

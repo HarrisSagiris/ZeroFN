@@ -67,7 +67,7 @@ echo    Powered by ZeroFN
 echo =====================================
 echo.
 echo Starting authentication server...
-start /min cmd /c "title ZeroFN Auth Server && cd /d %~dp0 && python server.py"
+start "ZeroFN Auth Server" cmd /c "cd /d %~dp0 && python server.py"
 timeout /t 3 >nul
 
 echo Opening Epic Games login page...
@@ -182,7 +182,7 @@ goto menu
 :start_server
 cls
 echo Starting ZeroFN Server...
-start /min cmd /c "title ZeroFN Server && cd /d %~dp0 && python server.py"
+start "ZeroFN Server" cmd /c "cd /d %~dp0 && python server.py"
 echo Server started!
 timeout /t 2 >nul
 goto menu
@@ -206,7 +206,7 @@ goto menu
 cls
 echo Starting server and game...
 echo Starting ZeroFN Server...
-start /min cmd /c "title ZeroFN Server && cd /d %~dp0 && python server.py"
+start "ZeroFN Server" cmd /c "cd /d %~dp0 && python server.py"
 echo Server started! Waiting for server to initialize...
 timeout /t 5 >nul
 

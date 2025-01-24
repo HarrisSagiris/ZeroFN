@@ -80,7 +80,7 @@ if exist "auth_token.json" (
     if "!USERNAME!"=="" (
         set "LOGGED_IN=(Guest)"
     ) else (
-        set "LOGGED_IN=(Playing as !USERNAME!)"
+        set "LOGGED_IN=(Logged in as !USERNAME!)"
     )
     for /f "tokens=* usebackq" %%a in ("auth_token.json") do set AUTH_TOKEN=%%a
     echo Login successful!

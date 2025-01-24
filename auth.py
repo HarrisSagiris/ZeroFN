@@ -288,8 +288,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                 }
 
                 try:
-                    # Disable SSL verification for token request
-                    response = requests.post(token_url, headers=headers, data=data, verify=False)
+                    # Disable SSL verification for token request and use urllib.parse.urlencode
+                    response = requests.post(token_url, headers=headers, data=urllib.parse.urlencode(data), verify=False)
                     response.raise_for_status()
                     
                     token_data = response.json()

@@ -6,6 +6,7 @@ import requests
 import base64
 import logging
 import random
+import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 from pathlib import Path
@@ -34,14 +35,17 @@ class FortniteServer:
         self.host = '127.0.0.1'  # Listen only on localhost
         self.port = 7777
         
+        # Epic Games OAuth credentials
+        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
+        self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
+        self.redirect_uri = f"http://{self.host}:{self.port}/auth/callback"
+        
         try:
             print("Initializing HTTP server...")
-            # Initialize HTTP server
             self.http_server = HTTPServer((self.host, self.port), self.create_request_handler())
             print(f'Successfully bound to {self.host}:{self.port}')
         except Exception as e:
             print(f"ERROR: Could not bind to port {self.port}. Error: {str(e)}")
-            # Check if port is in use
             try:
                 subprocess.run(['netstat', '-ano', '|', 'findstr', str(self.port)], shell=True)
             except:
@@ -49,12 +53,10 @@ class FortniteServer:
             raise e
             
         print("Setting up client tracking system...")
-        # Track connected clients
         self.connected_clients = set()
         self.clients_lock = threading.Lock()
         
         print("Initializing matchmaking system...")
-        # Initialize matchmaking queue
         self.matchmaking_queue = []
         self.match_lock = threading.Lock()
         
@@ -80,6 +82,39 @@ class FortniteServer:
             def do_GET(self):
                 print(f"Received GET request for path: {self.path}")
                 self.add_client()
+                
+                if self.path == '/login':
+                    # Redirect to Epic Games login
+                    auth_url = f"https://www.epicgames.com/id/authorize?client_id={outer_instance.client_id}&response_type=code&redirect_uri={outer_instance.redirect_uri}"
+                    self.send_response(302)
+                    self.send_header('Location', auth_url)
+                    self.end_headers()
+                    return
+                    
+                elif self.path.startswith('/auth/callback'):
+                    # Handle OAuth callback
+                    auth_code = self.path.split('code=')[1]
+                    token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
+                    auth_str = f"{outer_instance.client_id}:{outer_instance.client_secret}"
+                    headers = {
+                        'Authorization': f'Basic {base64.b64encode(auth_str.encode()).decode()}',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                    data = {
+                        'grant_type': 'authorization_code',
+                        'code': auth_code,
+                        'redirect_uri': outer_instance.redirect_uri
+                    }
+                    
+                    response = requests.post(token_url, headers=headers, data=data)
+                    auth_data = response.json()
+                    
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(auth_data).encode())
+                    return
+
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -131,7 +166,6 @@ class FortniteServer:
                     # Handle matchmaking
                     with outer_instance.match_lock:
                         if len(outer_instance.matchmaking_queue) >= 2:
-                            # Create match with players in queue
                             players = outer_instance.matchmaking_queue[:2]
                             outer_instance.matchmaking_queue = outer_instance.matchmaking_queue[2:]
                             
@@ -143,7 +177,6 @@ class FortniteServer:
                             }
                             outer_instance.logger.info(f'Created match {response["matchId"]} with players {players}')
                         else:
-                            # Add to queue
                             player_id = str(random.randint(1, 1000))
                             outer_instance.matchmaking_queue.append(player_id)
                             
@@ -165,7 +198,7 @@ class FortniteServer:
                         "refresh_expires": 115200,
                         "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                         "account_id": "valid_account",
-                        "client_id": "valid_client",
+                        "client_id": outer_instance.client_id,
                         "internal_client": True,
                         "client_service": "fortnite",
                         "displayName": "ZeroFN Player",
@@ -203,7 +236,7 @@ class FortniteServer:
                     "expires_at": "9999-12-31T23:59:59.999Z",
                     "token_type": "bearer",
                     "account_id": "valid_account",
-                    "client_id": "valid_client", 
+                    "client_id": outer_instance.client_id,
                     "internal_client": True,
                     "client_service": "fortnite",
                     "displayName": "ZeroFN Player",

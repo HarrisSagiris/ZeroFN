@@ -4,6 +4,8 @@ color 0f
 
 REM Initialize logged in state
 set "LOGGED_IN="
+set "CLIENT_ID=xyza7891TydzdNolyGQJYa9b6n6rLMJl"
+set "CLIENT_SECRET=Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
 
 :main_menu
 cls
@@ -64,10 +66,16 @@ echo    Epic Games Authentication
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-echo Logging in...
+echo Opening Epic Games login page...
+start "" "https://www.epicgames.com/id/login?redirectUrl=https://localhost:7777/auth&client_id=%CLIENT_ID%&responseType=code"
 echo.
+echo Please login through the opened browser window.
+echo After logging in, you will be redirected back to ZeroFN.
+echo.
+echo Press any key after completing login...
+pause >nul
 set "LOGGED_IN=[Logged in]"
-echo Successfully logged in!
+echo Successfully authenticated with Epic Games!
 timeout /t 2 >nul
 goto main_menu
 

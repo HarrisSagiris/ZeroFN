@@ -14,22 +14,36 @@ echo                ZeroFN     %LOGGED_IN%
 echo    Created by @Devharris and @Addamito
 echo ==========================================
 echo.
-echo Please choose an option:
-echo.
-echo [1] Specify FortniteOG Path
-echo [2] Install Fortnite OG
-echo [3] Login with Epic Games Account
-echo [4] Join our Discord Community
-echo [5] Exit
-echo.
-set /p choice="Enter your choice (1-5): "
 
-if "%choice%"=="1" goto specify_path
-if "%choice%"=="2" goto season_select
-if "%choice%"=="3" goto epic_login
-if "%choice%"=="4" start https://discord.gg/yCY4FTMPdK && goto main_menu
-if "%choice%"=="5" exit
-goto main_menu
+if "%LOGGED_IN%"=="" (
+    echo Please choose an option:
+    echo.
+    echo [1] Login with Epic Games Account
+    echo [2] Join our Discord Community
+    echo [3] Exit
+    echo.
+    set /p choice="Enter your choice (1-3): "
+
+    if "%choice%"=="1" goto epic_login
+    if "%choice%"=="2" start https://discord.gg/yCY4FTMPdK && goto main_menu
+    if "%choice%"=="3" exit
+    goto main_menu
+) else (
+    echo Please choose an option:
+    echo.
+    echo [1] Specify FortniteOG Path
+    echo [2] Install Fortnite OG
+    echo [3] Join our Discord Community
+    echo [4] Exit
+    echo.
+    set /p choice="Enter your choice (1-4): "
+
+    if "%choice%"=="1" goto specify_path
+    if "%choice%"=="2" goto season_select
+    if "%choice%"=="3" start https://discord.gg/yCY4FTMPdK && goto main_menu
+    if "%choice%"=="4" exit
+    goto main_menu
+)
 
 :season_select
 cls

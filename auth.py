@@ -161,7 +161,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                 "displayName": f"Guest-{random.randint(1000,9999)}",
                 "internal_client": True,
                 "client_service": "fortnite",
-                "app": "fortnite"
+                "app": "fortnite",
+                "refresh_token": f"eg1~guest~{base64.b64encode(os.urandom(32)).decode('utf-8')}"
             }
 
             with open('auth_token.json', 'w') as f:
@@ -246,7 +247,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "http://127.0.0.1:7777/epic/callback"
+            redirect_uri = "eos.xyza7891TydzdNolyGQJYa9b6n6rLMJl://epic/auth"
             state = base64.b64encode(os.urandom(32)).decode('utf-8')
             
             auth_params = {
@@ -272,7 +273,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "http://127.0.0.1:7777/epic/callback"
+                redirect_uri = "eos.xyza7891TydzdNolyGQJYa9b6n6rLMJl://epic/auth"
                 
                 headers = {
                     'Content-Type': 'application/x-www-form-urlencoded',

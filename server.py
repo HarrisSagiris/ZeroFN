@@ -97,7 +97,7 @@ class FortniteServer:
                         outer_instance.logger.info(f'Authenticated client {client_ip} with token')
                     elif client_ip not in outer_instance.connected_clients:
                         if outer_instance.auth_token:
-                            token = outer_instance.auth_token['access_token']
+                            token = outer_instance.auth_token.get('access_token')
                         else:
                             token = base64.b64encode(os.urandom(32)).decode()
                         outer_instance.connected_clients[client_ip] = token
@@ -127,8 +127,8 @@ class FortniteServer:
                         "profileChanges": [{
                             "changeType": "fullProfileUpdate",
                             "profile": {
-                                "_id": outer_instance.auth_token['account_id'],
-                                "accountId": outer_instance.auth_token['account_id'],
+                                "_id": outer_instance.auth_token.get('account_id'),
+                                "accountId": outer_instance.auth_token.get('account_id'),
                                 "items": {
                                     "SKIN_1": {
                                         "templateId": "AthenaCharacter:CID_001_Athena_Commando_F_Default",
@@ -164,30 +164,30 @@ class FortniteServer:
                     }
                 elif self.path.startswith('/account/api/oauth/token'):
                     response = {
-                        "access_token": outer_instance.auth_token['access_token'],
+                        "access_token": outer_instance.auth_token.get('access_token'),
                         "expires_in": 28800,
                         "expires_at": "9999-12-31T23:59:59.999Z",
                         "token_type": "bearer",
-                        "account_id": outer_instance.auth_token['account_id'],
+                        "account_id": outer_instance.auth_token.get('account_id'),
                         "client_id": "ec684b8c687f479fadea3cb2ad83f5c6",
                         "internal_client": True,
                         "client_service": "fortnite",
-                        "refresh_token": outer_instance.auth_token['refresh_token'],
+                        "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token'),
                         "refresh_expires": 115200,
                         "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
                         "app": "fortnite",
-                        "in_app_id": outer_instance.auth_token['account_id']
+                        "in_app_id": outer_instance.auth_token.get('account_id')
                     }
                 else:
                     response = {
-                        "access_token": outer_instance.auth_token['access_token'],
-                        "expires_in": outer_instance.auth_token['expires_in'],
-                        "expires_at": outer_instance.auth_token['expires_at'],
-                        "token_type": outer_instance.auth_token['token_type'],
-                        "refresh_token": outer_instance.auth_token['refresh_token'],
-                        "account_id": outer_instance.auth_token['account_id'],
-                        "client_id": outer_instance.auth_token['client_id'],
+                        "access_token": outer_instance.auth_token.get('access_token'),
+                        "expires_in": outer_instance.auth_token.get('expires_in'),
+                        "expires_at": outer_instance.auth_token.get('expires_at'),
+                        "token_type": outer_instance.auth_token.get('token_type'),
+                        "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token'),
+                        "account_id": outer_instance.auth_token.get('account_id'),
+                        "client_id": outer_instance.auth_token.get('client_id'),
                         "internal_client": True,
                         "client_service": "fortnite",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
@@ -224,30 +224,30 @@ class FortniteServer:
 
                 if self.path.startswith('/account/api/oauth/token'):
                     response = {
-                        "access_token": outer_instance.auth_token['access_token'],
+                        "access_token": outer_instance.auth_token.get('access_token'),
                         "expires_in": 28800,
                         "expires_at": "9999-12-31T23:59:59.999Z", 
                         "token_type": "bearer",
-                        "account_id": outer_instance.auth_token['account_id'],
+                        "account_id": outer_instance.auth_token.get('account_id'),
                         "client_id": "ec684b8c687f479fadea3cb2ad83f5c6",
                         "internal_client": True,
                         "client_service": "fortnite",
-                        "refresh_token": outer_instance.auth_token['refresh_token'],
+                        "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token'),
                         "refresh_expires": 115200,
                         "refresh_expires_at": "9999-12-31T23:59:59.999Z",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),
                         "app": "fortnite",
-                        "in_app_id": outer_instance.auth_token['account_id']
+                        "in_app_id": outer_instance.auth_token.get('account_id')
                     }
                 else:
                     response = {
-                        "access_token": outer_instance.auth_token['access_token'],
-                        "expires_in": outer_instance.auth_token['expires_in'],
-                        "expires_at": outer_instance.auth_token['expires_at'],
-                        "token_type": outer_instance.auth_token['token_type'],
-                        "refresh_token": outer_instance.auth_token['refresh_token'],
-                        "account_id": outer_instance.auth_token['account_id'],
-                        "client_id": outer_instance.auth_token['client_id'],
+                        "access_token": outer_instance.auth_token.get('access_token'),
+                        "expires_in": outer_instance.auth_token.get('expires_in'),
+                        "expires_at": outer_instance.auth_token.get('expires_at'),
+                        "token_type": outer_instance.auth_token.get('token_type'),
+                        "refresh_token": outer_instance.auth_token.get('refresh_token', 'default_refresh_token'),
+                        "account_id": outer_instance.auth_token.get('account_id'),
+                        "client_id": outer_instance.auth_token.get('client_id'),
                         "internal_client": True,
                         "client_service": "fortnite",
                         "displayName": outer_instance.auth_token.get('displayName', 'ZeroFN Player'),

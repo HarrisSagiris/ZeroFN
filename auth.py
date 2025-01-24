@@ -14,9 +14,11 @@ import ssl
 requests.packages.urllib3.disable_warnings()
 
 class AuthHandler(BaseHTTPRequestHandler):
+    # Make state a class variable instead of instance variable
+    state = None
+    
     def __init__(self, *args, **kwargs):
         self.server_should_close = False
-        self.state = None # Store state for verification
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
@@ -152,14 +154,14 @@ class AuthHandler(BaseHTTPRequestHandler):
             # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
             redirect_uri = "http://127.0.0.1:7777/epic/callback"
-            self.state = base64.b64encode(os.urandom(32)).decode('utf-8') # Store state
+            AuthHandler.state = base64.b64encode(os.urandom(32)).decode('utf-8') # Store state as class variable
             
             auth_params = {
                 'client_id': client_id,
                 'response_type': 'code',
                 'redirect_uri': redirect_uri,
                 'scope': 'basic_profile friends_list presence openid offline_access email accounts public_profile',
-                'state': self.state,
+                'state': AuthHandler.state,
                 'prompt': 'login'
             }
             
@@ -174,8 +176,8 @@ class AuthHandler(BaseHTTPRequestHandler):
             auth_code = query.get('code', [None])[0]
             received_state = query.get('state', [None])[0]
 
-            # Verify state parameter
-            if not self.state or received_state != self.state:
+            # Verify state parameter using class variable
+            if not AuthHandler.state or received_state != AuthHandler.state:
                 self.send_error_page("Invalid state parameter. Please try logging in again.")
                 return
 

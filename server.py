@@ -41,6 +41,9 @@ class FortniteServer:
         self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
         self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
         
+        # Store expected state parameter
+        self.expected_state = None
+        
         # Check for auth token
         try:
             with open('auth_token.json', 'r') as f:
@@ -182,6 +185,10 @@ class FortniteServer:
                         
                         if not state or not code:
                             raise ValueError("Missing required parameters")
+                            
+                        # Verify state matches expected state
+                        if not outer_instance.expected_state or state != outer_instance.expected_state:
+                            raise ValueError("Invalid state parameter")
                         
                         # Process the callback
                         self.send_response(200)
@@ -201,9 +208,11 @@ class FortniteServer:
                     try:
                         outer_instance.refresh_auth_token()
                     except:
+                        # Generate new state parameter before redirecting
+                        outer_instance.expected_state = base64.b64encode(os.urandom(32)).decode()
                         # Redirect to auth server if refresh fails
                         self.send_response(302)
-                        self.send_header('Location', 'http://localhost:7777')
+                        self.send_header('Location', f'http://localhost:7777?state={outer_instance.expected_state}')
                         self.end_headers()
                         return
 

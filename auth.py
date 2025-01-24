@@ -29,86 +29,105 @@ class AuthHandler(BaseHTTPRequestHandler):
             <html>
             <head>
                 <title>ZeroFN Login</title>
+                <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
                     body { 
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        font-family: 'Roboto', sans-serif;
+                        background: #0c0c0d;
+                        color: #ffffff;
                         display: flex;
                         justify-content: center;
                         align-items: center;
-                        height: 100vh;
+                        min-height: 100vh;
                         margin: 0;
-                        background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
-                        color: white;
+                        overflow-x: hidden;
                     }
                     .login-container {
-                        background: rgba(30, 30, 47, 0.95);
+                        background: rgba(35, 39, 42, 0.5);
                         padding: 60px;
                         border-radius: 20px;
                         text-align: center;
-                        box-shadow: 0 12px 40px 0 rgba(0,0,0,0.4);
+                        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
                         backdrop-filter: blur(15px);
-                        border: 2px solid rgba(255,255,255,0.1);
-                        max-width: 500px;
+                        border: 2px solid #2b2b2b;
+                        max-width: 600px;
                         width: 90%;
-                    }
-                    h1 {
-                        background: linear-gradient(45deg, #00c3ff, #0095f6);
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        margin-bottom: 30px;
-                        font-size: 3em;
-                        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-                    }
-                    p {
-                        font-size: 1.3em;
-                        margin-bottom: 40px;
-                        color: #e0e0e0;
-                        line-height: 1.6;
-                    }
-                    .login-btn {
-                        background: linear-gradient(45deg, #0095f6, #00c3ff);
-                        color: white;
-                        padding: 18px 45px;
-                        border: none;
-                        border-radius: 30px;
-                        cursor: pointer;
-                        font-size: 20px;
-                        font-weight: bold;
-                        transition: all 0.3s ease;
-                        text-transform: uppercase;
-                        letter-spacing: 1.5px;
-                        margin-bottom: 20px;
-                        display: block;
-                        width: 100%;
-                        box-shadow: 0 5px 15px rgba(0,149,246,0.3);
-                    }
-                    .guest-btn {
-                        background: linear-gradient(45deg, #555566, #666677);
-                        color: white;
-                        padding: 18px 45px;
-                        border: none;
-                        border-radius: 30px;
-                        cursor: pointer;
-                        font-size: 20px;
-                        font-weight: bold;
-                        transition: all 0.3s ease;
-                        text-transform: uppercase;
-                        letter-spacing: 1.5px;
-                        width: 100%;
-                        box-shadow: 0 5px 15px rgba(85,85,102,0.3);
-                    }
-                    .login-btn:hover {
-                        transform: translateY(-3px);
-                        box-shadow: 0 8px 25px rgba(0,149,246,0.5);
-                    }
-                    .guest-btn:hover {
-                        transform: translateY(-3px);
-                        box-shadow: 0 8px 25px rgba(85,85,102,0.5);
+                        animation: fadeInUp 1s ease;
                     }
                     .logo {
                         width: 120px;
                         height: 120px;
+                        margin-bottom: 30px;
+                        transition: transform 0.3s ease;
+                    }
+                    .logo:hover {
+                        transform: scale(1.05);
+                    }
+                    h1 {
+                        font-family: 'Bebas Neue', sans-serif;
+                        font-size: 3.5rem;
                         margin-bottom: 20px;
+                        text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
+                    }
+                    p {
+                        font-size: 1.2rem;
+                        margin-bottom: 40px;
+                        color: #cccccc;
+                        line-height: 1.6;
+                    }
+                    .login-btn {
+                        background: #fccc4d;
+                        color: #121212;
+                        padding: 18px 45px;
+                        border: none;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 1.3rem;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        transition: all 0.3s ease;
+                        display: block;
+                        width: 100%;
+                        margin-bottom: 20px;
+                        box-shadow: 0 4px 15px rgba(252, 204, 77, 0.3);
+                    }
+                    .guest-btn {
+                        background: rgba(35, 39, 42, 0.5);
+                        color: #ffffff;
+                        padding: 18px 45px;
+                        border: 2px solid #2b2b2b;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 1.3rem;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        transition: all 0.3s ease;
+                        display: block;
+                        width: 100%;
+                    }
+                    .login-btn:hover {
+                        background: #ffc700;
+                        transform: scale(1.05) translateY(-2px);
+                        box-shadow: 0 6px 20px rgba(252, 204, 77, 0.4);
+                    }
+                    .guest-btn:hover {
+                        background: rgba(35, 39, 42, 0.8);
+                        transform: scale(1.05) translateY(-2px);
+                    }
+                    @keyframes fadeInUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(30px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
                     }
                 </style>
             </head>
@@ -116,7 +135,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 <div class="login-container">
                     <img src="https://i.imgur.com/XYZ123.png" alt="ZeroFN Logo" class="logo">
                     <h1>Welcome to ZeroFN</h1>
-                    <p>Experience Fortnite like never before.<br>Login with your Epic Games account or continue as guest.</p>
+                    <p>Experience OG Fortnite like never before.<br>Login with your Epic Games account or continue as guest.</p>
                     <a href="/login">
                         <button class="login-btn">Login with Epic Games</button>
                     </a>
@@ -157,28 +176,53 @@ class AuthHandler(BaseHTTPRequestHandler):
             <html>
             <head>
                 <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
+                <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
                     body {
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                        background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
-                        color: white;
+                        font-family: 'Roboto', sans-serif;
+                        background: #0c0c0d;
+                        color: #ffffff;
                         display: flex;
                         justify-content: center;
                         align-items: center;
-                        height: 100vh;
+                        min-height: 100vh;
                         margin: 0;
                     }
                     .success-container {
                         text-align: center;
-                        padding: 40px;
-                        background: rgba(30, 30, 47, 0.95);
+                        padding: 60px;
+                        background: rgba(35, 39, 42, 0.5);
                         border-radius: 20px;
-                        box-shadow: 0 12px 40px 0 rgba(0,0,0,0.4);
+                        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+                        backdrop-filter: blur(15px);
+                        border: 2px solid #2b2b2b;
+                        animation: fadeInUp 1s ease;
                     }
                     h2 {
-                        color: #00ff00;
-                        font-size: 2em;
+                        font-family: 'Bebas Neue', sans-serif;
+                        color: #fccc4d;
+                        font-size: 2.5em;
                         margin-bottom: 20px;
+                        text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
+                    }
+                    p {
+                        font-size: 1.2rem;
+                        color: #cccccc;
+                    }
+                    @keyframes fadeInUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(30px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
                     }
                 </style>
             </head>
@@ -283,39 +327,59 @@ class AuthHandler(BaseHTTPRequestHandler):
                     <html>
                     <head>
                         <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
+                        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                         <style>
+                            * {
+                                margin: 0;
+                                padding: 0;
+                                box-sizing: border-box;
+                            }
                             body {
-                                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                                background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
-                                color: white;
+                                font-family: 'Roboto', sans-serif;
+                                background: #0c0c0d;
+                                color: #ffffff;
                                 display: flex;
                                 justify-content: center;
                                 align-items: center;
-                                height: 100vh;
+                                min-height: 100vh;
                                 margin: 0;
                             }
                             .success-container {
                                 text-align: center;
-                                padding: 50px;
-                                background: rgba(30, 30, 47, 0.95);
+                                padding: 60px;
+                                background: rgba(35, 39, 42, 0.5);
                                 border-radius: 20px;
-                                box-shadow: 0 12px 40px 0 rgba(0,0,0,0.4);
-                                max-width: 600px;
-                                width: 90%;
+                                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+                                backdrop-filter: blur(15px);
+                                border: 2px solid #2b2b2b;
+                                animation: fadeInUp 1s ease;
                             }
                             h1 {
-                                color: #00ff00;
-                                font-size: 2.5em;
+                                font-family: 'Bebas Neue', sans-serif;
+                                color: #fccc4d;
+                                font-size: 3em;
                                 margin-bottom: 20px;
+                                text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
                             }
                             p {
-                                font-size: 1.2em;
+                                font-size: 1.2rem;
+                                color: #cccccc;
                                 margin: 10px 0;
                             }
                             .welcome {
-                                color: #0095f6;
+                                color: #fccc4d;
                                 font-size: 1.5em;
                                 margin-top: 20px;
+                            }
+                            @keyframes fadeInUp {
+                                from {
+                                    opacity: 0;
+                                    transform: translateY(30px);
+                                }
+                                to {
+                                    opacity: 1;
+                                    transform: translateY(0);
+                                }
                             }
                         </style>
                     </head>
@@ -354,39 +418,74 @@ class AuthHandler(BaseHTTPRequestHandler):
         error_html = f"""
         <html>
         <head>
+            <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
             <style>
+                * {{
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }}
                 body {{
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
-                    color: white;
+                    font-family: 'Roboto', sans-serif;
+                    background: #0c0c0d;
+                    color: #ffffff;
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    height: 100vh;
+                    min-height: 100vh;
                     margin: 0;
                 }}
                 .error-container {{
                     text-align: center;
-                    padding: 50px;
-                    background: rgba(30, 30, 47, 0.95);
+                    padding: 60px;
+                    background: rgba(35, 39, 42, 0.5);
                     border-radius: 20px;
-                    box-shadow: 0 12px 40px 0 rgba(0,0,0,0.4);
+                    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(15px);
+                    border: 2px solid #2b2b2b;
+                    animation: fadeInUp 1s ease;
                 }}
                 h1 {{
-                    color: #ff0000;
+                    font-family: 'Bebas Neue', sans-serif;
+                    color: #ff6b6b;
+                    font-size: 3em;
                     margin-bottom: 20px;
+                    text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
+                }}
+                p {{
+                    font-size: 1.2rem;
+                    color: #cccccc;
+                    margin-bottom: 30px;
                 }}
                 .retry-btn {{
-                    background: linear-gradient(45deg, #666666, #888888);
-                    color: white;
+                    background: #fccc4d;
+                    color: #121212;
                     padding: 15px 40px;
                     border: none;
-                    border-radius: 25px;
+                    border-radius: 5px;
                     cursor: pointer;
-                    font-size: 18px;
-                    margin-top: 20px;
+                    font-size: 1.2rem;
+                    font-weight: bold;
+                    text-transform: uppercase;
                     text-decoration: none;
                     display: inline-block;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 15px rgba(252, 204, 77, 0.3);
+                }}
+                .retry-btn:hover {{
+                    background: #ffc700;
+                    transform: scale(1.05) translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(252, 204, 77, 0.4);
+                }}
+                @keyframes fadeInUp {{
+                    from {{
+                        opacity: 0;
+                        transform: translateY(30px);
+                    }}
+                    to {{
+                        opacity: 1;
+                        transform: translateY(0);
+                    }}
                 }}
             </style>
         </head>

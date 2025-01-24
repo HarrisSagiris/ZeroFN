@@ -30,6 +30,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             <head>
                 <title>ZeroFN Login</title>
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                <link rel="icon" type="image/jpg" href="zerofn.jpg">
                 <style>
                     * {
                         margin: 0;
@@ -177,6 +178,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             <head>
                 <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                <link rel="icon" type="image/jpg" href="zerofn.jpg">
                 <style>
                     * {
                         margin: 0;
@@ -328,6 +330,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     <head>
                         <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
                         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                        <link rel="icon" type="image/jpg" href="zerofn.jpg">
                         <style>
                             * {
                                 margin: 0;
@@ -419,6 +422,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         <html>
         <head>
             <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+            <link rel="icon" type="image/jpg" href="zerofn.jpg">
             <style>
                 * {{
                     margin: 0;

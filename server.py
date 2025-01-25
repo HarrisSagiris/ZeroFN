@@ -15,7 +15,6 @@ import os
 import jwt
 from urllib.parse import unquote, parse_qs, urlparse
 from auth import AuthHandler, generate_guest_credentials
-from launcher import set_proxy_settings, remove_proxy_settings
 
 print("Starting ZeroFN Server (Chapter 1 Season 2)...")
 print("Initializing components...")
@@ -39,17 +38,12 @@ class FortniteServer:
         self.host = '127.0.0.1'  # Listen only on localhost
         self.port = 7778
         
-        # Legacy Epic Games OAuth credentials for Chapter 1 Season 2
-        self.client_id = "ec684b8c687f479fadea3cb2ad83f5c6"  # Season 2 client ID
-        self.client_secret = "e1f31c211f28413186262d37a13fc84d"
+        # Updated Epic Games OAuth credentials
+        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
+        self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
         
         # Store expected state parameter
         self.expected_state = None
-
-        # Configure proxy settings
-        print("Configuring proxy settings...")
-        if not set_proxy_settings():
-            print("Failed to set proxy settings - server may not work correctly")
         
         # Check for auth token
         try:
@@ -430,8 +424,6 @@ class FortniteServer:
         finally:
             self.logger.info('Shutting down server...')
             print("Shutting down server...")
-            # Remove proxy settings on shutdown
-            remove_proxy_settings()
             print("Press Enter to exit...")
             input()
             self.http_server.shutdown()

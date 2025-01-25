@@ -9,11 +9,72 @@
 #include <vector>
 #include <ctime>
 #include <chrono>
-#include <nlohmann/json.hpp>
+#include <filesystem>
+#include <direct.h>
+#include <map>
+#include <mutex>
+
+// Simple JSON implementation since nlohmann/json is not available
+class json {
+private:
+    std::map<std::string, std::string> data;
+    bool is_array = false;
+    std::vector<json> array_data;
+
+public:
+    json() {}
+    
+    void operator=(std::initializer_list<std::pair<const std::string, json>> list) {
+        for(const auto& item : list) {
+            if(item.second.is_array)
+                array_data = item.second.array_data;
+            else
+                data = item.second.data;
+        }
+    }
+
+    json& operator[](const std::string& key) {
+        return *this;
+    }
+
+    static json array() {
+        json j;
+        j.is_array = true;
+        return j;
+    }
+
+    static json object() {
+        return json();
+    }
+
+    bool empty() const {
+        return data.empty() && array_data.empty();
+    }
+
+    std::string dump(int indent = 0) const {
+        if(is_array) return "[]";
+        
+        std::string result = "{";
+        for(const auto& [key, value] : data) {
+            if(result.length() > 1) result += ",";
+            result += "\"" + key + "\":\"" + value + "\"";
+        }
+        result += "}";
+        return result;
+    }
+};
 
 #pragma comment(lib, "ws2_32.lib")
 
-using json = nlohmann::json;
+namespace fs = std::filesystem;
+
+// Game session data
+struct GameSession {
+    std::string sessionId;
+    std::vector<std::string> players;
+    bool inProgress;
+    std::string playlistId;
+};
 
 class FortniteServer {
 private:
@@ -23,11 +84,279 @@ private:
     std::string authToken;
     std::string displayName;
     std::string accountId;
+    std::string installPath;
+
+    // Matchmaking state
+    std::map<std::string, GameSession> activeSessions;
+    std::vector<std::string> matchmakingQueue;
+    std::mutex matchmakingMutex;
+    
+    // Cosmetics and inventory
+    json playerLoadout;
+    json playerInventory;
+
+    void initializePlayerData() {
+        // Basic cosmetics loadout
+        playerLoadout = {
+            {"character", "CID_001_Athena_Commando_F_Default"},
+            {"backpack", "BID_001_Default"},
+            {"pickaxe", "Pickaxe_Default"},
+            {"glider", "Glider_Default"},
+            {"contrail", "Trails_Default"},
+            {"danceEmotes", {
+                "EID_DanceDefault", 
+                "EID_DanceDefault2",
+                "EID_DanceDefault3",
+                "EID_DanceDefault4",
+                "EID_DanceDefault5",
+                "EID_DanceDefault6"
+            }}
+        };
+
+        // Basic inventory with some default items
+        playerInventory = {
+            {"characters", {"CID_001_Athena_Commando_F_Default"}},
+            {"backpacks", {"BID_001_Default"}},
+            {"pickaxes", {"Pickaxe_Default"}},
+            {"gliders", {"Glider_Default"}},
+            {"contrails", {"Trails_Default"}},
+            {"emotes", {
+                "EID_DanceDefault",
+                "EID_DanceDefault2",
+                "EID_DanceDefault3",
+                "EID_DanceDefault4",
+                "EID_DanceDefault5",
+                "EID_DanceDefault6"
+            }}
+        };
+    }
+
+    void sendResponse(SOCKET clientSocket, const std::string& response) {
+        send(clientSocket, response.c_str(), response.length(), 0);
+    }
+
+    std::string parseRequest(const std::string& request) {
+        std::istringstream iss(request);
+        std::string requestLine;
+        std::getline(iss, requestLine);
+        
+        size_t pos1 = requestLine.find(' ');
+        size_t pos2 = requestLine.find(' ', pos1 + 1);
+        
+        if (pos1 != std::string::npos && pos2 != std::string::npos) {
+            return requestLine.substr(pos1 + 1, pos2 - pos1 - 1);
+        }
+        return "";
+    }
+
+    std::string generateMatchId() {
+        return "MATCH_" + std::to_string(rand());
+    }
+
+    void handleMatchmaking() {
+        while(running) {
+            std::lock_guard<std::mutex> lock(matchmakingMutex);
+            
+            // If we have enough players, create a match
+            if(matchmakingQueue.size() >= 2) {
+                GameSession session;
+                session.sessionId = generateMatchId();
+                session.inProgress = true;
+                session.playlistId = "Playlist_DefaultSolo";
+                
+                // Add players from queue to session
+                while(!matchmakingQueue.empty() && session.players.size() < 100) {
+                    session.players.push_back(matchmakingQueue.back());
+                    matchmakingQueue.pop_back();
+                }
+                
+                activeSessions[session.sessionId] = session;
+                
+                // Notify players match is ready
+                std::cout << "[MATCHMAKING] Created session " << session.sessionId 
+                         << " with " << session.players.size() << " players" << std::endl;
+            }
+            
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+
+    void handleClient(SOCKET clientSocket) {
+        char buffer[8192];
+        std::string request;
+        
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (bytesReceived > 0) {
+            request = std::string(buffer, bytesReceived);
+            std::string endpoint = parseRequest(request);
+
+            // Basic response headers
+            std::string headers = "HTTP/1.1 200 OK\r\n";
+            headers += "Content-Type: application/json\r\n";
+            headers += "Access-Control-Allow-Origin: *\r\n";
+            headers += "Connection: close\r\n\r\n";
+
+            // Handle different endpoints
+            if (endpoint == "/account/api/oauth/token") {
+                json response = {
+                    {"access_token", authToken},
+                    {"expires_in", "28800"},
+                    {"expires_at", "9999-12-31T23:59:59.999Z"},
+                    {"token_type", "bearer"},
+                    {"account_id", accountId},
+                    {"client_id", "ec684b8c687f479fadea3cb2ad83f5c6"},
+                    {"internal_client", "true"},
+                    {"client_service", "fortnite"},
+                    {"displayName", displayName},
+                    {"app", "fortnite"},
+                    {"in_app_id", accountId}
+                };
+                
+                sendResponse(clientSocket, headers + response.dump());
+            }
+            else if (endpoint == "/account/api/public/account") {
+                json response = {
+                    {"id", accountId},
+                    {"displayName", displayName}
+                };
+                
+                sendResponse(clientSocket, headers + response.dump());
+            }
+            else if (endpoint == "/fortnite/api/game/v2/profile/" + accountId + "/client/QueryProfile") {
+                json response = {
+                    {"profileId", "athena"},
+                    {"profileChanges", "[]"},
+                    {"profileCommandRevision", "1"},
+                    {"serverTime", "2023-12-31T23:59:59.999Z"},
+                    {"responseVersion", "1"}
+                };
+                
+                sendResponse(clientSocket, headers + response.dump());
+            }
+            else if (endpoint.find("/fortnite/api/matchmaking/session/findPlayer/") != std::string::npos) {
+                std::lock_guard<std::mutex> lock(matchmakingMutex);
+                matchmakingQueue.push_back(accountId);
+                
+                json response = {
+                    {"status", "waiting"},
+                    {"priority", "0"},
+                    {"ticket", "ticket_" + std::to_string(rand())},
+                    {"queuedPlayers", std::to_string(matchmakingQueue.size())}
+                };
+                
+                sendResponse(clientSocket, headers + response.dump());
+            }
+            else if (endpoint.find("/fortnite/api/matchmaking/session/matchMakingRequest") != std::string::npos) {
+                json response;
+                std::lock_guard<std::mutex> lock(matchmakingMutex);
+                
+                // Check if player is in an active session
+                for(const auto& session : activeSessions) {
+                    if(std::find(session.second.players.begin(), 
+                               session.second.players.end(), 
+                               accountId) != session.second.players.end()) {
+                        response = {
+                            {"status", "found"},
+                            {"matchId", session.first},
+                            {"sessionId", session.first},
+                            {"playlistId", session.second.playlistId}
+                        };
+                        break;
+                    }
+                }
+                
+                if(response.empty()) {
+                    response = {
+                        {"status", "waiting"},
+                        {"estimatedWaitSeconds", "10"}
+                    };
+                }
+                
+                sendResponse(clientSocket, headers + response.dump());
+            }
+            else {
+                json response = {
+                    {"status", "ok"}
+                };
+                
+                sendResponse(clientSocket, headers + response.dump());
+            }
+        }
+
+        closesocket(clientSocket);
+    }
 
 public:
     FortniteServer() : running(false), serverSocket(INVALID_SOCKET) {
-        displayName = "ZeroFN_User"; 
+        srand(time(0));
+        
+        std::cout << "=====================================\n";
+        std::cout << "    Welcome to ZeroFN Server\n";
+        std::cout << "=====================================\n\n";
+        
+        std::cout << "Enter your display name for Fortnite: ";
+        std::getline(std::cin, displayName);
+        if(displayName.empty()) {
+            displayName = "ZeroFN_User";
+        }
+        
         accountId = "zerofn_" + std::to_string(rand());
+        authToken = "zerofn_token_" + std::to_string(rand());
+        
+        initializePlayerData();
+        setupInstallPath();
+    }
+
+    void setupInstallPath() {
+        std::cout << "\nFortnite Installation Setup\n";
+        std::cout << "===========================\n";
+        
+        std::string defaultPath = "C:\\FortniteOG";
+        if(fs::exists(defaultPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe")) {
+            std::cout << "Found existing installation at: " << defaultPath << "\n";
+            installPath = defaultPath;
+            return;
+        }
+
+        while(true) {
+            std::cout << "\nPlease choose an option:\n";
+            std::cout << "[1] Specify Fortnite installation path\n";
+            std::cout << "[2] Install Fortnite OG\n";
+            
+            char choice;
+            std::cin >> choice;
+            std::cin.ignore();
+
+            if(choice == '1') {
+                std::cout << "Enter Fortnite installation path: ";
+                std::getline(std::cin, installPath);
+                
+                if(fs::exists(installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe")) {
+                    std::cout << "Valid Fortnite installation found!\n";
+                    break;
+                } else {
+                    std::cout << "Invalid path or Fortnite not found at specified location.\n";
+                }
+            }
+            else if(choice == '2') {
+                installFortniteOG();
+                break;
+            }
+        }
+    }
+
+    void installFortniteOG() {
+        std::cout << "\nInstalling Fortnite OG...\n";
+        installPath = "C:\\FortniteOG";
+        
+        _mkdir(installPath.c_str());
+        
+        std::cout << "Downloading Fortnite OG files...\n";
+        std::cout << "This would normally download and install Fortnite OG\n";
+        std::cout << "For this example, please manually place Fortnite files in: " << installPath << "\n";
+        
+        std::cout << "\nPress Enter when files are in place...";
+        std::cin.get();
     }
 
     bool start() {
@@ -72,8 +401,21 @@ public:
         }
 
         running = true;
-        std::cout << "[SERVER] Started on port " << PORT << std::endl;
+        std::cout << "\n[SERVER] Started on port " << PORT << std::endl;
+        std::cout << "[SERVER] Username: " << displayName << std::endl;
+        
+        json auth_data = {
+            {"access_token", authToken},
+            {"displayName", displayName}
+        };
+        std::ofstream auth_file("auth_token.json");
+        auth_file << auth_data.dump(2);
+        auth_file.close();
 
+        // Start matchmaking thread
+        std::thread(&FortniteServer::handleMatchmaking, this).detach();
+
+        // Start client handler thread
         std::thread([this]() {
             while (running) {
                 SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
@@ -87,6 +429,18 @@ public:
         return true;
     }
 
+    void launchGame() {
+        std::string cmd = "start \"\" \"" + installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe\"";
+        cmd += " -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=" + authToken;
+        cmd += " -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck";
+        cmd += " -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0";
+        cmd += " -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE";
+        cmd += " -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN";
+        cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
+        
+        system(cmd.c_str());
+    }
+
     void stop() {
         running = false;
         if (serverSocket != INVALID_SOCKET) {
@@ -96,108 +450,21 @@ public:
         WSACleanup();
         std::cout << "[SERVER] Stopped" << std::endl;
     }
-
-private:
-    void handleClient(SOCKET clientSocket) {
-        char buffer[16384];
-        std::string accumulated_data;
-
-        while (running) {
-            int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-            if (bytesReceived <= 0) break;
-
-            buffer[bytesReceived] = '\0';
-            accumulated_data += buffer;
-
-            if (accumulated_data.find("\r\n\r\n") != std::string::npos) {
-                std::istringstream request_stream(accumulated_data);
-                std::string request_line;
-                std::getline(request_stream, request_line);
-
-                std::string response;
-                
-                if (accumulated_data.find("/account/api/oauth/token") != std::string::npos) {
-                    response = generateAuthResponse();
-                }
-                else if (accumulated_data.find("/account/api/public/account") != std::string::npos) {
-                    response = generateAccountResponse();
-                }
-                else if (accumulated_data.find("/fortnite/api/game/v2/profile") != std::string::npos) {
-                    response = generateProfileResponse();
-                }
-                else if (accumulated_data.find("/fortnite/api/cloudstorage/system") != std::string::npos) {
-                    response = generateCloudStorageResponse();
-                }
-                else {
-                    response = "HTTP/1.1 204 No Content\r\n\r\n";
-                }
-
-                send(clientSocket, response.c_str(), response.length(), 0);
-                accumulated_data.clear();
-            }
-        }
-
-        closesocket(clientSocket);
-        std::cout << "[SERVER] Client disconnected" << std::endl;
-    }
-
-    std::string generateAuthResponse() {
-        json auth = {
-            {"access_token", "zerofn_token"},
-            {"expires_in", 28800},
-            {"token_type", "bearer"},
-            {"account_id", accountId},
-            {"client_id", "zerofn"},
-            {"internal_client", true},
-            {"client_service", "fortnite"},
-            {"displayName", displayName},
-            {"app", "fortnite"},
-            {"in_app_id", accountId}
-        };
-
-        return formatResponse(auth);
-    }
-
-    std::string generateAccountResponse() {
-        json account = {
-            {"id", accountId},
-            {"displayName", displayName},
-            {"externalAuths", json::object()}
-        };
-
-        return formatResponse(account);
-    }
-
-    std::string generateProfileResponse() {
-        json profile = {
-            {"profileId", "athena"},
-            {"accountId", accountId},
-            {"version", "zerofn_1.0"},
-            {"items", json::object()},
-            {"stats", {
-                {"attributes", {
-                    {"past_seasons", json::array()},
-                    {"season_match_boost", 0},
-                    {"loadouts", json::array()},
-                    {"mfa_reward_claimed", false}
-                }}
-            }},
-            {"commandRevision", 1}
-        };
-
-        return formatResponse(profile);
-    }
-
-    std::string generateCloudStorageResponse() {
-        json storage = json::array();
-        return formatResponse(storage);
-    }
-
-    std::string formatResponse(const json& data) {
-        std::string json_str = data.dump(2);
-        return "HTTP/1.1 200 OK\r\n"
-               "Content-Type: application/json\r\n"
-               "Content-Length: " + std::to_string(json_str.length()) + "\r\n\r\n" + 
-               json_str;
-    }
 };
+
+int main() {
+    SetConsoleTitle("ZeroFN Server");
+    
+    FortniteServer server;
+    if(server.start()) {
+        std::cout << "\nServer started successfully!\n";
+        std::cout << "Starting Fortnite...\n";
+        server.launchGame();
+        
+        std::cout << "\nPress Enter to stop the server...";
+        std::cin.get();
+        server.stop();
+    }
+    
+    return 0;
+}

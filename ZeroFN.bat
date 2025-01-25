@@ -29,6 +29,8 @@ if "!SAVED_GAME_PATH!"=="" (
         echo No installation found. Please specify the path.
         goto specify_path
     )
+) else (
+    echo Loaded saved installation path: !SAVED_GAME_PATH!
 )
 
 REM Load auth token if exists

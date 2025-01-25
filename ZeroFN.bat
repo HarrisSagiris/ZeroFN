@@ -276,7 +276,7 @@ echo This may take a while depending on your internet speed.
 echo Please ensure you have a stable internet connection.
 
 REM Add download progress
-powershell -Command "$ProgressPreference = 'SilentlyContinue'; $client = New-Object System.Net.WebClient; $client.DownloadProgressChanged += { Write-Progress -PercentComplete $_.ProgressPercentage -Status 'Downloading...' -CurrentOperation 'Downloading Fortnite files...'; }; $client.DownloadFile('%DOWNLOAD_URL%', '%ARCHIVE_NAME%')"
+powershell -Command "$ProgressPreference = 'SilentlyContinue'; $client = New-Object System.Net.WebClient; $client.DownloadProgressChanged += { Write-Progress -PercentComplete $_.ProgressPercentage -Status 'Downloading...' -CurrentOperation ('Downloading Fortnite files... ' + $_.ProgressPercentage + '%'); }; $client.DownloadFile('%DOWNLOAD_URL%', '%ARCHIVE_NAME%')"
 if !errorlevel! neq 0 (
     echo Download failed. Please check your internet connection.
     timeout /t 3 >nul

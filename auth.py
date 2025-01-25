@@ -1,5 +1,4 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import webbrowser
 import json
 import requests
 import urllib.parse
@@ -8,12 +7,8 @@ import threading
 import time
 import base64
 import random
-import ssl
 import string
 from datetime import datetime, timezone
-
-# Disable SSL warnings
-requests.packages.urllib3.disable_warnings()
 
 def generate_guest_credentials():
     # Generate random username
@@ -39,12 +34,8 @@ class AuthHandler(BaseHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
-        if self.path == '/favicon.ico':
-            self.send_response(404)
-            self.end_headers()
-            return
-
         if self.path == '/':
+            # Serve login page with guest option
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -52,8 +43,8 @@ class AuthHandler(BaseHTTPRequestHandler):
             html = """
             <html>
             <head>
-                <title>ZeroFN Login - Chapter 1 Season 2</title>
-                <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                <title>ZeroFN Login</title>
+                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <style>
                     * {
                         margin: 0;
@@ -69,31 +60,25 @@ class AuthHandler(BaseHTTPRequestHandler):
                         align-items: center;
                         min-height: 100vh;
                         margin: 0;
-                        overflow-x: hidden;
                     }
                     .login-container {
-                        background: rgba(35, 39, 42, 0.8);
+                        background: rgba(35, 39, 42, 0.5);
                         padding: 60px;
                         border-radius: 20px;
                         text-align: center;
                         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-                        backdrop-filter: blur(15px);
                         border: 2px solid #2b2b2b;
                         max-width: 600px;
                         width: 90%;
-                        animation: fadeInUp 1s ease;
                     }
                     h1 {
-                        font-family: 'Bebas Neue', sans-serif;
                         font-size: 3.5rem;
                         margin-bottom: 20px;
-                        text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
                     }
                     p {
                         font-size: 1.2rem;
                         margin-bottom: 40px;
                         color: #cccccc;
-                        line-height: 1.6;
                     }
                     .btn {
                         background: #fccc4d;
@@ -105,39 +90,19 @@ class AuthHandler(BaseHTTPRequestHandler):
                         font-size: 1.3rem;
                         font-weight: bold;
                         text-transform: uppercase;
-                        transition: all 0.3s ease;
                         display: block;
                         width: 100%;
                         margin-bottom: 20px;
-                        box-shadow: 0 4px 15px rgba(252, 204, 77, 0.3);
-                    }
-                    .btn:hover {
-                        background: #ffc700;
-                        transform: scale(1.05) translateY(-2px);
-                        box-shadow: 0 6px 20px rgba(252, 204, 77, 0.4);
                     }
                     .guest-btn {
                         background: #4d8bfc;
-                    }
-                    .guest-btn:hover {
-                        background: #3b7af0;
-                    }
-                    @keyframes fadeInUp {
-                        from {
-                            opacity: 0;
-                            transform: translateY(30px);
-                        }
-                        to {
-                            opacity: 1;
-                            transform: translateY(0);
-                        }
                     }
                 </style>
             </head>
             <body>
                 <div class="login-container">
                     <h1>Welcome to ZeroFN</h1>
-                    <p>Experience Fortnite Chapter 1 Season 2 like never before.<br>Login with your Epic Games account or continue as guest.</p>
+                    <p>Login with your Epic Games account or continue as guest.</p>
                     <a href="/login">
                         <button class="btn">Login with Epic Games</button>
                     </a>
@@ -151,7 +116,10 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode())
 
         elif self.path == '/guest-login':
+            # Generate guest credentials
             username, email, password, account_id = generate_guest_credentials()
+            
+            # Create guest token data
             expires_at = int(time.time()) + 28800
             token_data = {
                 'access_token': base64.b64encode(os.urandom(32)).decode('utf-8'),
@@ -161,54 +129,20 @@ class AuthHandler(BaseHTTPRequestHandler):
                 'token_type': 'bearer',
                 'account_id': account_id,
                 'client_id': 'zerofn_client',
-                'internal_client': True,
-                'client_service': 'fortnite',
                 'displayName': username,
-                'app': 'fortnite',
-                'in_app_id': account_id,
-                'device_id': 'zerofn_device',
                 'email': email,
                 'password': password,
                 'is_guest': True,
                 'season': 2,
-                'perms': [
-                    'fortnite:profile:*:commands',
-                    'account:public:account',
-                    'account:oauth:ext_auth:persist:claim',
-                    'basic:profile:*:public',
-                    'friends:list',
-                    'presence:*:*'
-                ],
-                'membership': {
-                    'active': True,
-                    'level': 'premium',
-                    'expires_at': datetime.fromtimestamp(expires_at + 2592000, tz=timezone.utc).isoformat()
-                },
-                'profile': {
-                    'character': 'CID_017_Athena_Commando_M',
-                    'backpack': 'BID_004_BlackKnight',
-                    'pickaxe': 'Pickaxe_ID_011_Medieval',
-                    'glider': 'Glider_Medieval',
-                    'trail': 'Trails_ID_001',
-                    'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss', 'EID_Ride', 'EID_Robot', 'EID_Dab'],
-                    'banner': {
-                        'icon': 'BRS02',
-                        'color': 'defaultcolor2',
-                        'season_level': 70
-                    },
-                    'battlepass': {
-                        'level': 70,
-                        'xp': 80000,
-                        'stars': 7
-                    }
-                }
             }
 
+            # Save token data
             with open('auth_token.json', 'w') as f:
                 json.dump(token_data, f, indent=4)
             
             os.environ['LOGGED_IN'] = "(Guest)"
             
+            # Show success page
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -216,14 +150,9 @@ class AuthHandler(BaseHTTPRequestHandler):
             success_html = f"""
             <html>
             <head>
-                <meta http-equiv="refresh" content="10;url=http://127.0.0.1:7777/close">
-                <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                <meta http-equiv="refresh" content="10;url=http://0.0.0.0:7777/close">
+                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <style>
-                    * {{
-                        margin: 0;
-                        padding: 0;
-                        box-sizing: border-box;
-                    }}
                     body {{
                         font-family: 'Roboto', sans-serif;
                         background: #0c0c0d;
@@ -232,54 +161,29 @@ class AuthHandler(BaseHTTPRequestHandler):
                         justify-content: center;
                         align-items: center;
                         min-height: 100vh;
-                        margin: 0;
                     }}
                     .success-container {{
                         text-align: center;
                         padding: 60px;
-                        background: rgba(35, 39, 42, 0.8);
+                        background: rgba(35, 39, 42, 0.5);
                         border-radius: 20px;
                         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-                        backdrop-filter: blur(15px);
-                        border: 2px solid #2b2b2b;
-                        animation: fadeInUp 1s ease;
                     }}
                     h1 {{
-                        font-family: 'Bebas Neue', sans-serif;
-                        color: #4d8bfc;
                         font-size: 3em;
-                        margin-bottom: 20px;
-                        text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
                     }}
                     p {{
                         font-size: 1.2rem;
-                        color: #cccccc;
-                        margin: 10px 0;
-                    }}
-                    .credentials {{
-                        background: rgba(0, 0, 0, 0.3);
-                        padding: 20px;
-                        border-radius: 10px;
-                        margin: 20px 0;
-                        text-align: left;
-                    }}
-                    .welcome {{
-                        color: #4d8bfc;
-                        font-size: 1.5em;
-                        margin-top: 20px;
                     }}
                 </style>
             </head>
             <body>
                 <div class="success-container">
                     <h1>Guest Login Successful!</h1>
-                    <p class="welcome">Welcome, {username}!</p>
-                    <div class="credentials">
-                        <p><strong>Username:</strong> {username}</p>
-                        <p><strong>Email:</strong> {email}</p>
-                        <p><strong>Password:</strong> {password}</p>
-                    </div>
-                    <p>Please save these credentials if you want to use them again later.</p>
+                    <p>Welcome, {username}!</p>
+                    <p>Your credentials:</p>
+                    <p><strong>Email:</strong> {email}</p>
+                    <p><strong>Password:</strong> {password}</p>
                     <p>Window will close automatically in 10 seconds...</p>
                 </div>
             </body>
@@ -293,7 +197,8 @@ class AuthHandler(BaseHTTPRequestHandler):
             threading.Thread(target=shutdown).start()
             return
 
-        elif self.path.startswith('/login'):
+        elif self.path == '/login':
+            # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
             redirect_uri = "http://0.0.0.0:7777/epic/auth/callback/zerofn"
             AuthHandler.state = base64.b64encode(os.urandom(32)).decode('utf-8')
@@ -326,7 +231,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "http://0.0.0.0:7777/epic/auth/callback/zerofn"
                 
                 auth_str = f"{client_id}:{client_secret}"
                 auth_bytes = auth_str.encode('ascii')
@@ -335,7 +239,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                 headers = {
                     'Authorization': f'Basic {auth_b64}',
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                 }
                 
                 data = {
@@ -345,98 +248,27 @@ class AuthHandler(BaseHTTPRequestHandler):
                 }
 
                 try:
-                    max_retries = 3
-                    retry_count = 0
-                    
-                    while retry_count < max_retries:
-                        try:
-                            proxies = {
-                                'http': 'http://0.0.0.0:7777',
-                                'https': 'http://0.0.0.0:7777',
-                            }
-                            response = requests.post(token_url, headers=headers, data=data, verify=False, timeout=10, proxies=proxies)
-                            response.raise_for_status()
-                            break
-                        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
-                            retry_count += 1
-                            if retry_count == max_retries:
-                                raise
-                            time.sleep(1)
-                    
+                    response = requests.post(token_url, headers=headers, data=data, verify=False, timeout=10)
+                    response.raise_for_status()
                     token_data = response.json()
+                    
+                    # Convert expires_at to ISO format
                     expires_at = int(time.time()) + token_data['expires_in']
                     token_data['expires_at'] = datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()
                     
-                    retry_count = 0
+                    # Get account details
                     account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/verify"
                     account_headers = {
                         'Authorization': f'Bearer {token_data["access_token"]}',
-                        'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
                     }
                     
-                    while retry_count < max_retries:
-                        try:
-                            account_response = requests.get(account_url, headers=account_headers, verify=False, timeout=10, proxies=proxies)
-                            account_response.raise_for_status()
-                            break
-                        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
-                            retry_count += 1
-                            if retry_count == max_retries:
-                                raise
-                            time.sleep(1)
-                    
+                    account_response = requests.get(account_url, headers=account_headers, verify=False, timeout=10)
+                    account_response.raise_for_status()
                     account_data = account_response.json()
                     token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
                     token_data['account_id'] = account_data.get('account_id')
 
-                    token_data['season'] = 2
-                    token_data['perms'] = [
-                        'fortnite:profile:*:commands',
-                        'account:public:account',
-                        'account:oauth:ext_auth:persist:claim',
-                        'basic:profile:*:public',
-                        'friends:list',
-                        'presence:*:*'
-                    ]
-                    token_data['membership'] = {
-                        'active': True,
-                        'level': 'premium',
-                        'expires_at': datetime.fromtimestamp(expires_at + 2592000, tz=timezone.utc).isoformat()
-                    }
-                    token_data['profile'] = {
-                        'character': 'CID_017_Athena_Commando_M',
-                        'backpack': 'BID_004_BlackKnight',
-                        'pickaxe': 'Pickaxe_ID_011_Medieval',
-                        'glider': 'Glider_Medieval',
-                        'trail': 'Trails_ID_001',
-                        'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss', 'EID_Ride', 'EID_Robot', 'EID_Dab'],
-                        'banner': {
-                            'icon': 'BRS02',
-                            'color': 'defaultcolor2',
-                            'season_level': 70
-                        },
-                        'battlepass': {
-                            'level': 70,
-                            'xp': 80000,
-                            'stars': 7
-                        }
-                    }
-
-                    retry_count = 0
-                    friends_url = f"https://friends-public-service-prod.ol.epicgames.com/friends/api/v1/{token_data['account_id']}/summary"
-                    
-                    while retry_count < max_retries:
-                        try:
-                            friends_response = requests.get(friends_url, headers=account_headers, verify=False, timeout=10, proxies=proxies)
-                            if friends_response.status_code == 200:
-                                token_data['friends'] = friends_response.json()
-                            break
-                        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
-                            retry_count += 1
-                            if retry_count == max_retries:
-                                break
-                            time.sleep(1)
-                    
+                    # Save token data
                     with open('auth_token.json', 'w') as f:
                         json.dump(token_data, f, indent=4)
                     
@@ -450,13 +282,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                     <html>
                     <head>
                         <meta http-equiv="refresh" content="3;url=http://0.0.0.0:7777/close">
-                        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                         <style>
-                            * {
-                                margin: 0;
-                                padding: 0;
-                                box-sizing: border-box;
-                            }
                             body {
                                 font-family: 'Roboto', sans-serif;
                                 background: #0c0c0d;
@@ -465,42 +292,23 @@ class AuthHandler(BaseHTTPRequestHandler):
                                 justify-content: center;
                                 align-items: center;
                                 min-height: 100vh;
-                                margin: 0;
                             }
                             .success-container {
                                 text-align: center;
                                 padding: 60px;
-                                background: rgba(35, 39, 42, 0.8);
+                                background: rgba(35, 39, 42, 0.5);
                                 border-radius: 20px;
                                 box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-                                backdrop-filter: blur(15px);
-                                border: 2px solid #2b2b2b;
-                                animation: fadeInUp 1s ease;
                             }
                             h1 {
-                                font-family: 'Bebas Neue', sans-serif;
-                                color: #fccc4d;
                                 font-size: 3em;
-                                margin-bottom: 20px;
-                                text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
-                            }
-                            p {
-                                font-size: 1.2rem;
-                                color: #cccccc;
-                                margin: 10px 0;
-                            }
-                            .welcome {
-                                color: #fccc4d;
-                                font-size: 1.5em;
-                                margin-top: 20px;
                             }
                         </style>
                     </head>
                     <body>
                         <div class="success-container">
                             <h1>Login Successful!</h1>
-                            <p class="welcome">Welcome, """ + token_data['displayName'] + """!</p>
-                            <p>You can now close this window and return to ZeroFN.</p>
+                            <p>Welcome, """ + token_data['displayName'] + """!</p>
                             <p>Window will close automatically in 3 seconds...</p>
                         </div>
                     </body>
@@ -515,10 +323,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                     return
                     
                 except requests.exceptions.RequestException as e:
-                    print(f"Error during authentication: {str(e)}")
                     self.send_error_page("Authentication failed. Please check your internet connection and try again.")
                 except Exception as e:
-                    print(f"Unexpected error: {str(e)}")
                     self.send_error_page("An unexpected error occurred. Please try logging in again.")
 
             else:
@@ -542,13 +348,8 @@ class AuthHandler(BaseHTTPRequestHandler):
         error_html = f"""
         <html>
         <head>
-            <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
             <style>
-                * {{
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }}
                 body {{
                     font-family: 'Roboto', sans-serif;
                     background: #0c0c0d;
@@ -557,49 +358,20 @@ class AuthHandler(BaseHTTPRequestHandler):
                     justify-content: center;
                     align-items: center;
                     min-height: 100vh;
-                    margin: 0;
                 }}
                 .error-container {{
                     text-align: center;
                     padding: 60px;
-                    background: rgba(35, 39, 42, 0.8);
+                    background: rgba(35, 39, 42, 0.5);
                     border-radius: 20px;
                     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-                    backdrop-filter: blur(15px);
-                    border: 2px solid #2b2b2b;
-                    animation: fadeInUp 1s ease;
                 }}
                 h1 {{
-                    font-family: 'Bebas Neue', sans-serif;
-                    color: #ff6b6b;
                     font-size: 3em;
-                    margin-bottom: 20px;
-                    text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
+                    color: #ff6b6b;
                 }}
                 p {{
                     font-size: 1.2rem;
-                    color: #cccccc;
-                    margin-bottom: 30px;
-                }}
-                .retry-btn {{
-                    background: #fccc4d;
-                    color: #121212;
-                    padding: 15px 40px;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-size: 1.2rem;
-                    font-weight: bold;
-                    text-transform: uppercase;
-                    text-decoration: none;
-                    display: inline-block;
-                    transition: all 0.3s ease;
-                    box-shadow: 0 4px 15px rgba(252, 204, 77, 0.3);
-                }}
-                .retry-btn:hover {{
-                    background: #ffc700;
-                    transform: scale(1.05) translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(252, 204, 77, 0.4);
                 }}
             </style>
         </head>
@@ -607,7 +379,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             <div class="error-container">
                 <h1>Authentication Failed</h1>
                 <p>{message}</p>
-                <a href="/" class="retry-btn">Try Again</a>
+                <a href="/" class="btn">Try Again</a>
             </div>
         </body>
         </html>
@@ -617,7 +389,6 @@ class AuthHandler(BaseHTTPRequestHandler):
 def start_auth_server():
     server = HTTPServer(('0.0.0.0', 7777), AuthHandler)
     print("Authentication server started at http://0.0.0.0:7777")
-    webbrowser.open('http://0.0.0.0:7777')
     server.serve_forever()
 
 if __name__ == '__main__':

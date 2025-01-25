@@ -81,7 +81,7 @@ class FortniteServer:
             username, email, password, account_id = generate_guest_credentials()
             
             # Start auth server
-            auth_server = HTTPServer(('127.0.0.1', 7777), AuthHandler)
+            auth_server = HTTPServer(('0.0.0.0', 7777), AuthHandler)
             auth_thread = threading.Thread(target=auth_server.serve_forever)
             auth_thread.daemon = True
             auth_thread.start()

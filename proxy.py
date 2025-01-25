@@ -39,9 +39,9 @@ def request(flow: http.HTTPFlow) -> None:
     if 'fortnite' in flow.request.pretty_url.lower() or 'epicgames' in flow.request.pretty_url.lower():
         original_url = flow.request.pretty_url
         local_url = original_url.replace(
-            'epicgames.com', '0.0.0.0:7778'
+            'epicgames.com', '127.0.0.1:7778'
         ).replace(
-            'fortnite.com', '0.0.0.0:7778'
+            'fortnite.com', '127.0.0.1:7778'
         )
         flow.request.url = local_url
         ctx.log.info(f"Redirecting {original_url} to {local_url}")

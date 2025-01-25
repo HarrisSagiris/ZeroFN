@@ -49,7 +49,7 @@ class FortniteServer:
     def __init__(self):
         print("Setting up server configuration...")
         self.logger = logging.getLogger('FortniteServer')
-        self.host = '0.0.0.0'  # Listen on all interfaces
+        self.host = '127.0.0.1'  # Listen on localhost
         self.port = 7778
         
         # Start proxy server
@@ -81,7 +81,7 @@ class FortniteServer:
             username, email, password, account_id = generate_guest_credentials()
             
             # Start auth server
-            auth_server = HTTPServer(('0.0.0.0', 7777), AuthHandler)
+            auth_server = HTTPServer(('127.0.0.1', 7777), AuthHandler)
             auth_thread = threading.Thread(target=auth_server.serve_forever)
             auth_thread.daemon = True
             auth_thread.start()
@@ -257,7 +257,7 @@ class FortniteServer:
                         outer_instance.expected_state = base64.b64encode(os.urandom(32)).decode()
                         # Redirect to auth server if refresh fails
                         self.send_response(302)
-                        self.send_header('Location', f'http://localhost:7777?state={outer_instance.expected_state}')
+                        self.send_header('Location', f'http://127.0.0.1:7777?state={outer_instance.expected_state}')
                         self.end_headers()
                         return
 
@@ -309,7 +309,7 @@ class FortniteServer:
                     }
                 elif self.path.startswith('/fortnite/api/game/v2/matchmakingservice/ticket'):
                     response = {
-                        "serviceUrl": "ws://0.0.0.0:7778",  # Updated to listen on all interfaces
+                        "serviceUrl": "ws://127.0.0.1:7778",  # Updated to listen on localhost
                         "ticketType": "mms-player",
                         "payload": "mms-player",
                         "signature": "mms-player-signature"

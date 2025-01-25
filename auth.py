@@ -339,7 +339,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "http://0.0.0.0:7777/epic/callback"  # Updated redirect URI
+            redirect_uri = "http://127.0.0.1:7777/epic/callback"  # Updated redirect URI
             AuthHandler.state = base64.b64encode(os.urandom(32)).decode('utf-8') # Store state as class variable
             
             auth_params = {
@@ -371,7 +371,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "http://0.0.0.0:7777/epic/callback"  # Updated redirect URI
+                redirect_uri = "http://127.0.0.1:7777/epic/callback"  # Updated redirect URI
                 
                 auth_str = f"{client_id}:{client_secret}"
                 auth_bytes = auth_str.encode('ascii')
@@ -692,9 +692,9 @@ class AuthHandler(BaseHTTPRequestHandler):
         self.wfile.write(error_html.encode())
 
 def start_auth_server():
-    server = HTTPServer(('0.0.0.0', 7777), AuthHandler)  # Updated to listen on 0.0.0.0
-    print("Authentication server started at http://0.0.0.0:7777")
-    webbrowser.open('http://0.0.0.0:7777')
+    server = HTTPServer(('127.0.0.1', 7777), AuthHandler)  # Updated to listen on 127.0.0.1
+    print("Authentication server started at http://127.0.0.1:7777")
+    webbrowser.open('http://127.0.0.1:7777')
     server.serve_forever()
 
 if __name__ == '__main__':

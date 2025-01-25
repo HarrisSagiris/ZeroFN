@@ -32,7 +32,6 @@ def generate_guest_credentials():
     return username, email, password, account_id
 
 class AuthHandler(BaseHTTPRequestHandler):
-    # Make state a class variable instead of instance variable
     state = None
     
     def __init__(self, *args, **kwargs):
@@ -40,27 +39,12 @@ class AuthHandler(BaseHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
-        # Handle favicon.ico request
         if self.path == '/favicon.ico':
             self.send_response(404)
             self.end_headers()
             return
 
-        # Handle zerofn.jpg request 
-        if self.path == '/zerofn.jpg':
-            self.send_response(200)
-            self.send_header('Content-type', 'image/jpeg')
-            self.end_headers()
-            try:
-                with open('zerofn.jpg', 'rb') as f:
-                    self.wfile.write(f.read())
-            except:
-                # If image not found, return empty response
-                pass
-            return
-
         if self.path == '/':
-            # Serve login page with guest option
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -70,7 +54,6 @@ class AuthHandler(BaseHTTPRequestHandler):
             <head>
                 <title>ZeroFN Login - Chapter 1 Season 2</title>
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-                <link rel="icon" type="image/jpg" href="zerofn.jpg">
                 <style>
                     * {
                         margin: 0;
@@ -89,7 +72,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                         overflow-x: hidden;
                     }
                     .login-container {
-                        background: rgba(35, 39, 42, 0.5);
+                        background: rgba(35, 39, 42, 0.8);
                         padding: 60px;
                         border-radius: 20px;
                         text-align: center;
@@ -99,15 +82,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                         max-width: 600px;
                         width: 90%;
                         animation: fadeInUp 1s ease;
-                    }
-                    .logo {
-                        width: 120px;
-                        height: 120px;
-                        margin-bottom: 30px;
-                        transition: transform 0.3s ease;
-                    }
-                    .logo:hover {
-                        transform: scale(1.05);
                     }
                     h1 {
                         font-family: 'Bebas Neue', sans-serif;
@@ -162,7 +136,6 @@ class AuthHandler(BaseHTTPRequestHandler):
             </head>
             <body>
                 <div class="login-container">
-                    <img src="zerofn.jpg" alt="ZeroFN Logo" class="logo">
                     <h1>Welcome to ZeroFN</h1>
                     <p>Experience Fortnite Chapter 1 Season 2 like never before.<br>Login with your Epic Games account or continue as guest.</p>
                     <a href="/login">
@@ -178,10 +151,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode())
 
         elif self.path == '/guest-login':
-            # Generate guest credentials
             username, email, password, account_id = generate_guest_credentials()
-            
-            # Create guest token data for Chapter 1 Season 2 private server
             expires_at = int(time.time()) + 28800
             token_data = {
                 'access_token': base64.b64encode(os.urandom(32)).decode('utf-8'),
@@ -215,11 +185,11 @@ class AuthHandler(BaseHTTPRequestHandler):
                     'expires_at': datetime.fromtimestamp(expires_at + 2592000, tz=timezone.utc).isoformat()
                 },
                 'profile': {
-                    'character': 'CID_017_Athena_Commando_M', # Black Knight
-                    'backpack': 'BID_004_BlackKnight', # Black Shield
-                    'pickaxe': 'Pickaxe_ID_011_Medieval', # AC/DC
-                    'glider': 'Glider_Medieval', # Sir Glider the Brave
-                    'trail': 'Trails_ID_001', # Classic
+                    'character': 'CID_017_Athena_Commando_M',
+                    'backpack': 'BID_004_BlackKnight',
+                    'pickaxe': 'Pickaxe_ID_011_Medieval',
+                    'glider': 'Glider_Medieval',
+                    'trail': 'Trails_ID_001',
                     'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss', 'EID_Ride', 'EID_Robot', 'EID_Dab'],
                     'banner': {
                         'icon': 'BRS02',
@@ -234,13 +204,11 @@ class AuthHandler(BaseHTTPRequestHandler):
                 }
             }
 
-            # Save token data
             with open('auth_token.json', 'w') as f:
                 json.dump(token_data, f, indent=4)
             
             os.environ['LOGGED_IN'] = "(Guest)"
             
-            # Show success page
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -250,7 +218,6 @@ class AuthHandler(BaseHTTPRequestHandler):
             <head>
                 <meta http-equiv="refresh" content="10;url=http://127.0.0.1:7777/close">
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-                <link rel="icon" type="image/jpg" href="zerofn.jpg">
                 <style>
                     * {{
                         margin: 0;
@@ -270,7 +237,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     .success-container {{
                         text-align: center;
                         padding: 60px;
-                        background: rgba(35, 39, 42, 0.5);
+                        background: rgba(35, 39, 42, 0.8);
                         border-radius: 20px;
                         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
                         backdrop-filter: blur(15px);
@@ -301,16 +268,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                         font-size: 1.5em;
                         margin-top: 20px;
                     }}
-                    @keyframes fadeInUp {{
-                        from {{
-                            opacity: 0;
-                            transform: translateY(30px);
-                        }}
-                        to {{
-                            opacity: 1;
-                            transform: translateY(0);
-                        }}
-                    }}
                 </style>
             </head>
             <body>
@@ -336,11 +293,10 @@ class AuthHandler(BaseHTTPRequestHandler):
             threading.Thread(target=shutdown).start()
             return
 
-        elif self.path == '/login':
-            # Enhanced Epic Games OAuth flow with all permissions
+        elif self.path.startswith('/login'):
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "http://127.0.0.1:7777/epic/auth/callback/zerofn"
-            AuthHandler.state = base64.b64encode(os.urandom(32)).decode('utf-8') # Store state as class variable
+            redirect_uri = "http://0.0.0.0:7777/epic/auth/callback/zerofn"
+            AuthHandler.state = base64.b64encode(os.urandom(32)).decode('utf-8')
             
             auth_params = {
                 'client_id': client_id,
@@ -362,7 +318,6 @@ class AuthHandler(BaseHTTPRequestHandler):
             auth_code = query.get('code', [None])[0]
             received_state = query.get('state', [None])[0]
 
-            # Verify state parameter using class variable
             if not AuthHandler.state or received_state != AuthHandler.state:
                 self.send_error_page("Invalid state parameter. Please try logging in again.")
                 return
@@ -371,7 +326,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "http://127.0.0.1:7777/epic/auth/callback/zerofn"
+                redirect_uri = "http://0.0.0.0:7777/epic/auth/callback/zerofn"
                 
                 auth_str = f"{client_id}:{client_secret}"
                 auth_bytes = auth_str.encode('ascii')
@@ -390,28 +345,28 @@ class AuthHandler(BaseHTTPRequestHandler):
                 }
 
                 try:
-                    # Add retry mechanism
                     max_retries = 3
                     retry_count = 0
                     
                     while retry_count < max_retries:
                         try:
-                            response = requests.post(token_url, headers=headers, data=data, verify=False, timeout=10)
+                            proxies = {
+                                'http': 'http://0.0.0.0:7777',
+                                'https': 'http://0.0.0.0:7777',
+                            }
+                            response = requests.post(token_url, headers=headers, data=data, verify=False, timeout=10, proxies=proxies)
                             response.raise_for_status()
                             break
                         except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
                             retry_count += 1
                             if retry_count == max_retries:
                                 raise
-                            time.sleep(1)  # Wait before retrying
+                            time.sleep(1)
                     
                     token_data = response.json()
-                    
-                    # Convert expires_at to ISO format
                     expires_at = int(time.time()) + token_data['expires_in']
                     token_data['expires_at'] = datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()
                     
-                    # Get account details with retry
                     retry_count = 0
                     account_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/verify"
                     account_headers = {
@@ -421,7 +376,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     
                     while retry_count < max_retries:
                         try:
-                            account_response = requests.get(account_url, headers=account_headers, verify=False, timeout=10)
+                            account_response = requests.get(account_url, headers=account_headers, verify=False, timeout=10, proxies=proxies)
                             account_response.raise_for_status()
                             break
                         except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
@@ -434,7 +389,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                     token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
                     token_data['account_id'] = account_data.get('account_id')
 
-                    # Add Chapter 1 Season 2 specific data
                     token_data['season'] = 2
                     token_data['perms'] = [
                         'fortnite:profile:*:commands',
@@ -450,11 +404,11 @@ class AuthHandler(BaseHTTPRequestHandler):
                         'expires_at': datetime.fromtimestamp(expires_at + 2592000, tz=timezone.utc).isoformat()
                     }
                     token_data['profile'] = {
-                        'character': 'CID_017_Athena_Commando_M', # Black Knight
-                        'backpack': 'BID_004_BlackKnight', # Black Shield
-                        'pickaxe': 'Pickaxe_ID_011_Medieval', # AC/DC
-                        'glider': 'Glider_Medieval', # Sir Glider the Brave
-                        'trail': 'Trails_ID_001', # Classic
+                        'character': 'CID_017_Athena_Commando_M',
+                        'backpack': 'BID_004_BlackKnight',
+                        'pickaxe': 'Pickaxe_ID_011_Medieval',
+                        'glider': 'Glider_Medieval',
+                        'trail': 'Trails_ID_001',
                         'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss', 'EID_Ride', 'EID_Robot', 'EID_Dab'],
                         'banner': {
                             'icon': 'BRS02',
@@ -468,23 +422,21 @@ class AuthHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-                    # Get friends list with retry
                     retry_count = 0
                     friends_url = f"https://friends-public-service-prod.ol.epicgames.com/friends/api/v1/{token_data['account_id']}/summary"
                     
                     while retry_count < max_retries:
                         try:
-                            friends_response = requests.get(friends_url, headers=account_headers, verify=False, timeout=10)
+                            friends_response = requests.get(friends_url, headers=account_headers, verify=False, timeout=10, proxies=proxies)
                             if friends_response.status_code == 200:
                                 token_data['friends'] = friends_response.json()
                             break
                         except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
                             retry_count += 1
                             if retry_count == max_retries:
-                                break  # Skip friends list if it fails
+                                break
                             time.sleep(1)
                     
-                    # Save token data
                     with open('auth_token.json', 'w') as f:
                         json.dump(token_data, f, indent=4)
                     
@@ -497,9 +449,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                     success_html = """
                     <html>
                     <head>
-                        <meta http-equiv="refresh" content="3;url=http://127.0.0.1:7777/close">
+                        <meta http-equiv="refresh" content="3;url=http://0.0.0.0:7777/close">
                         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-                        <link rel="icon" type="image/jpg" href="zerofn.jpg">
                         <style>
                             * {
                                 margin: 0;
@@ -519,7 +470,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                             .success-container {
                                 text-align: center;
                                 padding: 60px;
-                                background: rgba(35, 39, 42, 0.5);
+                                background: rgba(35, 39, 42, 0.8);
                                 border-radius: 20px;
                                 box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
                                 backdrop-filter: blur(15px);
@@ -542,16 +493,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                                 color: #fccc4d;
                                 font-size: 1.5em;
                                 margin-top: 20px;
-                            }
-                            @keyframes fadeInUp {
-                                from {
-                                    opacity: 0;
-                                    transform: translateY(30px);
-                                }
-                                to {
-                                    opacity: 1;
-                                    transform: translateY(0);
-                                }
                             }
                         </style>
                     </head>
@@ -602,7 +543,6 @@ class AuthHandler(BaseHTTPRequestHandler):
         <html>
         <head>
             <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-            <link rel="icon" type="image/jpg" href="zerofn.jpg">
             <style>
                 * {{
                     margin: 0;
@@ -622,7 +562,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 .error-container {{
                     text-align: center;
                     padding: 60px;
-                    background: rgba(35, 39, 42, 0.5);
+                    background: rgba(35, 39, 42, 0.8);
                     border-radius: 20px;
                     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
                     backdrop-filter: blur(15px);
@@ -661,16 +601,6 @@ class AuthHandler(BaseHTTPRequestHandler):
                     transform: scale(1.05) translateY(-2px);
                     box-shadow: 0 6px 20px rgba(252, 204, 77, 0.4);
                 }}
-                @keyframes fadeInUp {{
-                    from {{
-                        opacity: 0;
-                        transform: translateY(30px);
-                    }}
-                    to {{
-                        opacity: 1;
-                        transform: translateY(0);
-                    }}
-                }}
             </style>
         </head>
         <body>
@@ -685,9 +615,9 @@ class AuthHandler(BaseHTTPRequestHandler):
         self.wfile.write(error_html.encode())
 
 def start_auth_server():
-    server = HTTPServer(('127.0.0.1', 7777), AuthHandler)
-    print("Authentication server started at http://127.0.0.1:7777")
-    webbrowser.open('http://127.0.0.1:7777')
+    server = HTTPServer(('0.0.0.0', 7777), AuthHandler)
+    print("Authentication server started at http://0.0.0.0:7777")
+    webbrowser.open('http://0.0.0.0:7777')
     server.serve_forever()
 
 if __name__ == '__main__':

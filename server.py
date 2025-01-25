@@ -100,8 +100,20 @@ class FortniteServer:
         if not self.auth_token:
             return True
             
-        expires_at = datetime.fromisoformat(self.auth_token.get('expires_at', '2000-01-01T00:00:00')).replace(tzinfo=timezone.utc)
-        return datetime.now(timezone.utc) >= expires_at
+        # Handle both string timestamp and ISO format
+        expires_at = self.auth_token.get('expires_at', '2000-01-01T00:00:00')
+        try:
+            # Try parsing as ISO format first
+            expires_dt = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+        except ValueError:
+            try:
+                # Try parsing as Unix timestamp
+                expires_dt = datetime.fromtimestamp(int(expires_at), tz=timezone.utc)
+            except:
+                # If all parsing fails, force refresh
+                return True
+                
+        return datetime.now(timezone.utc) >= expires_dt
 
     def refresh_auth_token(self):
         """Refresh the Epic Games auth token"""

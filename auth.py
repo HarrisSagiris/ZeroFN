@@ -10,6 +10,7 @@ import base64
 import random
 import ssl
 import string
+from datetime import datetime, timezone
 
 # Disable SSL warnings
 requests.packages.urllib3.disable_warnings()
@@ -181,11 +182,12 @@ class AuthHandler(BaseHTTPRequestHandler):
             username, email, password, account_id = generate_guest_credentials()
             
             # Create guest token data
+            expires_at = int(time.time()) + 28800
             token_data = {
                 'access_token': base64.b64encode(os.urandom(32)).decode('utf-8'),
                 'refresh_token': base64.b64encode(os.urandom(32)).decode('utf-8'),
                 'expires_in': 28800,
-                'expires_at': str(int(time.time()) + 28800),
+                'expires_at': datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
                 'token_type': 'bearer',
                 'account_id': account_id,
                 'client_id': 'guest_client',
@@ -372,6 +374,10 @@ class AuthHandler(BaseHTTPRequestHandler):
                             time.sleep(1)  # Wait before retrying
                     
                     token_data = response.json()
+                    
+                    # Convert expires_at to ISO format
+                    expires_at = int(time.time()) + token_data['expires_in']
+                    token_data['expires_at'] = datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()
                     
                     # Get account details with retry
                     retry_count = 0

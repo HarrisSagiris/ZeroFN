@@ -106,6 +106,7 @@ module.exports = (app) => {
                         "member_state_updated": req.body.update,
                         "joined_at": new Date(),
                         "updated_at": new Date()
+                        
                     }))
                     counter = counter + 1;
             }

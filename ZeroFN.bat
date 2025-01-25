@@ -113,7 +113,7 @@ echo Starting ZeroFN Server...
 
 REM Compile and run C++ server
 g++ -o server.exe server.cpp -lws2_32
-start "" server.exe
+start "" server.py
 
 echo Server started! Waiting for initialization...
 timeout /t 5 >nul

@@ -118,12 +118,21 @@ class LauncherGUI:
             
     def start_backend(self):
         self.log("Starting backend server...")
+        
+        # Get absolute path to app.js in js directory
+        js_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "js")
+        app_js_path = os.path.join(js_dir, "app.js")
+        
+        if not os.path.exists(app_js_path):
+            self.log(f"Error: app.js not found at {app_js_path}")
+            return
+            
         node_path = "node.exe" if sys.platform == "win32" else "node"
             
         try:
             self.backend_process = subprocess.Popen(
-                [node_path, "app.js"], 
-                cwd=os.path.join(os.path.dirname(__file__), "js"),
+                [node_path, app_js_path],
+                cwd=js_dir,
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
             )
             time.sleep(2)

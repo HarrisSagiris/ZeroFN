@@ -8,251 +8,66 @@ const path = require('path');
 const app = express();
 const port = 7777;
 
-// Configure logging with more detail
-const logRequest = (req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    console.log('[REQUEST] Headers:', req.headers);
-    console.log('[REQUEST] Body:', req.body);
+// Basic logging middleware
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
     next();
-};
+});
 
-// Enhanced middleware
-app.use(logRequest);
 app.use(bodyParser.json());
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors());
 
-// Store active sessions and profiles with TTL
+// Simple in-memory storage
 const sessions = new Map();
 const profiles = new Map();
 
-// Enhanced ID generator with prefix
-const generateId = (prefix = '') => prefix + crypto.randomBytes(16).toString('hex');
-
-// Expanded profile template with more cosmetics
+// Basic profile template
 const defaultProfile = {
     accountId: '',
     displayName: '',
-    avatar: 'cid_001_athena_commando_f_default',
-    level: 100,
-    battlePass: {
-        level: 100,
-        xp: 999999,
-        selfBoostXp: 0,
-        friendBoostXp: 0
-    },
-    vbucks: 13500,
     items: [
-        'cid_001_athena_commando_f_default',
-        'bid_001_blackshield', 
-        'pickaxe_lockjaw',
-        'glider_founder_pack_1',
-        'eid_floss',
-        'wrap_001'
+        'AthenaCharacter:CID_001_Athena_Commando_F_Default',
+        'AthenaBackpack:BID_001_BlackShield',
+        'AthenaPickaxe:DefaultPickaxe',
+        'AthenaDance:EID_Floss'
     ],
     stats: {
-        wins: 500,
-        kills: 10000,
-        matches: 2000,
-        kd: 5.0
+        wins: 0,
+        kills: 0
     }
 };
 
-// Enhanced responses with more realistic data
-const defaultResponses = {
-    account: (accountId, displayName) => ({
-        status: "ok",
-        response: {
-            accountId: accountId,
-            displayName: displayName,
-            email: "placeholder@email.com",
-            failedLoginAttempts: 0,
-            lastLogin: new Date().toISOString(),
-            numberOfDisplayNameChanges: 0,
-            ageGroup: "UNKNOWN",
-            headless: false,
-            country: "US",
-            lastName: "User",
-            preferredLanguage: "en",
-            canUpdateDisplayName: true,
-            tfaEnabled: false,
-            allowedActions: ["PLAY", "DOWNLOAD"],
-            allowed: true,
-            banned: false,
-            externalAuths: {}
-        }
-    }),
-    catalog: {
-        catalog: [
-            {
-                catalogId: "BRWeeklyStorefront",
-                displayName: "Battle Royale Store",
-                items: [
-                    {
-                        id: "renegade_raider",
-                        name: "Renegade Raider",
-                        price: 1200,
-                        type: "outfit"
-                    },
-                    {
-                        id: "skull_trooper", 
-                        name: "Skull Trooper",
-                        price: 1500,
-                        type: "outfit"
-                    }
-                ]
-            }
-        ]
-    },
-    party: {
-        current: [],
-        pending: [],
-        invites: [],
-        pings: [],
-        config: {
-            privacy: "PUBLIC",
-            joinConfirmation: false,
-            joinability: "OPEN",
-            maxSize: 16,
-            subType: "default",
-            type: "default",
-            inviteTTL: 14400,
-            chatEnabled: true
-        }
-    },
-    stats: (accountId) => ({
-        accountId: accountId,
-        stats: {
-            br: {
-                wins: 500,
-                kills: 10000,
-                matches: 2000,
-                kd: "5.0",
-                minutesPlayed: 12000,
-                playersOutlived: 50000,
-                lastModified: new Date().toISOString()
-            }
-        }
-    }),
-    friends: {
-        friends: [],
-        incoming: [],
-        outgoing: [],
-        blocklist: [],
-        settings: {
-            acceptInvites: "public"
-        }
-    },
-    presence: {
-        presence: {
-            status: "online",
-            gameplayState: "inGame", 
-            location: "lobby",
-            party: {
-                isPrivate: false,
-                maxSize: 16
-            }
-        }
-    },
-    status: [{
-        serviceInstanceId: "fortnite",
-        status: "UP",
-        message: "Fortnite is online",
-        maintenanceUri: null,
-        allowedActions: ["PLAY", "DOWNLOAD"],
-        banned: false,
-        launcherInfoDTO: {
-            appName: "Fortnite",
-            catalogItemId: "4fe75bbc5a674f4f9b356b5c90567da5",
-            namespace: "fn"
-        }
-    }],
-    waitingroom: {
-        hasWaitingRoom: false,
-        waitingRoomStatus: "NONE"
-    }
-};
-
-// Enhanced auth middleware with token validation
-const requireAuth = (req, res, next) => {
-    const token = req.headers.authorization;
-    if (!token) {
-        console.log('[AUTH] Unauthorized request - no token');
-        return res.status(401).json({ error: "Unauthorized", errorCode: "auth_failed" });
-    }
-    const session = sessions.get(token);
-    if (!session) {
-        console.log('[AUTH] Invalid session token');
-        return res.status(401).json({ error: "Invalid session", errorCode: "session_invalid" });
-    }
-    req.session = session;
-    console.log(`[AUTH] Authenticated request for user ${session.displayName}`);
-    next();
-};
-
-// Enhanced auth routes with better error handling
+// Auth endpoints
 app.post('/account/api/oauth/token', (req, res) => {
-    try {
-        const accountId = generateId('acc_');
-        const displayName = req.body.username || `User${Math.floor(Math.random() * 10000)}`;
-        const token = generateId('token_');
-        
-        const session = {
-            accountId,
-            displayName,
-            token,
-            created: new Date().toISOString(),
-            expires: new Date(Date.now() + 28800000).toISOString()
-        };
-        
-        sessions.set(token, session);
-        profiles.set(accountId, {...defaultProfile, accountId, displayName});
-        
-        console.log(`[LOGIN] New login for user ${displayName} (${accountId})`);
-        
-        res.json({
-            access_token: token,
-            account_id: accountId, 
-            displayName: displayName,
-            expires_in: 28800,
-            token_type: "bearer",
-            client_id: "ec684b8c687f479fadea3cb2ad83f5c6",
-            internal_client: true,
-            client_service: "fortnite"
-        });
-    } catch (error) {
-        console.error('[LOGIN] Error:', error);
-        res.status(500).json({ error: "Internal server error", errorCode: "server_error" });
-    }
+    const accountId = crypto.randomBytes(16).toString('hex');
+    const token = crypto.randomBytes(32).toString('hex');
+    const displayName = req.body.username || `User${Math.floor(Math.random() * 1000)}`;
+    
+    sessions.set(token, {
+        accountId,
+        displayName,
+        token
+    });
+    
+    profiles.set(accountId, {
+        ...defaultProfile,
+        accountId,
+        displayName
+    });
+    
+    res.json({
+        access_token: token,
+        account_id: accountId,
+        displayName,
+        expires_in: 28800,
+        token_type: "bearer"
+    });
 });
 
-// Main routes with enhanced error handling
-app.all('/account/api/public/*', requireAuth, (req, res) => {
-    console.log('[ACCOUNT] Handling public account request');
-    res.json(defaultResponses.account(req.session.accountId, req.session.displayName));
-});
-
-app.all('/fortnite/api/storefront/v2/catalog', requireAuth, (req, res) => {
-    console.log('[CATALOG] Handling catalog request');
-    res.json(defaultResponses.catalog);
-});
-
-app.all('/party/api/*', requireAuth, (req, res) => {
-    console.log('[PARTY] Handling party request');
-    res.json(defaultResponses.party);
-});
-
-app.all('/fortnite/api/stats/accountId/:accountId', requireAuth, (req, res) => {
-    console.log(`[STATS] Handling stats request for ${req.params.accountId}`);
-    res.json(defaultResponses.stats(req.params.accountId));
-});
-
-app.all('/fortnite/api/game/v2/profile/:accountId/client/:command', requireAuth, (req, res) => {
-    console.log(`[PROFILE] Handling profile ${req.params.command} for ${req.params.accountId}`);
-    const profile = profiles.get(req.params.accountId) || profiles.get(req.session.accountId);
+// Profile endpoint
+app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) => {
+    const profile = profiles.get(req.params.accountId) || defaultProfile;
+    
     res.json({
         profileId: 'athena',
         profileChanges: [{
@@ -264,62 +79,113 @@ app.all('/fortnite/api/game/v2/profile/:accountId/client/:command', requireAuth,
     });
 });
 
-app.all('/friends/*', requireAuth, (req, res) => {
-    console.log('[FRIENDS] Handling friends request');
-    res.json(defaultResponses.friends);
+// Matchmaking endpoints
+app.get('/fortnite/api/matchmaking/session/:sessionId', (req, res) => {
+    res.json({
+        id: req.params.sessionId,
+        ownerId: "server",
+        ownerName: "Server",
+        serverAddress: "127.0.0.1",
+        serverPort: 7777,
+        maxPublicPlayers: 100,
+        openPublicPlayers: 100,
+        attributes: {
+            REGION_s: "NAE",
+            GAMEMODE_s: "FORTATHENA",
+            ALLOWBROADCASTING_b: true,
+            SUBREGION_s: "NONE",
+            DCID_s: "FORTNITE-LIVE",
+            NEEDS_i: 0
+        },
+        publicPlayers: []
+    });
 });
 
-app.all('/presence/*', requireAuth, (req, res) => {
-    console.log('[PRESENCE] Handling presence request');
-    res.json(defaultResponses.presence);
+// Status endpoints
+app.get('/lightswitch/api/service/bulk/status', (req, res) => {
+    res.json([{
+        serviceInstanceId: "fortnite",
+        status: "UP",
+        message: "Fortnite is online",
+        allowedActions: ["PLAY", "DOWNLOAD", "LOGIN", "PURCHASE"],
+        banned: false,
+        launcherInfoDTO: {
+            appName: "Fortnite",
+            catalogItemId: "4fe75bbc5a674f4f9b356b5c90567da5",
+            namespace: "fn"
+        }
+    }]);
 });
 
-app.all('/lightswitch/api/service/bulk/status', (req, res) => {
-    console.log('[STATUS] Handling service status request');
-    res.json(defaultResponses.status);
+app.get('/waitingroom/api/waitingroom', (req, res) => {
+    res.status(204).end();
 });
 
-app.all('/waitingroom/api/waitingroom', (req, res) => {
-    console.log('[WAITROOM] Handling waiting room request');
-    res.json(defaultResponses.waitingroom);
+app.get('/fortnite/api/game/v2/enabled_features', (req, res) => {
+    res.json([]);
 });
 
-// Default handler for all other routes
+app.get('/fortnite/api/version', (req, res) => {
+    res.json({ "version": "1.0.0", "cln": "1337" });
+});
+
+app.get('/fortnite/api/v2/versioncheck/*', (req, res) => {
+    res.json({ "type": "NO_UPDATE" });
+});
+
+app.get('/fortnite/api/storefront/v2/catalog', (req, res) => {
+    res.json({
+        catalog: {
+            refreshIntervalHrs: 24,
+            dailyPurchaseHrs: 24,
+            expiration: new Date(Date.now() + 86400000).toISOString(),
+            storefronts: []
+        }
+    });
+});
+
+app.get('/fortnite/api/calendar/v1/timeline', (req, res) => {
+    res.json({
+        channels: {
+            "standalone-store": {},
+            "client-events": {
+                states: [{
+                    validFrom: "2020-01-01T20:28:47.830Z",
+                    activeEvents: []
+                }]
+            },
+            "tk": {},
+            "featured-islands": {},
+            "community-votes": {},
+            "client-matchmaking": {},
+            "client-events-2": {}
+        },
+        currentTime: new Date().toISOString(),
+        cacheIntervalMins: 10,
+        eventsTimeOffsetHrs: 0
+    });
+});
+
+// Catch-all for other endpoints
 app.all('*', (req, res) => {
-    console.log(`[REQUEST] ${req.method} ${req.url}`);
     res.json({ status: "ok" });
 });
 
-// Enhanced Fortnite launcher with better error handling
-const launchFortnite = () => {
-    console.log('[LAUNCHER] Starting Fortnite launch sequence...');
+// Start server and launch game
+app.listen(port, () => {
+    console.log(`Fortnite private server running on port ${port}`);
     
+    // Launch the game
     const pythonProcess = spawn('python', ['run.py'], {
         cwd: path.join(__dirname, '..'),
         stdio: 'pipe'
     });
 
     pythonProcess.stdout.on('data', (data) => {
-        console.log(`[PYTHON] ${data.toString().trim()}`);
+        console.log(`[LAUNCHER] ${data}`);
     });
 
     pythonProcess.stderr.on('data', (data) => {
-        console.error(`[PYTHON ERROR] ${data.toString().trim()}`);
+        console.error(`[LAUNCHER ERROR] ${data}`);
     });
-
-    pythonProcess.on('close', (code) => {
-        console.log(`[LAUNCHER] Python process exited with code ${code}`);
-    });
-
-    pythonProcess.on('error', (error) => {
-        console.error('[LAUNCHER] Failed to start Python process:', error);
-    });
-};
-
-// Start server with enhanced logging
-app.listen(port, () => {
-    console.log(`[SERVER] ZeroFN backend running on port ${port}`);
-    console.log(`[SERVER] Enhanced authentication and profile system active`);
-    console.log(`[SERVER] Server ready to handle Fortnite requests`);
-    launchFortnite();
 });

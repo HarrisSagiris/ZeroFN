@@ -16,7 +16,8 @@ import json
 import uuid
 from datetime import datetime, timezone
 from server import FortniteServer
-from auth import AuthServer
+from auth import AuthManager 
+from proxy import ProxyManager
 
 # Configure Fortnite theme styles
 class FortniteTheme:
@@ -82,9 +83,10 @@ class ZeroFNApp:
             "Chapter 1 Season 2": "https://cdn.fnbuilds.services/1.11.zip"
         }
         
-        # Initialize servers
-        self.fortnite_server = FortniteServer()
-        self.auth_server = AuthServer()
+        # Initialize server, auth and proxy managers
+        self.server = FortniteServer()
+        self.auth = AuthManager()
+        self.proxy = ProxyManager()
         
         if not os.path.exists('logs'):
             os.makedirs('logs')
@@ -255,15 +257,12 @@ class ZeroFNApp:
             return
             
         try:
-            # Start servers
-            fortnite_thread = threading.Thread(target=self.fortnite_server.start, daemon=True)
-            auth_thread = threading.Thread(target=self.auth_server.start, daemon=True)
+            # Start server, auth and proxy
+            self.server.start()
+            self.auth.start()
+            self.proxy.start()
             
-            fortnite_thread.start()
-            auth_thread.start()
-            
-            self.log("Fortnite server started on 127.0.0.1:7777")
-            self.log("Auth server started on 127.0.0.1:7878") 
+            self.log("Server started on 127.0.0.1:7777")
             
             # Kill existing processes
             processes = ["FortniteClient-Win64-Shipping.exe", "EasyAntiCheat.exe", "BEService.exe"]
@@ -295,7 +294,7 @@ class ZeroFNApp:
                 "-skippatchcheck",
                 "-notexturestreaming",
                 "-HTTP=127.0.0.1:7777",
-                "-AUTH_HOST=127.0.0.1:7878",
+                "-AUTH_HOST=127.0.0.1:7777",
                 "-AUTH_SSL=0",
                 "-AUTH_VERIFY_SSL=0",
                 "-AUTH_EPIC=0",
@@ -319,14 +318,15 @@ class ZeroFNApp:
         except Exception as e:
             self.log(f"Error starting game: {str(e)}")
             messagebox.showerror("Launch Error", str(e))
-            self.fortnite_server.stop()
-            self.auth_server.stop()
+            self.server.stop()
+            self.auth.stop()
+            self.proxy.stop()
             
     def __del__(self):
-        if hasattr(self, 'fortnite_server'):
-            self.fortnite_server.stop()
-        if hasattr(self, 'auth_server'):
-            self.auth_server.stop()
+        if hasattr(self, 'server'):
+            self.server.stop()
+            self.auth.stop() 
+            self.proxy.stop()
 
 if __name__ == "__main__":
     root = tk.Tk()

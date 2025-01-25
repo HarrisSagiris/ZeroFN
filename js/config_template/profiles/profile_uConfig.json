@@ -1,0 +1,21 @@
+{
+  "UserConfigVersion": "0.3",
+  "stage": "defaultnotris",
+  "stageShop": "summer",
+  "bgImage": "https://thumbs.gfycat.com/AdorableBrownEuropeanfiresalamander-size_restricted.gif",
+  "bgImageShop": "https://cdn2.unrealengine.com/water-texture-2048x1024-8531891f2d38.jpg",
+  "shop": "https://api.nitestats.com/v1/epic/store",
+  "botName": "Timmyy",
+  "news": [
+    {
+      "title": "ZeroFN Credits",
+      "image": "https://th.bing.com/th/id/R.b9283741234b7dd744be042555c851ca?rik=s%2badEyQJELx6Wg&pid=ImgRaw&r=0",
+      "body": "Credits:\r\nBackend: Neonite\r\nModified Backend: TFN\r\nIdea and Owner: Pokelevel & TFN\r\nCarbon: Neonite"
+    },
+    {
+      "title": "ZeroFN v1.1",
+      "image": "https://th.bing.com/th/id/R.961ae4814be0920147ebcbdabd310d04?rik=C8y8nZ5fegVrjQ&pid=ImgRaw&r=0",
+      "body": "ZeroFN v1.1 has some bug fixes, a new console key and more! Read more at: https://www.tfngames.tk/news/zerofn-v1-updates"
+    }
+  ]
+}

@@ -36,7 +36,7 @@ def request(flow: http.HTTPFlow) -> None:
             flow.response = http.Response.make(404)
 
     # Redirect all Fortnite requests to local server
-    if 'fortnite' in flow.request.pretty_url.lower():
+    if 'fortnite' in flow.request.pretty_url.lower() or 'epicgames' in flow.request.pretty_url.lower():
         original_url = flow.request.pretty_url
         local_url = original_url.replace(
             'epicgames.com', '0.0.0.0:7778'

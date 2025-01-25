@@ -276,7 +276,25 @@ echo This may take a while depending on your internet speed.
 echo Please ensure you have a stable internet connection.
 
 REM Add download progress
-powershell -Command "$ProgressPreference = 'SilentlyContinue'; $client = New-Object System.Net.WebClient; $client.DownloadProgressChanged += { Write-Progress -PercentComplete $_.ProgressPercentage -Status 'Downloading...' -CurrentOperation ('Downloading Fortnite files... ' + $_.ProgressPercentage + '%'); }; $client.DownloadFile('%DOWNLOAD_URL%', '%ARCHIVE_NAME%')"
+set "TOTAL_SIZE=0"
+set "DOWNLOADED_SIZE=0"
+
+REM Get the file size
+for /f "usebackq" %%A in (`curl -sI "%DOWNLOAD_URL%" ^| findstr /R /C:"Content-Length"`) do (
+    set "TOTAL_SIZE=%%A"
+    set /a TOTAL_SIZE=!TOTAL_SIZE:~16!
+)
+
+REM Download the file
+(
+    curl -# -L "%DOWNLOAD_URL%" -o "%ARCHIVE_NAME%" --progress-bar | while read -r line; do
+        if [[ $line =~ ([0-9]+)% ]]; then
+            set /a DOWNLOADED_SIZE=!TOTAL_SIZE! * !line:~0,-1! / 100
+            echo Downloaded !DOWNLOADED_SIZE! of !TOTAL_SIZE! bytes (!line%)
+        fi
+    done
+)
+
 if !errorlevel! neq 0 (
     echo Download failed. Please check your internet connection.
     timeout /t 3 >nul

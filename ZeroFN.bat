@@ -5,8 +5,6 @@ color 0f
 
 REM Initialize variables
 set "LOGGED_IN="
-set "CLIENT_ID=xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-set "CLIENT_SECRET=Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
 set "CONFIG_FILE=%~dp0config.json"
 
 REM Create config file if it doesn't exist
@@ -220,21 +218,21 @@ echo =====================================
 echo.
 echo Starting authentication server...
 
-REM Check if Node.js is installed
-node --version >nul 2>&1
+REM Check if Python is installed
+python --version >nul 2>&1
 if !errorlevel! neq 0 (
-    echo Node.js is not installed! Please install Node.js to continue.
-    echo Download from: https://nodejs.org/
+    echo Python is not installed! Please install Python to continue.
+    echo Download from: https://www.python.org/downloads/
     pause
     goto main_menu
 )
 
 REM Kill any existing auth server
-taskkill /f /im node.exe >nul 2>&1
+taskkill /f /im python.exe >nul 2>&1
 
 REM Start auth server
-cd /d "%~dp0js"
-start "ZeroFN Auth Server" /min cmd /c "node app.js"
+cd /d "%~dp0"
+start "ZeroFN Auth Server" /min cmd /c "python auth.py"
 timeout /t 3 >nul
 
 echo Waiting for login completion...

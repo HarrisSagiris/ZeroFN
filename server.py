@@ -18,6 +18,22 @@ from auth import AuthHandler, generate_guest_credentials
 import mitmproxy.ctx
 from mitmproxy import ctx, http
 
+# Check if running in hybrid mode
+hybrid_mode = "--hybrid" in sys.argv
+
+if hybrid_mode:
+    # Create new console window for server
+    if os.name == 'nt':  # Windows
+        import win32console
+        import win32gui
+        
+        # Create new console
+        win32console.AllocConsole()
+        
+        # Get window handle and show window
+        window = win32console.GetConsoleWindow() 
+        win32gui.ShowWindow(window, 1)
+
 print("Starting ZeroFN Server (Chapter 1 Season 2)...")
 print("Initializing components...")
 

@@ -213,6 +213,7 @@ class FortniteServer:
                 self.end_headers()
 
             def do_GET(self):
+                outer_instance.logger.info(f"GET request received for path: {self.path}")  # Logging statement
                 print(f"Received GET request for path: {self.path}")
                 self.add_client()
                 
@@ -350,6 +351,7 @@ class FortniteServer:
                 self.wfile.write(json.dumps(response).encode())
 
             def do_POST(self):
+                outer_instance.logger.info(f"POST request received for path: {self.path}")  # Logging statement
                 print(f"Received POST request for path: {self.path}")
                 self.add_client()
                 

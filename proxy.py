@@ -5,11 +5,11 @@ import secrets
 from datetime import datetime, timezone
 
 def request(flow: http.HTTPFlow) -> None:
-    # Intercept Epic Games authentication requests
-    if 'epicgames.com' in flow.request.pretty_url:
+    # Intercept all Fortnite authentication requests
+    if 'epicgames.com' in flow.request.pretty_url or 'fortnite.com' in flow.request.pretty_url:
         ctx.log.info(f"Intercepted request to: {flow.request.pretty_url}")
         
-        # Generate fake authentication response
+        # Generate fake authentication response for token requests
         if '/account/api/oauth/token' in flow.request.pretty_url:
             fake_token = {
                 "access_token": base64.b64encode(secrets.token_bytes(32)).decode(),
@@ -30,18 +30,18 @@ def request(flow: http.HTTPFlow) -> None:
                 json.dumps(fake_token).encode(),
                 {"Content-Type": "application/json"}
             )
-            
+        
         # Block other Epic endpoints
         elif any(x in flow.request.pretty_url for x in ['friends', 'presence', 'account/api/public']):
             flow.response = http.Response.make(404)
 
-    # Redirect game requests to local server            
+    # Redirect all Fortnite requests to local server
     if 'fortnite' in flow.request.pretty_url.lower():
         original_url = flow.request.pretty_url
         local_url = original_url.replace(
-            'epicgames.com', '127.0.0.1:7778'  # Changed port to 7778 to match server
+            'epicgames.com', '127.0.0.1:7778'
         ).replace(
-            'fortnite.com', '127.0.0.1:7778'  # Changed port to 7778 to match server
+            'fortnite.com', '127.0.0.1:7778'
         )
         flow.request.url = local_url
         ctx.log.info(f"Redirecting {original_url} to {local_url}")

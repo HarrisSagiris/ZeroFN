@@ -5,6 +5,8 @@ color 0f
 
 REM Initialize variables
 set "LOGGED_IN="
+set "CLIENT_ID=xyza7891TydzdNolyGQJYa9b6n6rLMJl"
+set "CLIENT_SECRET=Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
 set "CONFIG_FILE=%~dp0config.json"
 
 REM Create config file if it doesn't exist
@@ -108,10 +110,8 @@ if "!AUTH_TOKEN!"=="" (
 
 cls
 echo Starting ZeroFN Server...
-taskkill /f /im node.exe >nul 2>&1
-
-cd /d "%~dp0js"
-start "ZeroFN Server" /min cmd /c "node app.js"
+taskkill /f /im python.exe >nul 2>&1
+start "ZeroFN Server" /min cmd /c "python server.py"
 echo Server started! Waiting for initialization...
 timeout /t 5 >nul
 
@@ -121,7 +121,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:5595 -AUTH_HOST=127.0.0.1:5595 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:5595 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:5595 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=5595
+start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=0.0.0.0:7778 -AUTH_HOST=0.0.0.0:7778 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=0.0.0.0:7778 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=0.0.0.0:7778 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7778
 
 echo Game launched in hybrid mode!
 timeout /t 2 >nul
@@ -148,7 +148,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:5595 -AUTH_HOST=127.0.0.1:5595 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:5595 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:5595 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=5595
+start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=0.0.0.0:7778 -AUTH_HOST=0.0.0.0:7778 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=0.0.0.0:7778 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=0.0.0.0:7778 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7778
 
 echo Game launched!
 timeout /t 2 >nul
@@ -221,17 +221,23 @@ echo Starting authentication server...
 REM Check if Python is installed
 python --version >nul 2>&1
 if !errorlevel! neq 0 (
-    echo Python is not installed! Please install Python to continue.
+    echo Python is not installed! Please install Python 3.x to continue.
     echo Download from: https://www.python.org/downloads/
     pause
     goto main_menu
+)
+
+REM Check for required Python packages
+python -c "import requests" >nul 2>&1
+if !errorlevel! neq 0 (
+    echo Installing required packages...
+    pip install requests jwt urllib3 >nul 2>&1
 )
 
 REM Kill any existing auth server
 taskkill /f /im python.exe >nul 2>&1
 
 REM Start auth server
-cd /d "%~dp0"
 start "ZeroFN Auth Server" /min cmd /c "python auth.py"
 timeout /t 3 >nul
 

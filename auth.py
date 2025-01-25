@@ -9,9 +9,26 @@ import time
 import base64
 import random
 import ssl
+import string
 
 # Disable SSL warnings
 requests.packages.urllib3.disable_warnings()
+
+def generate_guest_credentials():
+    # Generate random username
+    adjectives = ['Happy', 'Lucky', 'Brave', 'Swift', 'Clever', 'Wild']
+    nouns = ['Ninja', 'Warrior', 'Knight', 'Hunter', 'Scout', 'Hero']
+    numbers = ''.join(random.choices(string.digits, k=4))
+    username = f"{random.choice(adjectives)}{random.choice(nouns)}{numbers}"
+    
+    # Generate random email and password
+    email = f"guest_{username.lower()}@zerofn.com"
+    password = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+    
+    # Generate random account ID
+    account_id = ''.join(random.choices(string.hexdigits, k=32))
+    
+    return username, email, password, account_id
 
 class AuthHandler(BaseHTTPRequestHandler):
     # Make state a class variable instead of instance variable
@@ -42,7 +59,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == '/':
-            # Serve login page
+            # Serve login page with guest option
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -103,7 +120,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                         color: #cccccc;
                         line-height: 1.6;
                     }
-                    .login-btn {
+                    .btn {
                         background: #fccc4d;
                         color: #121212;
                         padding: 18px 45px;
@@ -119,10 +136,16 @@ class AuthHandler(BaseHTTPRequestHandler):
                         margin-bottom: 20px;
                         box-shadow: 0 4px 15px rgba(252, 204, 77, 0.3);
                     }
-                    .login-btn:hover {
+                    .btn:hover {
                         background: #ffc700;
                         transform: scale(1.05) translateY(-2px);
                         box-shadow: 0 6px 20px rgba(252, 204, 77, 0.4);
+                    }
+                    .guest-btn {
+                        background: #4d8bfc;
+                    }
+                    .guest-btn:hover {
+                        background: #3b7af0;
                     }
                     @keyframes fadeInUp {
                         from {
@@ -140,15 +163,144 @@ class AuthHandler(BaseHTTPRequestHandler):
                 <div class="login-container">
                     <img src="zerofn.jpg" alt="ZeroFN Logo" class="logo">
                     <h1>Welcome to ZeroFN</h1>
-                    <p>Experience OG Fortnite like never before.<br>Login with your Epic Games account to continue.</p>
+                    <p>Experience OG Fortnite like never before.<br>Login with your Epic Games account or continue as guest.</p>
                     <a href="/login">
-                        <button class="login-btn">Login with Epic Games</button>
+                        <button class="btn">Login with Epic Games</button>
+                    </a>
+                    <a href="/guest-login">
+                        <button class="btn guest-btn">Continue as Guest</button>
                     </a>
                 </div>
             </body>
             </html>
             """
             self.wfile.write(html.encode())
+
+        elif self.path == '/guest-login':
+            # Generate guest credentials
+            username, email, password, account_id = generate_guest_credentials()
+            
+            # Create guest token data
+            token_data = {
+                'access_token': base64.b64encode(os.urandom(32)).decode('utf-8'),
+                'refresh_token': base64.b64encode(os.urandom(32)).decode('utf-8'),
+                'expires_in': 28800,
+                'expires_at': str(int(time.time()) + 28800),
+                'token_type': 'bearer',
+                'account_id': account_id,
+                'client_id': 'guest_client',
+                'internal_client': True,
+                'client_service': 'fortnite',
+                'displayName': username,
+                'app': 'fortnite',
+                'in_app_id': account_id,
+                'device_id': 'guest_device',
+                'email': email,
+                'password': password,
+                'is_guest': True
+            }
+
+            # Save token data
+            with open('auth_token.json', 'w') as f:
+                json.dump(token_data, f, indent=4)
+            
+            os.environ['LOGGED_IN'] = "(Guest)"
+            
+            # Show success page
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            
+            success_html = f"""
+            <html>
+            <head>
+                <meta http-equiv="refresh" content="10;url=http://127.0.0.1:7777/close">
+                <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+                <link rel="icon" type="image/jpg" href="zerofn.jpg">
+                <style>
+                    * {{
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }}
+                    body {{
+                        font-family: 'Roboto', sans-serif;
+                        background: #0c0c0d;
+                        color: #ffffff;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                        margin: 0;
+                    }}
+                    .success-container {{
+                        text-align: center;
+                        padding: 60px;
+                        background: rgba(35, 39, 42, 0.5);
+                        border-radius: 20px;
+                        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+                        backdrop-filter: blur(15px);
+                        border: 2px solid #2b2b2b;
+                        animation: fadeInUp 1s ease;
+                    }}
+                    h1 {{
+                        font-family: 'Bebas Neue', sans-serif;
+                        color: #4d8bfc;
+                        font-size: 3em;
+                        margin-bottom: 20px;
+                        text-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
+                    }}
+                    p {{
+                        font-size: 1.2rem;
+                        color: #cccccc;
+                        margin: 10px 0;
+                    }}
+                    .credentials {{
+                        background: rgba(0, 0, 0, 0.3);
+                        padding: 20px;
+                        border-radius: 10px;
+                        margin: 20px 0;
+                        text-align: left;
+                    }}
+                    .welcome {{
+                        color: #4d8bfc;
+                        font-size: 1.5em;
+                        margin-top: 20px;
+                    }}
+                    @keyframes fadeInUp {{
+                        from {{
+                            opacity: 0;
+                            transform: translateY(30px);
+                        }}
+                        to {{
+                            opacity: 1;
+                            transform: translateY(0);
+                        }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="success-container">
+                    <h1>Guest Login Successful!</h1>
+                    <p class="welcome">Welcome, {username}!</p>
+                    <div class="credentials">
+                        <p><strong>Username:</strong> {username}</p>
+                        <p><strong>Email:</strong> {email}</p>
+                        <p><strong>Password:</strong> {password}</p>
+                    </div>
+                    <p>Please save these credentials if you want to use them again later.</p>
+                    <p>Window will close automatically in 10 seconds...</p>
+                </div>
+            </body>
+            </html>
+            """
+            self.wfile.write(success_html.encode())
+            
+            def shutdown():
+                time.sleep(10)
+                self.server.shutdown()
+            threading.Thread(target=shutdown).start()
+            return
 
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions

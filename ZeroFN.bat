@@ -17,6 +17,20 @@ if not exist "%CONFIG_FILE%" (
 REM Load saved game path
 for /f "tokens=* usebackq" %%a in (`powershell -Command "Get-Content '%CONFIG_FILE%' | ConvertFrom-Json | Select -ExpandProperty game_path"`) do set "SAVED_GAME_PATH=%%a"
 
+REM Automatically detect installation path if not set
+if "!SAVED_GAME_PATH!"=="" (
+    set "DEFAULT_PATH=C:\FortniteOG"  REM Change this to your default installation path if needed
+    if exist "!DEFAULT_PATH!\FortniteGame\Binaries\Win64\FortniteClient-Win64-Shipping.exe" (
+        set "SAVED_GAME_PATH=!DEFAULT_PATH!"
+        echo Installation path detected: !SAVED_GAME_PATH!
+        REM Save detected path to config
+        echo {"game_path": "!SAVED_GAME_PATH!"} > "%CONFIG_FILE%"
+    ) else (
+        echo No installation found. Please specify the path.
+        goto specify_path
+    )
+)
+
 REM Load auth token if exists
 if exist "auth_token.json" (
     for /f "tokens=* usebackq delims=" %%a in (`powershell -Command "Get-Content auth_token.json | ConvertFrom-Json | Select -ExpandProperty access_token"`) do set "AUTH_TOKEN=%%a"

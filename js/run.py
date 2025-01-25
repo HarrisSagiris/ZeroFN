@@ -119,12 +119,17 @@ class LauncherGUI:
     def start_backend(self):
         self.log("Starting backend server...")
         
-        # Get absolute path to app.js in js directory
-        js_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "js")
-        app_js_path = os.path.join(js_dir, "app.js")
+        # Get absolute path to app.js in current directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        app_js_path = os.path.join(current_dir, "app.js")
+        oauth_js_path = os.path.join(current_dir, "oauth.js")
         
         if not os.path.exists(app_js_path):
             self.log(f"Error: app.js not found at {app_js_path}")
+            return
+            
+        if not os.path.exists(oauth_js_path):
+            self.log(f"Error: oauth.js not found at {oauth_js_path}")
             return
             
         node_path = "node.exe" if sys.platform == "win32" else "node"
@@ -132,7 +137,7 @@ class LauncherGUI:
         try:
             self.backend_process = subprocess.Popen(
                 [node_path, app_js_path],
-                cwd=js_dir,
+                cwd=current_dir,
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
             )
             time.sleep(2)

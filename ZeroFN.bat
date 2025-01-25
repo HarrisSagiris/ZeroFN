@@ -178,26 +178,19 @@ echo =====================================
 echo.
 echo Available versions:
 echo.
-echo [1] Chapter 1 Season 1 (1.7.2)
-echo [2] OG Season (1.11) - only that works in ZeroFN v1.1 
-echo [3] Back to Main Menu
+echo [1] OG Season (1.11) - Recommended for ZeroFN v1.1 
+echo [2] Back to Main Menu
 echo.
-choice /c 123 /n /m "Enter your choice (1-3): "
+choice /c 12 /n /m "Enter your choice (1-2): "
 set choice=!errorlevel!
 
 if "!choice!"=="1" (
-    set "DOWNLOAD_URL=https://cdn.fnbuilds.services/1.7.2.zip"
-    set "ARCHIVE_NAME=1.7.2.zip"
-    set "VERSION=Season 1"
-    goto install_fortnite_og
-)
-if "!choice!"=="2" (
     set "DOWNLOAD_URL=https://public.simplyblk.xyz/1.11.zip"
     set "ARCHIVE_NAME=1.11.zip"
     set "VERSION=OG Season"
     goto install_fortnite_og
 )
-if "!choice!"=="3" goto main_menu
+if "!choice!"=="2" goto main_menu
 goto season_select
 
 :epic_login
@@ -280,7 +273,10 @@ if exist "!INSTALL_DIR!" (
 echo.
 echo Downloading Fortnite files...
 echo This may take a while depending on your internet speed.
-powershell -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest '%DOWNLOAD_URL%' -OutFile '%ARCHIVE_NAME%'"
+echo Please ensure you have a stable internet connection.
+
+REM Add download progress
+powershell -Command "$ProgressPreference = 'SilentlyContinue'; $client = New-Object System.Net.WebClient; $client.DownloadProgressChanged += { Write-Progress -PercentComplete $_.ProgressPercentage -Status 'Downloading...' -CurrentOperation 'Downloading Fortnite files...'; }; $client.DownloadFile('%DOWNLOAD_URL%', '%ARCHIVE_NAME%')"
 if !errorlevel! neq 0 (
     echo Download failed. Please check your internet connection.
     timeout /t 3 >nul

@@ -181,7 +181,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             # Generate guest credentials
             username, email, password, account_id = generate_guest_credentials()
             
-            # Create guest token data
+            # Create guest token data for OG Fortnite private server
             expires_at = int(time.time()) + 28800
             token_data = {
                 'access_token': base64.b64encode(os.urandom(32)).decode('utf-8'),
@@ -190,16 +190,42 @@ class AuthHandler(BaseHTTPRequestHandler):
                 'expires_at': datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
                 'token_type': 'bearer',
                 'account_id': account_id,
-                'client_id': 'guest_client',
+                'client_id': 'zerofn_client',
                 'internal_client': True,
                 'client_service': 'fortnite',
                 'displayName': username,
                 'app': 'fortnite',
                 'in_app_id': account_id,
-                'device_id': 'guest_device',
+                'device_id': 'zerofn_device',
                 'email': email,
                 'password': password,
-                'is_guest': True
+                'is_guest': True,
+                'perms': [
+                    'fortnite:profile:*:commands',
+                    'account:public:account',
+                    'account:oauth:ext_auth:persist:claim',
+                    'basic:profile:*:public',
+                    'friends:list',
+                    'presence:*:*'
+                ],
+                'membership': {
+                    'active': True,
+                    'level': 'premium',
+                    'expires_at': datetime.fromtimestamp(expires_at + 2592000, tz=timezone.utc).isoformat()
+                },
+                'profile': {
+                    'character': 'CID_001_Athena_Commando_F_Default',
+                    'backpack': 'BID_001_BlackKnight',
+                    'pickaxe': 'Pickaxe_Lockjaw',
+                    'glider': 'Glider_Warthog',
+                    'trail': 'Trails_ID_012_Lightning',
+                    'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss'],
+                    'banner': {
+                        'icon': 'BRS01',
+                        'color': 'defaultcolor1',
+                        'season_level': 100
+                    }
+                }
             }
 
             # Save token data
@@ -401,6 +427,34 @@ class AuthHandler(BaseHTTPRequestHandler):
                     account_data = account_response.json()
                     token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
                     token_data['account_id'] = account_data.get('account_id')
+
+                    # Add OG Fortnite specific data
+                    token_data['perms'] = [
+                        'fortnite:profile:*:commands',
+                        'account:public:account',
+                        'account:oauth:ext_auth:persist:claim',
+                        'basic:profile:*:public',
+                        'friends:list',
+                        'presence:*:*'
+                    ]
+                    token_data['membership'] = {
+                        'active': True,
+                        'level': 'premium',
+                        'expires_at': datetime.fromtimestamp(expires_at + 2592000, tz=timezone.utc).isoformat()
+                    }
+                    token_data['profile'] = {
+                        'character': 'CID_001_Athena_Commando_F_Default',
+                        'backpack': 'BID_001_BlackKnight',
+                        'pickaxe': 'Pickaxe_Lockjaw',
+                        'glider': 'Glider_Warthog',
+                        'trail': 'Trails_ID_012_Lightning',
+                        'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss'],
+                        'banner': {
+                            'icon': 'BRS01',
+                            'color': 'defaultcolor1',
+                            'season_level': 100
+                        }
+                    }
 
                     # Get friends list with retry
                     retry_count = 0

@@ -14,6 +14,7 @@ import subprocess
 import os
 import jwt
 from urllib.parse import unquote, parse_qs, urlparse
+from auth import AuthHandler, generate_guest_credentials
 
 print("Starting ZeroFN Server...")
 print("Initializing components...")
@@ -38,8 +39,8 @@ class FortniteServer:
         self.port = 7778
         
         # Epic Games OAuth credentials
-        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-        self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
+        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"  # Updated client ID
+        self.client_secret = "e1f31c211f28413186262d37a13fc84d"  # Client secret
         
         # Store expected state parameter
         self.expected_state = None
@@ -58,8 +59,13 @@ class FortniteServer:
         except FileNotFoundError:
             print("No auth token found. Please log in first!")
             print("Starting auth server...")
-            from auth import start_auth_server
-            auth_thread = threading.Thread(target=start_auth_server)
+            
+            # Create guest credentials if needed
+            username, email, password, account_id = generate_guest_credentials()
+            
+            # Start auth server
+            auth_server = HTTPServer(('127.0.0.1', 7777), AuthHandler)
+            auth_thread = threading.Thread(target=auth_server.serve_forever)
             auth_thread.daemon = True
             auth_thread.start()
             
@@ -127,7 +133,7 @@ class FortniteServer:
             headers = {
                 'Authorization': f'Basic {auth_string}',
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': 'EpicGamesLauncher/13.3.0-17155645+++Portal+Release-Live Windows/10.0.22621.1.256.64bit'
+                'User-Agent': 'Fortnite/++Fortnite+Release-1.0-CL-3700114 Windows/6.1.7601.2.1.0.768.101'
             }
             
             data = {
@@ -136,7 +142,7 @@ class FortniteServer:
             }
             
             response = requests.post(
-                'https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token',
+                'https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token',
                 headers=headers,
                 data=data,
                 verify=False

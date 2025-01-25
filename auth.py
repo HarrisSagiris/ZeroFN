@@ -339,7 +339,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         elif self.path == '/login':
             # Enhanced Epic Games OAuth flow with all permissions
             client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-            redirect_uri = "http://127.0.0.1:7777/epic/auth/callback/zerofn"
+            redirect_uri = "http://0.0.0.0:7777/epic/auth/callback/zerofn"
             AuthHandler.state = base64.b64encode(os.urandom(32)).decode('utf-8') # Store state as class variable
             
             auth_params = {

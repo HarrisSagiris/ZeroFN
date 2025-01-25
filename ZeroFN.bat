@@ -254,51 +254,31 @@ echo    Powered by ZeroFN
 echo =====================================
 echo.
 
-if "!SAVED_GAME_PATH!"=="" (
-    set "INSTALL_DIR=%~dp0FortniteOG"
-) else (
-    set "INSTALL_DIR=!SAVED_GAME_PATH!"
-)
+set "INSTALL_DIR=%~dp0FortniteOG"
 
 echo Installing to: !INSTALL_DIR!
 echo.
 choice /c YN /n /m "Continue with installation? (Y/N) "
-if !errorlevel! equ 2 goto main_menu
+if !errorlevel! equ 2 exit /b
 
 if exist "!INSTALL_DIR!" (
     echo Cleaning up existing installation...
     rmdir /s /q "!INSTALL_DIR!" >nul 2>&1
 )
 
+mkdir "!INSTALL_DIR!"
+
 echo.
 echo Downloading Fortnite files...
 echo This may take a while depending on your internet speed.
 echo Please ensure you have a stable internet connection.
 
-REM Add download progress
-set "TOTAL_SIZE=0"
-set "DOWNLOADED_SIZE=0"
-
-REM Get the file size
-for /f "usebackq" %%A in (`curl -sI "%DOWNLOAD_URL%" ^| findstr /R /C:"Content-Length"`) do (
-    set "TOTAL_SIZE=%%A"
-    set /a TOTAL_SIZE=!TOTAL_SIZE:~16!
-)
-
 REM Download the file
-(
-    curl -# -L "%DOWNLOAD_URL%" -o "%ARCHIVE_NAME%" --progress-bar | while read -r line; do
-        if [[ $line =~ ([0-9]+)% ]]; then
-            set /a DOWNLOADED_SIZE=!TOTAL_SIZE! * !line:~0,-1! / 100
-            echo Downloaded !DOWNLOADED_SIZE! of !TOTAL_SIZE! bytes (!line%)
-        fi
-    done
-)
-
+curl -L "%DOWNLOAD_URL%" -o "%ARCHIVE_NAME%"
 if !errorlevel! neq 0 (
     echo Download failed. Please check your internet connection.
     timeout /t 3 >nul
-    goto main_menu
+    exit /b
 )
 
 echo.
@@ -308,7 +288,7 @@ if !errorlevel! neq 0 (
     echo Extraction failed.
     del "%ARCHIVE_NAME%" >nul 2>&1
     timeout /t 3 >nul
-    goto main_menu
+    exit /b
 )
 
 del "%ARCHIVE_NAME%" >nul 2>&1

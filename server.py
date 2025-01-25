@@ -15,6 +15,8 @@ import os
 import jwt
 from urllib.parse import unquote, parse_qs, urlparse
 from auth import AuthHandler, generate_guest_credentials
+import mitmproxy.ctx
+from mitmproxy import ctx, http
 
 print("Starting ZeroFN Server (Chapter 1 Season 2)...")
 print("Initializing components...")
@@ -31,6 +33,24 @@ logging.basicConfig(
 
 print("Logging system initialized...")
 
+# Proxy configuration
+class EpicProxy:
+    def __init__(self):
+        self.local_server = "127.0.0.1:7778"
+
+    def request(self, flow: http.HTTPFlow) -> None:
+        # Redirect Epic domains to local server
+        if "epicgames.com" in flow.request.pretty_host:
+            flow.request.host = "127.0.0.1"
+            flow.request.port = 7778
+            flow.request.scheme = "http"
+            
+            # Add headers to help identify redirected requests
+            flow.request.headers["X-Forwarded-Host"] = flow.request.pretty_host
+            flow.request.headers["X-Original-URL"] = flow.request.url
+
+addons = [EpicProxy()]
+
 class FortniteServer:
     def __init__(self):
         print("Setting up server configuration...")
@@ -44,6 +64,26 @@ class FortniteServer:
         
         # Store expected state parameter
         self.expected_state = None
+
+        # Start proxy server
+        print("Starting proxy server...")
+        try:
+            # Start mitmproxy in a separate process
+            proxy_cmd = ["mitmdump", "-p", "8888", "--ssl-insecure", 
+                        "--set", "block_global=false", 
+                        "--set", "connection_strategy=lazy"]
+            self.proxy_process = subprocess.Popen(proxy_cmd)
+            print("Proxy server started successfully")
+            
+            # Set system proxy settings
+            if os.name == 'nt':  # Windows
+                os.system('reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f')
+                os.system('reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings" /v ProxyServer /t REG_SZ /d "127.0.0.1:8888" /f')
+            
+            print("System proxy configured")
+        except Exception as e:
+            print(f"Failed to start proxy: {e}")
+            raise
         
         # Check for auth token
         try:
@@ -101,7 +141,7 @@ class FortniteServer:
         
         self.logger.info(f'Fortnite Chapter 1 Season 2 private server listening on {self.host}:{self.port}')
 
-    def should_refresh_token(self):
+ def should_refresh_token(self):
         """Check if token needs refreshing"""
         if not self.auth_token:
             return True

@@ -105,7 +105,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7778 -AUTH_HOST=127.0.0.1:7778 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7778 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7778 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7778
+start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=0.0.0.0:7778 -AUTH_HOST=0.0.0.0:7778 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=0.0.0.0:7778 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=0.0.0.0:7778 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7778
 
 echo Game launched in hybrid mode!
 timeout /t 2 >nul
@@ -132,7 +132,7 @@ taskkill /f /im FortniteClient-Win64-Shipping.exe >nul 2>&1
 taskkill /f /im EasyAntiCheat.exe >nul 2>&1
 taskkill /f /im BEService.exe >nul 2>&1
 
-start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=127.0.0.1:7778 -AUTH_HOST=127.0.0.1:7778 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7778 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=127.0.0.1:7778 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7778
+start "" "FortniteClient-Win64-Shipping.exe" -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=!AUTH_TOKEN! -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck -notexturestreaming -HTTP=0.0.0.0:7778 -AUTH_HOST=0.0.0.0:7778 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0 -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=0.0.0.0:7778 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE -FORCECLIENT_HOST=0.0.0.0:7778 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7778
 
 echo Game launched!
 timeout /t 2 >nul

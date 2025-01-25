@@ -49,7 +49,7 @@ class FortniteServer:
     def __init__(self):
         print("Setting up server configuration...")
         self.logger = logging.getLogger('FortniteServer')
-        self.host = '127.0.0.1'  # Listen only on localhost
+        self.host = '0.0.0.0'  # Listen on all interfaces
         self.port = 7778
         
         # Start proxy server
@@ -309,7 +309,7 @@ class FortniteServer:
                     }
                 elif self.path.startswith('/fortnite/api/game/v2/matchmakingservice/ticket'):
                     response = {
-                        "serviceUrl": "ws://127.0.0.1:7778",
+                        "serviceUrl": "ws://0.0.0.0:7778",  # Updated to listen on all interfaces
                         "ticketType": "mms-player",
                         "payload": "mms-player",
                         "signature": "mms-player-signature"

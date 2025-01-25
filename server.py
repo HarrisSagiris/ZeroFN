@@ -15,24 +15,6 @@ import os
 import jwt
 from urllib.parse import unquote, parse_qs, urlparse
 from auth import AuthHandler, generate_guest_credentials
-import mitmproxy.ctx
-from mitmproxy import ctx, http
-
-# Check if running in hybrid mode
-hybrid_mode = "--hybrid" in sys.argv
-
-if hybrid_mode:
-    # Create new console window for server
-    if os.name == 'nt':  # Windows
-        import win32console
-        import win32gui
-        
-        # Create new console
-        win32console.AllocConsole()
-        
-        # Get window handle and show window
-        window = win32console.GetConsoleWindow() 
-        win32gui.ShowWindow(window, 1)
 
 print("Starting ZeroFN Server (Chapter 1 Season 2)...")
 print("Initializing components...")
@@ -49,23 +31,19 @@ logging.basicConfig(
 
 print("Logging system initialized...")
 
-# Proxy configuration
-class EpicProxy:
-    def __init__(self):
-        self.local_server = "127.0.0.1:7778"
-
-    def request(self, flow: http.HTTPFlow) -> None:
-        # Redirect Epic domains to local server
-        if "epicgames.com" in flow.request.pretty_host:
-            flow.request.host = "127.0.0.1"
-            flow.request.port = 7778
-            flow.request.scheme = "http"
-            
-            # Add headers to help identify redirected requests
-            flow.request.headers["X-Forwarded-Host"] = flow.request.pretty_host
-            flow.request.headers["X-Original-URL"] = flow.request.url
-
-addons = [EpicProxy()]
+# Start mitmproxy in a new window
+def start_proxy():
+    try:
+        proxy_path = os.path.join(os.path.dirname(__file__), 'proxy.py')
+        if os.name == 'nt':  # Windows
+            subprocess.Popen(['start', 'cmd', '/k', 'mitmdump', '-s', proxy_path], shell=True)
+        else:  # Unix/Linux
+            subprocess.Popen(['x-terminal-emulator', '-e', f'mitmdump -s {proxy_path}'])
+        print("Started mitmproxy with custom script")
+        time.sleep(2)  # Wait for proxy to initialize
+    except Exception as e:
+        print(f"Failed to start proxy: {str(e)}")
+        raise
 
 class FortniteServer:
     def __init__(self):
@@ -74,32 +52,15 @@ class FortniteServer:
         self.host = '127.0.0.1'  # Listen only on localhost
         self.port = 7778
         
+        # Start proxy server
+        start_proxy()
+        
         # Updated Epic Games OAuth credentials
         self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
         self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
         
         # Store expected state parameter
         self.expected_state = None
-
-        # Start proxy server
-        print("Starting proxy server...")
-        try:
-            # Start mitmproxy in a separate process
-            proxy_cmd = ["mitmdump", "-p", "8888", "--ssl-insecure", 
-                        "--set", "block_global=false", 
-                        "--set", "connection_strategy=lazy"]
-            self.proxy_process = subprocess.Popen(proxy_cmd)
-            print("Proxy server started successfully")
-            
-            # Set system proxy settings
-            if os.name == 'nt':  # Windows
-                os.system('reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f')
-                os.system('reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings" /v ProxyServer /t REG_SZ /d "127.0.0.1:8888" /f')
-            
-            print("System proxy configured")
-        except Exception as e:
-            print(f"Failed to start proxy: {e}")
-            raise
         
         # Check for auth token
         try:
@@ -157,7 +118,7 @@ class FortniteServer:
         
         self.logger.info(f'Fortnite Chapter 1 Season 2 private server listening on {self.host}:{self.port}')
 
- def should_refresh_token(self):
+    def should_refresh_token(self):
         """Check if token needs refreshing"""
         if not self.auth_token:
             return True

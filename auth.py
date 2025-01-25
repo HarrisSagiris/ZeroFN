@@ -371,7 +371,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 token_url = "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token"
                 client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
                 client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-                redirect_uri = "http://127.0.0.1:7777/epic/auth/callback/zerofn"
+                redirect_uri = "http://0.0.0.0:7777/epic/auth/callback/zerofn"
                 
                 auth_str = f"{client_id}:{client_secret}"
                 auth_bytes = auth_str.encode('ascii')
@@ -398,8 +398,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                         try:
                             # Use proxy for the request
                             proxies = {
-                                'http': 'http://your_proxy:port',
-                                'https': 'http://your_proxy:port',
+                                'http': 'http://0.0.0.0:7777',
+                                'https': 'http://0.0.0.0:7777',
                             }
                             response = requests.post(token_url, headers=headers, data=data, verify=False, timeout=10, proxies=proxies)
                             response.raise_for_status()

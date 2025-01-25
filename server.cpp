@@ -13,56 +13,9 @@
 #include <direct.h>
 #include <map>
 #include <mutex>
+#include <nlohmann/json.hpp>
 
-// Simple JSON implementation since nlohmann/json is not available
-class json {
-private:
-    std::map<std::string, std::string> data;
-    bool is_array = false;
-    std::vector<json> array_data;
-
-public:
-    json() {}
-    
-    void operator=(std::initializer_list<std::pair<const std::string, json>> list) {
-        for(const auto& item : list) {
-            if(item.second.is_array)
-                array_data = item.second.array_data;
-            else
-                data = item.second.data;
-        }
-    }
-
-    json& operator[](const std::string& key) {
-        return *this;
-    }
-
-    static json array() {
-        json j;
-        j.is_array = true;
-        return j;
-    }
-
-    static json object() {
-        return json();
-    }
-
-    bool empty() const {
-        return data.empty() && array_data.empty();
-    }
-
-    std::string dump(int indent = 0) const {
-        if(is_array) return "[]";
-        
-        std::string result = "{";
-        for(const auto& [key, value] : data) {
-            if(result.length() > 1) result += ",";
-            result += "\"" + key + "\":\"" + value + "\"";
-        }
-        result += "}";
-        return result;
-    }
-};
+using json = nlohmann::json;
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -225,10 +178,10 @@ private:
             else if (endpoint == "/fortnite/api/game/v2/profile/" + accountId + "/client/QueryProfile") {
                 json response = {
                     {"profileId", "athena"},
-                    {"profileChanges", "[]"},
-                    {"profileCommandRevision", "1"},
+                    {"profileChanges", json::array()},
+                    {"profileCommandRevision", 1},
                     {"serverTime", "2023-12-31T23:59:59.999Z"},
-                    {"responseVersion", "1"}
+                    {"responseVersion", 1}
                 };
                 
                 sendResponse(clientSocket, headers + response.dump());
@@ -239,9 +192,9 @@ private:
                 
                 json response = {
                     {"status", "waiting"},
-                    {"priority", "0"},
+                    {"priority", 0},
                     {"ticket", "ticket_" + std::to_string(rand())},
-                    {"queuedPlayers", std::to_string(matchmakingQueue.size())}
+                    {"queuedPlayers", matchmakingQueue.size()}
                 };
                 
                 sendResponse(clientSocket, headers + response.dump());
@@ -268,7 +221,7 @@ private:
                 if(response.empty()) {
                     response = {
                         {"status", "waiting"},
-                        {"estimatedWaitSeconds", "10"}
+                        {"estimatedWaitSeconds", 10}
                     };
                 }
                 

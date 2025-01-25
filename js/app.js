@@ -7,6 +7,7 @@ const path = require('path');
 
 const app = express();
 const port = 7777;
+const host = '0.0.0.0';
 
 // Basic logging middleware
 app.use((req, res, next) => {
@@ -60,7 +61,37 @@ app.post('/account/api/oauth/token', (req, res) => {
         account_id: accountId,
         displayName,
         expires_in: 28800,
-        token_type: "bearer"
+        token_type: "bearer",
+        app: 'fortnite',
+        in_app_id: accountId,
+        device_id: 'aabbccddeeff11223344556677889900',
+        expires_at: new Date(Date.now() + 28800000).toISOString(),
+        refresh_token: token,
+        refresh_expires: 115200,
+        refresh_expires_at: new Date(Date.now() + 115200000).toISOString()
+    });
+});
+
+// Verify token endpoint
+app.get('/account/api/oauth/verify', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token || !sessions.has(token)) {
+        return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const session = sessions.get(token);
+    res.json({
+        token,
+        session_id: session.accountId,
+        token_type: 'bearer',
+        client_id: 'fn',
+        internal_client: true,
+        client_service: 'fortnite',
+        displayName: session.displayName,
+        app: 'fortnite',
+        expires_in: 28800,
+        expires_at: new Date(Date.now() + 28800000).toISOString()
     });
 });
 
@@ -171,21 +202,7 @@ app.all('*', (req, res) => {
     res.json({ status: "ok" });
 });
 
-// Start server and launch game
-app.listen(port, () => {
-    console.log(`Fortnite private server running on port ${port}`);
-    
-    // Launch the game
-    const pythonProcess = spawn('python', ['run.py'], {
-        cwd: path.join(__dirname, '..'),
-        stdio: 'pipe'
-    });
-
-    pythonProcess.stdout.on('data', (data) => {
-        console.log(`[LAUNCHER] ${data}`);
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-        console.error(`[LAUNCHER ERROR] ${data}`);
-    });
+// Start server
+app.listen(port, host, () => {
+    console.log(`Fortnite private server running on ${host}:${port}`);
 });

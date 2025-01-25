@@ -74,7 +74,6 @@ class LauncherGUI:
         
         # Load saved path and start backend
         self.load_saved_path()
-        self.start_backend()
         
         # Configure window close handler
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -135,23 +134,35 @@ class LauncherGUI:
         node_path = "node.exe" if sys.platform == "win32" else "node"
             
         try:
+            # Start oauth.js first
+            self.oauth_process = subprocess.Popen(
+                [node_path, oauth_js_path],
+                cwd=current_dir,
+                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
+            )
+            time.sleep(2)
+            
+            # Then start app.js
             self.backend_process = subprocess.Popen(
                 [node_path, app_js_path],
                 cwd=current_dir,
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
             )
             time.sleep(2)
+            
             if self.check_backend():
                 self.log("Backend server started successfully")
                 self.update_status(backend_running=True)
             else:
-                self.log("Backend server failed to start")
+                self.log("Backend server failed to start - please check Node.js is installed")
+                messagebox.showerror("Error", "Backend server failed to start. Please ensure Node.js is installed on your system.")
         except Exception as e:
             self.log(f"Error starting backend: {str(e)}")
+            messagebox.showerror("Error", f"Failed to start backend: {str(e)}")
             
     def check_backend(self):
         try:
-            response = requests.get("http://127.0.0.1:7777/lightswitch/api/service/bulk/status", timeout=2)
+            response = requests.get("http://0.0.0.0:7777/lightswitch/api/service/bulk/status", timeout=2)
             return response.status_code == 200
         except:
             return False
@@ -163,12 +174,12 @@ class LauncherGUI:
         try:
             if sys.platform == "win32":
                 self.proxy_process = subprocess.Popen(
-                    ["mitmdump", "-s", str(proxy_path), "--listen-port", "7777"],
+                    ["mitmdump", "-s", str(proxy_path), "--listen-host", "0.0.0.0", "--listen-port", "7777"],
                     creationflags=subprocess.CREATE_NEW_CONSOLE
                 )
             else:
                 self.proxy_process = subprocess.Popen(
-                    ["mitmdump", "-s", str(proxy_path), "--listen-port", "7777"]
+                    ["mitmdump", "-s", str(proxy_path), "--listen-host", "0.0.0.0", "--listen-port", "7777"]
                 )
             time.sleep(2)
             self.update_status(proxy_running=True)
@@ -179,7 +190,7 @@ class LauncherGUI:
     def launch_fortnite(self, path):
         self.log("Launching Fortnite...")
         
-        os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7777"
+        os.environ["HTTPS_PROXY"] = "http://0.0.0.0:7777"
         
         exe = Path(path) / "FortniteGame" / "Binaries" / "Win64" / "FortniteClient-Win64-Shipping.exe"
         
@@ -247,6 +258,8 @@ class LauncherGUI:
     def on_closing(self):
         if hasattr(self, 'backend_process'):
             self.backend_process.terminate()
+        if hasattr(self, 'oauth_process'):
+            self.oauth_process.terminate()
         if hasattr(self, 'proxy_process'):
             self.proxy_process.terminate()
         self.root.destroy()

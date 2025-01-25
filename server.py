@@ -116,7 +116,7 @@ class FortniteServer:
         self.matchmaking_queue = []
         self.match_lock = threading.Lock()
         
-        self.logger.info(f'Fortnite Chapter 1 Season 2 private server listening on {self.host}:{self.port}')
+        self.logger.info(f'ZeroFN server listening on {self.host}:{self.port}')
 
     def should_refresh_token(self):
         """Check if token needs refreshing"""
@@ -430,10 +430,10 @@ class FortniteServer:
             time.sleep(1)
             print("\n=========================")
             print("SERVER IS READY!")
-            print("You can now launch Fortnite Chapter 1 Season 2")
+            print("You can now launch Fortnite")
             print("=========================\n")
             print("Press Ctrl+C to stop the server")
-            self.logger.info('Starting Fortnite Chapter 1 Season 2 private server...')
+            self.logger.info('Starting ZeroFN server...')
             self.http_server.serve_forever()
         except Exception as e:
             self.logger.error(f'Server error: {str(e)}')

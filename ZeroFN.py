@@ -14,16 +14,9 @@ import ctypes
 import socket
 import json
 import uuid
-import random
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import urllib.parse
-import secrets
-import base64
-import winreg
-from datetime import datetime, timezone, timedelta
-import jwt
-import mitmproxy.ctx
-from mitmproxy import ctx, http
+from datetime import datetime, timezone
+from server import FortniteServer
+from auth import AuthServer
 
 # Configure Fortnite theme styles
 class FortniteTheme:
@@ -70,294 +63,6 @@ class FortniteTheme:
                        fieldbackground=FortniteTheme.SECONDARY_COLOR,
                        arrowcolor=FortniteTheme.ACCENT_COLOR)
 
-# Custom HTTP request handler for Fortnite server
-class FortniteServerHandler(BaseHTTPRequestHandler):
-    clients = set()
-    connection_count = 0
-    last_activity = {}
-    state = None
-    
-    def __init__(self, *args, **kwargs):
-        self.server_should_close = False
-        super().__init__(*args, **kwargs)
-        
-    def log_connection(self, client_ip, action):
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] {action}: {client_ip}")
-        FortniteServerHandler.last_activity[client_ip] = timestamp
-        
-        with open('logs/server.log', 'a') as f:
-            f.write(f"[{timestamp}] {action}: {client_ip}\n")
-            f.write(f"Headers: {self.headers}\n")
-            f.write(f"Path: {self.path}\n")
-            f.write("-" * 80 + "\n")
-    
-    def send_json_response(self, data, status=200):
-        self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-        self.send_header('X-Epic-Correlation-ID', str(uuid.uuid4()))
-        self.send_header('X-Epic-Device-ID', str(uuid.uuid4()))
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode())
-
-    def do_GET(self):
-        try:
-            client_ip = self.client_address[0]
-            if client_ip not in FortniteServerHandler.clients:
-                FortniteServerHandler.clients.add(client_ip)
-                FortniteServerHandler.connection_count += 1
-                self.log_connection(client_ip, "New client connected")
-                
-            # Handle Epic callback
-            if self.path.startswith('/epic/callback'):
-                try:
-                    parsed_url = urllib.parse.urlparse(self.path)
-                    params = urllib.parse.parse_qs(parsed_url.query)
-                    
-                    state = params.get('state', [''])[0]
-                    code = params.get('code', [''])[0]
-                    
-                    if not state or not code:
-                        raise ValueError("Missing required parameters")
-                        
-                    if not FortniteServerHandler.state or state != FortniteServerHandler.state:
-                        raise ValueError("Invalid state parameter")
-                    
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'text/html')
-                    self.end_headers()
-                    self.wfile.write(b"Authorization successful! You can close this window.")
-                    return
-                except Exception as e:
-                    self.send_response(400)
-                    self.send_header('Content-Type', 'text/html')
-                    self.end_headers()
-                    self.wfile.write(f"Error processing callback: {str(e)}".encode())
-                    return
-
-            # Handle verification endpoint
-            elif self.path == "/account/api/oauth/verify":
-                self.log_connection(client_ip, "Client verification")
-                response = {
-                    "access_token": str(uuid.uuid4()),
-                    "expires_in": 28800,
-                    "expires_at": "9999-12-31T23:59:59.999Z",
-                    "token_type": "bearer",
-                    "account_id": str(uuid.uuid4()),
-                    "client_id": "xyza7891TydzdNolyGQJYa9b6n6rLMJl",
-                    "internal_client": True,
-                    "client_service": "fortnite",
-                    "displayName": "ZeroFN Player",
-                    "app": "fortnite",
-                    "in_app_id": str(uuid.uuid4())
-                }
-                self.send_json_response(response)
-
-            # Handle cloud storage endpoints
-            elif self.path == "/fortnite/api/cloudstorage/system":
-                self.log_connection(client_ip, "Requesting cloud storage")
-                self.send_json_response([])
-                
-            elif self.path == "/fortnite/api/game/v2/enabled_features":
-                self.log_connection(client_ip, "Checking enabled features")
-                self.send_json_response([])
-                
-            elif self.path.startswith("/fortnite/api/cloudstorage/user/"):
-                self.log_connection(client_ip, "User storage access")
-                self.send_json_response([])
-
-            # Handle waiting room check
-            elif self.path == "/waitingroom/api/waitingroom":
-                self.log_connection(client_ip, "Waiting room check")
-                self.send_json_response(None)
-
-            # Handle service status check
-            elif self.path == "/lightswitch/api/service/bulk/status":
-                self.log_connection(client_ip, "Service status check")
-                response = [{
-                    "serviceInstanceId": "fortnite",
-                    "status": "UP",
-                    "message": "Fortnite is online",
-                    "maintenanceUri": None,
-                    "allowedActions": ["PLAY", "DOWNLOAD"],
-                    "banned": False
-                }]
-                self.send_json_response(response)
-
-            # Handle platform validation
-            elif self.path.startswith("/fortnite/api/game/v2/tryPlayOnPlatform"):
-                self.log_connection(client_ip, "Platform validation")
-                response = {
-                    "platformValid": True,
-                    "clientPlatform": "WIN"
-                }
-                self.send_json_response(response)
-
-            # Handle privacy settings
-            elif self.path.startswith("/fortnite/api/game/v2/privacy/account/"):
-                self.log_connection(client_ip, "Privacy settings check")
-                response = {
-                    "accountId": str(uuid.uuid4()),
-                    "optOutOfPublicLeaderboards": False
-                }
-                self.send_json_response(response)
-
-            # Handle account info
-            elif self.path == "/account/api/public/account":
-                self.log_connection(client_ip, "Public account info")
-                response = {
-                    "id": str(uuid.uuid4()),
-                    "displayName": "ZeroFN Player",
-                    "externalAuths": {}
-                }
-                self.send_json_response(response)
-
-            # Handle OAuth exchange
-            elif self.path == "/account/api/oauth/exchange":
-                self.log_connection(client_ip, "OAuth exchange")
-                response = {
-                    "expiresInSeconds": 28800,
-                    "code": str(uuid.uuid4()),
-                    "creatingClientId": "ec684b8c687f479fadea3cb2ad83f5c6"  
-                }
-                self.send_json_response(response)
-
-            else:
-                self.log_connection(client_ip, f"Generic request to {self.path}")
-                response = {
-                    "status": "ok",
-                    "message": "ZeroFN server running",
-                    "serverTime": datetime.now(timezone.utc).isoformat()
-                }
-                self.send_json_response(response)
-
-        except Exception as e:
-            self.log_connection(client_ip, f"Error: {str(e)}")
-            self.send_error(500, str(e))
-
-    def do_POST(self):
-        try:
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            
-            data = json.loads(post_data.decode())
-            client_ip = self.client_address[0]
-            
-            if client_ip not in FortniteServerHandler.clients:
-                FortniteServerHandler.clients.add(client_ip)
-                FortniteServerHandler.connection_count += 1
-                self.log_connection(client_ip, "New client connected via POST")
-            
-            # Handle authentication
-            if self.path == "/account/api/oauth/token":
-                self.log_connection(client_ip, "Client authentication")
-                response = {
-                    "access_token": str(uuid.uuid4()),
-                    "expires_in": 28800,
-                    "expires_at": "9999-12-31T23:59:59.999Z",
-                    "token_type": "bearer",
-                    "refresh_token": str(uuid.uuid4()),
-                    "refresh_expires": 115200,
-                    "refresh_expires_at": "9999-12-31T23:59:59.999Z",
-                    "account_id": str(uuid.uuid4()),
-                    "client_id": "xyza7891TydzdNolyGQJYa9b6n6rLMJl",
-                    "internal_client": True,
-                    "client_service": "fortnite",
-                    "displayName": "ZeroFN Player",
-                    "app": "fortnite"
-                }
-                self.send_json_response(response)
-                
-            # Handle profile query
-            elif self.path == "/fortnite/api/game/v2/profile/client/QueryProfile":
-                self.log_connection(client_ip, "Profile query")
-                response = {
-                    "profileId": data.get("profileId", "athena"),
-                    "profileChanges": [{
-                        "_type": "fullProfileUpdate",
-                        "profile": {
-                            "_id": str(uuid.uuid4()),
-                            "accountId": str(uuid.uuid4()),
-                            "profileId": data.get("profileId", "athena"),
-                            "version": "no_version",
-                            "items": {},
-                            "stats": {
-                                "attributes": {
-                                    "season_num": 2,
-                                    "book_level": 70,
-                                    "book_xp": 999999,
-                                    "battlestars": 999999,
-                                    "battlepass_tier": 70
-                                }
-                            },
-                            "commandRevision": 0
-                        }
-                    }],
-                    "serverTime": datetime.now(timezone.utc).isoformat(),
-                    "profileCommandRevision": 0,
-                    "responseVersion": 1
-                }
-                self.send_json_response(response)
-                
-            # Handle matchmaking
-            elif self.path == "/fortnite/api/game/v2/matchmaking/account":
-                self.log_connection(client_ip, "Matchmaking request")
-                response = {
-                    "accountId": str(uuid.uuid4()),
-                    "matches": [],
-                    "startTime": datetime.now(timezone.utc).isoformat(),
-                    "endTime": datetime.now(timezone.utc).isoformat()
-                }
-                self.send_json_response(response)
-                
-            else:
-                self.log_connection(client_ip, f"Generic POST to {self.path}")
-                response = {"status": "ok"}
-                self.send_json_response(response)
-            
-        except Exception as e:
-            self.log_connection(client_ip, f"Error: {str(e)}")
-            self.send_error(500, str(e))
-            
-    def log_message(self, format, *args):
-        pass
-
-class ZeroFNServer:
-    def __init__(self, host="127.0.0.1", port=7777):
-        self.host = host
-        self.port = port
-        self.server = None
-        self.running = False
-        self.logger = logging.getLogger('ZeroFNServer')
-        
-        # Epic Games OAuth credentials
-        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"
-        self.client_secret = "Eh+FLGJ5GrvCNwmTEp9Hrqdwn2gGnra645eWrp09zVA"
-        
-    def start(self):
-        try:
-            self.server = HTTPServer((self.host, self.port), FortniteServerHandler)
-            self.running = True
-            
-            print("\n=========================")
-            print("SERVER IS READY!")
-            print("You can now launch Fortnite")
-            print("=========================\n")
-            
-            while self.running:
-                self.server.handle_request()
-                
-        except Exception as e:
-            self.logger.error(f'Server error: {str(e)}')
-            
-    def stop(self):
-        self.running = False
-        if self.server:
-            self.server.server_close()
-
 class ZeroFNApp:
     def __init__(self, root):
         if not self.is_admin():
@@ -377,7 +82,9 @@ class ZeroFNApp:
             "Chapter 1 Season 2": "https://cdn.fnbuilds.services/1.11.zip"
         }
         
-        self.server = ZeroFNServer()
+        # Initialize servers
+        self.fortnite_server = FortniteServer()
+        self.auth_server = AuthServer()
         
         if not os.path.exists('logs'):
             os.makedirs('logs')
@@ -548,10 +255,15 @@ class ZeroFNApp:
             return
             
         try:
-            # Start server
-            server_thread = threading.Thread(target=self.server.start, daemon=True)
-            server_thread.start()
-            self.log("Server started on 127.0.0.1:7777")
+            # Start servers
+            fortnite_thread = threading.Thread(target=self.fortnite_server.start, daemon=True)
+            auth_thread = threading.Thread(target=self.auth_server.start, daemon=True)
+            
+            fortnite_thread.start()
+            auth_thread.start()
+            
+            self.log("Fortnite server started on 127.0.0.1:7777")
+            self.log("Auth server started on 127.0.0.1:7878") 
             
             # Kill existing processes
             processes = ["FortniteClient-Win64-Shipping.exe", "EasyAntiCheat.exe", "BEService.exe"]
@@ -583,7 +295,7 @@ class ZeroFNApp:
                 "-skippatchcheck",
                 "-notexturestreaming",
                 "-HTTP=127.0.0.1:7777",
-                "-AUTH_HOST=127.0.0.1:7777",
+                "-AUTH_HOST=127.0.0.1:7878",
                 "-AUTH_SSL=0",
                 "-AUTH_VERIFY_SSL=0",
                 "-AUTH_EPIC=0",
@@ -607,11 +319,14 @@ class ZeroFNApp:
         except Exception as e:
             self.log(f"Error starting game: {str(e)}")
             messagebox.showerror("Launch Error", str(e))
-            self.server.stop()
+            self.fortnite_server.stop()
+            self.auth_server.stop()
             
     def __del__(self):
-        if hasattr(self, 'server'):
-            self.server.stop()
+        if hasattr(self, 'fortnite_server'):
+            self.fortnite_server.stop()
+        if hasattr(self, 'auth_server'):
+            self.auth_server.stop()
 
 if __name__ == "__main__":
     root = tk.Tk()

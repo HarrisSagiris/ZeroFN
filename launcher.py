@@ -21,6 +21,9 @@ class ZeroFNLauncher:
         self.fortnite_path = None
         self.backend_port = 5595
         self.proxy_port = 7777
+        self.xmpp_process = None
+        self.matchmaker_process = None
+        self.mcp_process = None
 
         # Setup UI
         self.root = ctk.CTk()
@@ -62,6 +65,27 @@ class ZeroFNLauncher:
             font=("Segoe UI", 12)
         )
         self.proxy_status.pack(pady=5)
+
+        self.xmpp_status = ctk.CTkLabel(
+            self.status_frame,
+            text="XMPP: Stopped",
+            font=("Segoe UI", 12)
+        )
+        self.xmpp_status.pack(pady=5)
+
+        self.matchmaker_status = ctk.CTkLabel(
+            self.status_frame,
+            text="Matchmaker: Stopped",
+            font=("Segoe UI", 12)
+        )
+        self.matchmaker_status.pack(pady=5)
+
+        self.mcp_status = ctk.CTkLabel(
+            self.status_frame,
+            text="MCP: Stopped",
+            font=("Segoe UI", 12)
+        )
+        self.mcp_status.pack(pady=5)
 
         # Fortnite path selection
         self.path_frame = ctk.CTkFrame(self.main_frame)
@@ -136,18 +160,37 @@ class ZeroFNLauncher:
             print(f"[+] Selected Fortnite path: {path}")
 
     def start_backend(self):
-        """Start the Node.js backend server"""
+        """Start all Node.js backend services"""
         try:
-            backend_path = os.path.join(os.path.dirname(__file__), 'js')
-            self.backend_process = subprocess.Popen(['node', 'app.js'], cwd=backend_path)
-            print("[+] Backend server started on port", self.backend_port)
+            js_path = os.path.join(os.path.dirname(__file__), 'js')
+            
+            # Start main backend
+            self.backend_process = subprocess.Popen(['node', 'app.js'], cwd=js_path)
+            print("[+] Main backend server started on port", self.backend_port)
             self.backend_status.configure(text="Backend: Running")
+
+            # Start XMPP server
+            self.xmpp_process = subprocess.Popen(['node', 'xmpp/index.js'], cwd=js_path)
+            print("[+] XMPP server started")
+            self.xmpp_status.configure(text="XMPP: Running")
+
+            # Start matchmaker
+            self.matchmaker_process = subprocess.Popen(['node', 'matchmaker/index.js'], cwd=js_path)
+            print("[+] Matchmaker server started")
+            self.matchmaker_status.configure(text="Matchmaker: Running")
+
+            # Start MCP (Monthly Crew Pack) server
+            self.mcp_process = subprocess.Popen(['node', 'mcp/index.js'], cwd=js_path)
+            print("[+] MCP server started")
+            self.mcp_status.configure(text="MCP: Running")
+
             time.sleep(2)
+            return True
+
         except Exception as e:
-            print("[-] Failed to start backend server:", str(e))
-            messagebox.showerror("Error", f"Failed to start backend server: {str(e)}")
+            print("[-] Failed to start backend services:", str(e))
+            messagebox.showerror("Error", f"Failed to start backend services: {str(e)}")
             return False
-        return True
 
     def start_proxy(self):
         """Start the mitmproxy server"""
@@ -252,6 +295,12 @@ class ZeroFNLauncher:
                 self.backend_process.terminate()
             if self.proxy_process:
                 self.proxy_process.terminate()
+            if self.xmpp_process:
+                self.xmpp_process.terminate()
+            if self.matchmaker_process:
+                self.matchmaker_process.terminate()
+            if self.mcp_process:
+                self.mcp_process.terminate()
             self.root.destroy()
 
 if __name__ == "__main__":

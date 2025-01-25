@@ -10,7 +10,7 @@ import asyncio
 import websockets
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
 import customtkinter as ctk
 
@@ -63,12 +63,31 @@ class ZeroFNLauncher:
         )
         self.proxy_status.pack(pady=5)
 
-        self.fortnite_status = ctk.CTkLabel(
-            self.status_frame,
-            text="Fortnite: Not Found",
+        # Fortnite path selection
+        self.path_frame = ctk.CTkFrame(self.main_frame)
+        self.path_frame.pack(fill="x", padx=20, pady=10)
+        
+        self.path_label = ctk.CTkLabel(
+            self.path_frame,
+            text="Fortnite Path:",
             font=("Segoe UI", 12)
         )
-        self.fortnite_status.pack(pady=5)
+        self.path_label.pack(side="left", padx=5)
+        
+        self.path_entry = ctk.CTkEntry(
+            self.path_frame,
+            width=400,
+            placeholder_text="Enter Fortnite installation path"
+        )
+        self.path_entry.pack(side="left", padx=5)
+        
+        self.path_button = ctk.CTkButton(
+            self.path_frame,
+            text="Browse",
+            command=self.browse_fortnite,
+            width=100
+        )
+        self.path_button.pack(side="right", padx=5)
 
         # Launch button
         self.launch_btn = ctk.CTkButton(
@@ -97,6 +116,24 @@ class ZeroFNLauncher:
         
     def flush(self):
         pass
+
+    def browse_fortnite(self):
+        """Open file dialog to select Fortnite installation"""
+        initial_dir = "C:\\Program Files\\Epic Games"
+        if not os.path.exists(initial_dir):
+            initial_dir = "C:\\"
+            
+        path = filedialog.askopenfilename(
+            title="Select FortniteClient-Win64-Shipping.exe",
+            initialdir=initial_dir,
+            filetypes=[("Executable files", "FortniteClient-Win64-Shipping.exe")]
+        )
+        
+        if path:
+            self.fortnite_path = path
+            self.path_entry.delete(0, tk.END)
+            self.path_entry.insert(0, path)
+            print(f"[+] Selected Fortnite path: {path}")
 
     def start_backend(self):
         """Start the Node.js backend server"""
@@ -133,22 +170,24 @@ class ZeroFNLauncher:
         return True
 
     def setup_fortnite(self):
-        """Locate and configure Fortnite"""
-        possible_paths = [
-            "C:\\Program Files\\Epic Games\\Fortnite\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe",
-            "D:\\Program Files\\Epic Games\\Fortnite\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe"
-        ]
-
-        for path in possible_paths:
-            if os.path.exists(path):
-                self.fortnite_path = path
-                self.fortnite_status.configure(text="Fortnite: Found")
-                break
-
+        """Verify Fortnite path"""
+        self.fortnite_path = self.path_entry.get().strip()
+        
         if not self.fortnite_path:
-            print("[-] Fortnite installation not found")
-            messagebox.showerror("Error", "Fortnite installation not found")
+            print("[-] Please enter or select Fortnite installation path")
+            messagebox.showerror("Error", "Please enter or select Fortnite installation path")
             return False
+            
+        if not os.path.exists(self.fortnite_path):
+            print("[-] Specified Fortnite path does not exist")
+            messagebox.showerror("Error", "Specified Fortnite path does not exist")
+            return False
+            
+        if not self.fortnite_path.endswith("FortniteClient-Win64-Shipping.exe"):
+            print("[-] Invalid Fortnite executable selected")
+            messagebox.showerror("Error", "Please select FortniteClient-Win64-Shipping.exe")
+            return False
+            
         return True
 
     def launch_fortnite(self):

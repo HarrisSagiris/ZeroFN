@@ -16,7 +16,7 @@ import jwt
 from urllib.parse import unquote, parse_qs, urlparse
 from auth import AuthHandler, generate_guest_credentials
 
-print("Starting ZeroFN Server...")
+print("Starting ZeroFN Server (Chapter 1 Season 2)...")
 print("Initializing components...")
 
 # Configure logging
@@ -38,9 +38,9 @@ class FortniteServer:
         self.host = '127.0.0.1'  # Listen only on localhost
         self.port = 7778
         
-        # Epic Games OAuth credentials
-        self.client_id = "xyza7891TydzdNolyGQJYa9b6n6rLMJl"  # Updated client ID
-        self.client_secret = "e1f31c211f28413186262d37a13fc84d"  # Client secret
+        # Legacy Epic Games OAuth credentials for Chapter 1 Season 2
+        self.client_id = "ec684b8c687f479fadea3cb2ad83f5c6"  # Season 2 client ID
+        self.client_secret = "e1f31c211f28413186262d37a13fc84d"
         
         # Store expected state parameter
         self.expected_state = None
@@ -99,7 +99,7 @@ class FortniteServer:
         self.matchmaking_queue = []
         self.match_lock = threading.Lock()
         
-        self.logger.info(f'Fortnite private server listening on {self.host}:{self.port}')
+        self.logger.info(f'Fortnite Chapter 1 Season 2 private server listening on {self.host}:{self.port}')
 
     def should_refresh_token(self):
         """Check if token needs refreshing"""
@@ -141,8 +141,9 @@ class FortniteServer:
                 'refresh_token': refresh_token
             }
             
+            # Use legacy Season 2 endpoint
             response = requests.post(
-                'https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token',
+                'https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token',
                 headers=headers,
                 data=data,
                 verify=False
@@ -251,17 +252,20 @@ class FortniteServer:
                 self.end_headers()
 
                 if self.path.startswith('/fortnite/api/game/v2/profile'):
+                    # Season 2 specific profile response
                     response = {
                         "profileRevision": random.randint(1000,9999),
                         "profileId": "athena",
                         "profileChanges": [{
-                            "changeType": "fullProfileUpdate",
+                            "changeType": "fullProfileUpdate", 
                             "profile": {
                                 "_id": outer_instance.auth_token.get('account_id'),
                                 "accountId": outer_instance.auth_token.get('account_id'),
+                                "version": "season_2",
+                                "season": 2,
                                 "items": {
                                     "SKIN_1": {
-                                        "templateId": "AthenaCharacter:CID_001_Athena_Commando_F_Default",
+                                        "templateId": "AthenaCharacter:CID_017_Athena_Commando_M", # Season 2 default skin
                                         "attributes": {
                                             "favorite": True,
                                             "item_seen": True,
@@ -273,9 +277,9 @@ class FortniteServer:
                                 },
                                 "stats": {
                                     "attributes": {
-                                        "level": 100,
+                                        "level": 70, # Season 2 max level
                                         "xp": 999999,
-                                        "season_level": 100
+                                        "season_level": 70
                                     }
                                 },
                                 "commandRevision": random.randint(1000,9999)
@@ -407,10 +411,10 @@ class FortniteServer:
             time.sleep(1)
             print("\n=========================")
             print("SERVER IS READY!")
-            print("You can now launch the game")
+            print("You can now launch Fortnite Chapter 1 Season 2")
             print("=========================\n")
             print("Press Ctrl+C to stop the server")
-            self.logger.info('Starting Fortnite private server...')
+            self.logger.info('Starting Fortnite Chapter 1 Season 2 private server...')
             self.http_server.serve_forever()
         except Exception as e:
             self.logger.error(f'Server error: {str(e)}')

@@ -18,7 +18,7 @@ requests.packages.urllib3.disable_warnings()
 def generate_guest_credentials():
     # Generate random username
     adjectives = ['Happy', 'Lucky', 'Brave', 'Swift', 'Clever', 'Wild']
-    nouns = ['Ninja', 'Warrior', 'Knight', 'Hunter', 'Scout', 'Hero']
+    nouns = ['Knight', 'Warrior', 'Squire', 'Crusader', 'Champion', 'Paladin'] 
     numbers = ''.join(random.choices(string.digits, k=4))
     username = f"{random.choice(adjectives)}{random.choice(nouns)}{numbers}"
     
@@ -68,7 +68,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             html = """
             <html>
             <head>
-                <title>ZeroFN Login</title>
+                <title>ZeroFN Login - Chapter 1 Season 2</title>
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <link rel="icon" type="image/jpg" href="zerofn.jpg">
                 <style>
@@ -164,7 +164,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 <div class="login-container">
                     <img src="zerofn.jpg" alt="ZeroFN Logo" class="logo">
                     <h1>Welcome to ZeroFN</h1>
-                    <p>Experience OG Fortnite like never before.<br>Login with your Epic Games account or continue as guest.</p>
+                    <p>Experience Fortnite Chapter 1 Season 2 like never before.<br>Login with your Epic Games account or continue as guest.</p>
                     <a href="/login">
                         <button class="btn">Login with Epic Games</button>
                     </a>
@@ -181,7 +181,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             # Generate guest credentials
             username, email, password, account_id = generate_guest_credentials()
             
-            # Create guest token data for OG Fortnite private server
+            # Create guest token data for Chapter 1 Season 2 private server
             expires_at = int(time.time()) + 28800
             token_data = {
                 'access_token': base64.b64encode(os.urandom(32)).decode('utf-8'),
@@ -200,6 +200,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 'email': email,
                 'password': password,
                 'is_guest': True,
+                'season': 2,
                 'perms': [
                     'fortnite:profile:*:commands',
                     'account:public:account',
@@ -214,16 +215,21 @@ class AuthHandler(BaseHTTPRequestHandler):
                     'expires_at': datetime.fromtimestamp(expires_at + 2592000, tz=timezone.utc).isoformat()
                 },
                 'profile': {
-                    'character': 'CID_001_Athena_Commando_F_Default',
-                    'backpack': 'BID_001_BlackKnight',
-                    'pickaxe': 'Pickaxe_Lockjaw',
-                    'glider': 'Glider_Warthog',
-                    'trail': 'Trails_ID_012_Lightning',
-                    'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss'],
+                    'character': 'CID_017_Athena_Commando_M', # Black Knight
+                    'backpack': 'BID_004_BlackKnight', # Black Shield
+                    'pickaxe': 'Pickaxe_ID_011_Medieval', # AC/DC
+                    'glider': 'Glider_Medieval', # Sir Glider the Brave
+                    'trail': 'Trails_ID_001', # Classic
+                    'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss', 'EID_Ride', 'EID_Robot', 'EID_Dab'],
                     'banner': {
-                        'icon': 'BRS01',
-                        'color': 'defaultcolor1',
-                        'season_level': 100
+                        'icon': 'BRS02',
+                        'color': 'defaultcolor2',
+                        'season_level': 70
+                    },
+                    'battlepass': {
+                        'level': 70,
+                        'xp': 80000,
+                        'stars': 7
                     }
                 }
             }
@@ -428,7 +434,8 @@ class AuthHandler(BaseHTTPRequestHandler):
                     token_data['displayName'] = account_data.get('displayName', 'ZeroFN Player')
                     token_data['account_id'] = account_data.get('account_id')
 
-                    # Add OG Fortnite specific data
+                    # Add Chapter 1 Season 2 specific data
+                    token_data['season'] = 2
                     token_data['perms'] = [
                         'fortnite:profile:*:commands',
                         'account:public:account',
@@ -443,16 +450,21 @@ class AuthHandler(BaseHTTPRequestHandler):
                         'expires_at': datetime.fromtimestamp(expires_at + 2592000, tz=timezone.utc).isoformat()
                     }
                     token_data['profile'] = {
-                        'character': 'CID_001_Athena_Commando_F_Default',
-                        'backpack': 'BID_001_BlackKnight',
-                        'pickaxe': 'Pickaxe_Lockjaw',
-                        'glider': 'Glider_Warthog',
-                        'trail': 'Trails_ID_012_Lightning',
-                        'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss'],
+                        'character': 'CID_017_Athena_Commando_M', # Black Knight
+                        'backpack': 'BID_004_BlackKnight', # Black Shield
+                        'pickaxe': 'Pickaxe_ID_011_Medieval', # AC/DC
+                        'glider': 'Glider_Medieval', # Sir Glider the Brave
+                        'trail': 'Trails_ID_001', # Classic
+                        'dance_moves': ['EID_DanceMoves', 'EID_Fresh', 'EID_Floss', 'EID_Ride', 'EID_Robot', 'EID_Dab'],
                         'banner': {
-                            'icon': 'BRS01',
-                            'color': 'defaultcolor1',
-                            'season_level': 100
+                            'icon': 'BRS02',
+                            'color': 'defaultcolor2',
+                            'season_level': 70
+                        },
+                        'battlepass': {
+                            'level': 70,
+                            'xp': 80000,
+                            'stars': 7
                         }
                     }
 

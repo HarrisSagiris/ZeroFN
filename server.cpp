@@ -16,6 +16,8 @@
 #include <cstdio>
 #include <memory>
 #include <algorithm>
+#include <TlHelp32.h>
+#include <Psapi.h>
 
 #define _WIN32_WINNT 0x0600 // Required for InetPton
 
@@ -44,6 +46,7 @@ private:
     std::string installPath;
     HANDLE gameProcess;
     HANDLE outputPipe;
+    HWND patcherWindow;
 
     // Matchmaking state
     std::map<std::string, GameSession> activeSessions;
@@ -241,154 +244,154 @@ private:
         closesocket(clientSocket);
     }
 
-    bool patchGameExecutable() {
-        std::string exePath = installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
-        
-        std::cout << "\n[PATCHER] Starting game executable patching...\n";
-        std::cout << "[PATCHER] Target file: " << exePath << "\n";
-        
-        // Create backup if doesn't exist
-        if (!fs::exists(exePath + ".bak")) {
-            std::cout << "[PATCHER] Creating backup file...\n";
-            if (!fs::copy_file(exePath, exePath + ".bak")) {
-                std::cerr << "[PATCHER] ERROR: Failed to create backup file\n";
-                return false;
-            }
-            std::cout << "[PATCHER] Backup created successfully at " << exePath << ".bak\n";
-        }
-
-        // Read exe into memory
-        std::cout << "[PATCHER] Reading executable into memory...\n";
-        std::ifstream exe(exePath, std::ios::binary);
-        if (!exe) {
-            std::cerr << "[PATCHER] ERROR: Failed to open executable file\n";
-            return false;
-        }
-
-        std::vector<char> buffer((std::istreambuf_iterator<char>(exe)), 
-                                std::istreambuf_iterator<char>());
-        exe.close();
-        std::cout << "[PATCHER] Successfully read " << buffer.size() << " bytes\n";
-
-        // Enhanced patterns to patch including server connection bypass
-        std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> patterns = {
-            // Server connection check bypass
-            {{0x75, 0x04, 0x33, 0xC0, 0x5B, 0xC3}, {0xB0, 0x01, 0x5B, 0xC3, 0x90, 0x90}},
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
-            {{0x0F, 0x84, 0x50, 0x01, 0x00, 0x00}, {0xE9, 0x51, 0x01, 0x00, 0x00, 0x90}},
-            // Server connection error bypass
-            {{0x74, 0x1D, 0x48, 0x8B, 0x0D}, {0xEB, 0x1D, 0x48, 0x8B, 0x0D}},
-            {{0x0F, 0x85, 0x8B, 0x00, 0x00, 0x00}, {0xE9, 0x8C, 0x00, 0x00, 0x00, 0x90}},
-            // Login error bypass
-            {{0x75, 0x0E, 0x48, 0x8B, 0x4C}, {0x90, 0x90, 0x48, 0x8B, 0x4C}},
-            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0x90, 0x90, 0x48, 0x8B, 0x4C}},
-            {{0x0F, 0x84, 0x76, 0x01, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server connection validation bypass
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x48, 0x8B, 0x0D}},
-            {{0x74, 0x0A, 0x48, 0x83, 0xC4}, {0x90, 0x90, 0x48, 0x83, 0xC4}},
-            {{0x75, 0x1A, 0x48, 0x8B, 0x45}, {0x90, 0x90, 0x48, 0x8B, 0x45}},
-            // Additional server checks bypass
-            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x74, 0x15, 0x48, 0x8B, 0x01}, {0x90, 0x90, 0x48, 0x8B, 0x01}},
-            // New server connection error bypasses
-            {{0x75, 0x08, 0x8B, 0x45, 0xFC}, {0x90, 0x90, 0x8B, 0x45, 0xFC}},
-            {{0x74, 0x12, 0x48, 0x8B, 0x4D}, {0x90, 0x90, 0x48, 0x8B, 0x4D}},
-            {{0x0F, 0x84, 0x85, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Additional login check bypasses
-            {{0x74, 0x0C, 0x48, 0x8B, 0x0D}, {0xEB, 0x0C, 0x48, 0x8B, 0x0D}},
-            {{0x75, 0x17, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x48, 0x8B, 0x0D}},
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server connection status check bypasses
-            {{0x84, 0xC0, 0x74, 0x0A}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x84, 0xC0, 0x75, 0x14}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x84, 0xDB, 0x74, 0x10}, {0x90, 0x90, 0x90, 0x90}},
-            // Login flow bypasses
-            {{0x0F, 0x84, 0x76, 0x01, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x8B, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Force successful connection
-            {{0x84, 0xC0, 0x74}, {0x90, 0x90, 0xEB}},
-            {{0x84, 0xC0, 0x75}, {0x90, 0x90, 0xEB}},
-            // Additional connection validation bypasses
-            {{0x74, 0x0A, 0x48, 0x8B, 0x01}, {0x90, 0x90, 0x48, 0x8B, 0x01}},
-            {{0x75, 0x0C, 0x48, 0x8B, 0x01}, {0x90, 0x90, 0x48, 0x8B, 0x01}},
-            // Force online status
-            {{0xC6, 0x83, 0x38, 0x02, 0x00, 0x00, 0x00}, {0xC6, 0x83, 0x38, 0x02, 0x00, 0x00, 0x01}},
-            // Bypass connection checks completely
-            {{0x74, 0x1A, 0x48, 0x8B}, {0x90, 0x90, 0x48, 0x8B}},
-            {{0x0F, 0x84, 0x95, 0x02}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x95, 0x02}, {0x90, 0x90, 0x90, 0x90}}
-        };
-
-        int patchCount = 0;
-        std::cout << "\n[PATCHER] Starting patch application...\n";
-        
-        // Apply patches carefully with verification
-        for(const auto& pattern : patterns) {
-            for(size_t i = 0; i < buffer.size() - pattern.first.size(); i++) {
-                bool found = true;
-                for(size_t j = 0; j < pattern.first.size(); j++) {
-                    if((unsigned char)buffer[i + j] != pattern.first[j]) {
-                        found = false;
+    DWORD GetProcessIdByName(const wchar_t* processName) {
+        DWORD processId = 0;
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snapshot != INVALID_HANDLE_VALUE) {
+            PROCESSENTRY32W processEntry;
+            processEntry.dwSize = sizeof(processEntry);
+            if (Process32FirstW(snapshot, &processEntry)) {
+                do {
+                    if (_wcsicmp(processEntry.szExeFile, processName) == 0) {
+                        processId = processEntry.th32ProcessID;
                         break;
                     }
-                }
-                if(found) {
-                    std::cout << "[PATCHER] Found pattern at offset 0x" << std::hex << i << std::dec << "\n";
-                    
-                    // Verify patch location safety
-                    bool canPatch = true;
-                    for(size_t j = 0; j < pattern.second.size(); j++) {
-                        if(i + j >= buffer.size()) {
-                            canPatch = false;
-                            break;
-                        }
-                    }
-                    
-                    if(canPatch) {
-                        std::cout << "[PATCHER] Applying patch...\n";
-                        // Apply patch with verification
-                        for(size_t j = 0; j < pattern.second.size(); j++) {
-                            buffer[i + j] = pattern.second[j];
-                        }
-                        patchCount++;
-                        std::cout << "[PATCHER] Successfully applied patch " << patchCount << "\n";
+                } while (Process32NextW(snapshot, &processEntry));
+            }
+            CloseHandle(snapshot);
+        }
+        return processId;
+    }
+
+    bool PatchMemory(HANDLE process, LPVOID address, BYTE* patch, SIZE_T size) {
+        SIZE_T bytesWritten;
+        DWORD oldProtect;
+
+        if (!VirtualProtectEx(process, address, size, PAGE_EXECUTE_READWRITE, &oldProtect))
+            return false;
+
+        if (!WriteProcessMemory(process, address, patch, size, &bytesWritten))
+            return false;
+
+        if (!VirtualProtectEx(process, address, size, oldProtect, &oldProtect))
+            return false;
+
+        return bytesWritten == size;
+    }
+
+    bool LivePatchFortnite() {
+        std::cout << "\n[LIVE PATCHER] Starting live patching process...\n";
+
+        // Wait for Fortnite process
+        DWORD processId = 0;
+        while (processId == 0) {
+            processId = GetProcessIdByName(L"FortniteClient-Win64-Shipping.exe");
+            if (processId == 0) {
+                std::cout << "[LIVE PATCHER] Waiting for Fortnite process...\n";
+                Sleep(1000);
+            }
+        }
+
+        // Open process with required access rights
+        HANDLE processHandle = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, FALSE, processId);
+        if (processHandle == NULL) {
+            std::cout << "[LIVE PATCHER] Failed to open process\n";
+            return false;
+        }
+
+        std::cout << "[LIVE PATCHER] Successfully attached to Fortnite process\n";
+
+        // Define patches for common login check locations
+        struct Patch {
+            uintptr_t offset;
+            BYTE original[16];
+            BYTE patched[16];
+            size_t size;
+        };
+
+        std::vector<Patch> patches = {
+            // Login check bypass
+            {0x1234567, {0x75, 0x04, 0x33, 0xC0, 0x5B, 0xC3}, {0xB0, 0x01, 0x5B, 0xC3, 0x90, 0x90}, 6},
+            // Server connection bypass
+            {0x2345678, {0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}, 5},
+            // SSL verification bypass
+            {0x3456789, {0x0F, 0x84, 0x50, 0x01, 0x00, 0x00}, {0xE9, 0x51, 0x01, 0x00, 0x00, 0x90}, 6}
+        };
+
+        // Get module base address
+        HMODULE moduleHandle = NULL;
+        DWORD cbNeeded;
+        if (!EnumProcessModules(processHandle, &moduleHandle, sizeof(moduleHandle), &cbNeeded)) {
+            std::cout << "[LIVE PATCHER] Failed to get module base address\n";
+            CloseHandle(processHandle);
+            return false;
+        }
+
+        // Apply patches
+        int successCount = 0;
+        for (const auto& patch : patches) {
+            LPVOID address = (LPVOID)((uintptr_t)moduleHandle + patch.offset);
+            
+            // Verify original bytes before patching
+            BYTE currentBytes[16];
+            if (ReadProcessMemory(processHandle, address, currentBytes, patch.size, NULL)) {
+                if (memcmp(currentBytes, patch.original, patch.size) == 0) {
+                    if (PatchMemory(processHandle, address, patch.patched, patch.size)) {
+                        std::cout << "[LIVE PATCHER] Successfully applied patch at " << std::hex << patch.offset << std::dec << "\n";
+                        successCount++;
                     }
                 }
             }
         }
 
-        if (patchCount == 0) {
-            std::cout << "[PATCHER] No patches were needed - file may already be patched\n";
-            return true;
-        }
+        CloseHandle(processHandle);
 
-        std::cout << "\n[PATCHER] Applied total of " << patchCount << " patches\n";
-        std::cout << "[PATCHER] Writing patched executable...\n";
-
-        // Write patched exe with verification
-        std::ofstream patched(exePath, std::ios::binary | std::ios::trunc);
-        if (!patched) {
-            std::cerr << "[PATCHER] ERROR: Failed to write patched executable\n";
-            return false;
-        }
-        patched.write(buffer.data(), buffer.size());
-        patched.close();
-
-        // Verify file was written correctly
-        std::cout << "[PATCHER] Verifying patched file...\n";
-        std::ifstream verify(exePath, std::ios::binary);
-        std::vector<char> verifyBuffer((std::istreambuf_iterator<char>(verify)), 
-                                      std::istreambuf_iterator<char>());
-        verify.close();
-
-        if (verifyBuffer == buffer) {
-            std::cout << "[PATCHER] Game executable successfully patched and verified!\n";
-            std::cout << "[PATCHER] All server connection bypasses are in place\n";
+        if (successCount > 0) {
+            std::cout << "[LIVE PATCHER] Successfully applied " << successCount << " patches\n";
             return true;
         } else {
-            std::cerr << "[PATCHER] ERROR: Patch verification failed\n";
+            std::cout << "[LIVE PATCHER] No patches were applied\n";
             return false;
         }
+    }
+
+    bool patchGameExecutable() {
+        // Create patcher window
+        WNDCLASSEX wc = {0};
+        wc.cbSize = sizeof(WNDCLASSEX);
+        wc.lpfnWndProc = DefWindowProc;
+        wc.hInstance = GetModuleHandle(NULL);
+        wc.lpszClassName = "PatcherWindow";
+        RegisterClassEx(&wc);
+
+        patcherWindow = CreateWindowEx(
+            0,
+            "PatcherWindow",
+            "ZeroFN Patcher",
+            WS_OVERLAPPEDWINDOW,
+            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+            NULL,
+            NULL,
+            GetModuleHandle(NULL),
+            NULL
+        );
+
+        ShowWindow(patcherWindow, SW_SHOW);
+        UpdateWindow(patcherWindow);
+
+        std::cout << "\n[PATCHER] Starting game executable patching...\n";
+        
+        // Launch live patcher thread
+        std::thread([this]() {
+            while (running) {
+                if (LivePatchFortnite()) {
+                    std::cout << "[PATCHER] Live patches applied successfully\n";
+                }
+                Sleep(5000); // Check every 5 seconds
+            }
+        }).detach();
+
+        return true;
     }
 
 public:

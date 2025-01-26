@@ -372,66 +372,27 @@ private:
     }
 
     bool patchGameExecutable() {
-        // Simplified window creation
-        WNDCLASSEX wc = {0};
-        wc.cbSize = sizeof(WNDCLASSEX);
-        wc.lpfnWndProc = DefWindowProc;
-        wc.hInstance = GetModuleHandle(NULL);
-        wc.lpszClassName = "PatcherWindow";
-        RegisterClassEx(&wc);
-
-        patcherWindow = CreateWindowEx(
-            0,
-            "PatcherWindow",
-            "ZeroFN Patcher",
-            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-            CW_USEDEFAULT, CW_USEDEFAULT, 400, 300,
-            NULL,
-            NULL,
-            GetModuleHandle(NULL),
-            NULL
-        );
-
-        if (!patcherWindow) {
-            std::cerr << "Failed to create patcher window" << std::endl;
+        // Launch patcher in new console window
+        STARTUPINFO si = {0};
+        PROCESS_INFORMATION pi = {0};
+        si.cb = sizeof(STARTUPINFO);
+        
+        // Get current executable path
+        char exePath[MAX_PATH];
+        GetModuleFileName(NULL, exePath, MAX_PATH);
+        
+        // Create command line with patcher flag
+        std::string cmdLine = std::string(exePath) + " --patcher";
+        
+        // Create new console window for patcher
+        if (!CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE,
+                         CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
+            std::cerr << "Failed to create patcher process" << std::endl;
             return false;
         }
 
-        ShowWindow(patcherWindow, SW_SHOW);
-        UpdateWindow(patcherWindow);
-
-        // Optimized message pump
-        std::thread([this]() {
-            MSG msg;
-            while (GetMessage(&msg, NULL, 0, 0)) {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-        }).detach();
-
-        std::cout << "\n[PATCHER] Starting game executable patching...\n";
-        
-        // Improved live patcher
-        std::thread([this]() {
-            int failedAttempts = 0;
-            const int MAX_FAILED_ATTEMPTS = 3;
-            
-            while (running) {
-                if (LivePatchFortnite()) {
-                    std::cout << "[PATCHER] Live patches applied successfully\n";
-                    Sleep(10000); // Increased delay between patch attempts
-                    failedAttempts = 0;
-                } else {
-                    failedAttempts++;
-                    if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-                        std::cout << "[PATCHER] Critical error: Failed to apply patches after " 
-                                 << MAX_FAILED_ATTEMPTS << " attempts\n";
-                        break;
-                    }
-                    Sleep(2000);
-                }
-            }
-        }).detach();
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
 
         return true;
     }
@@ -662,7 +623,23 @@ public:
     }
 };
 
-int main() {
+int main(int argc, char* argv[]) {
+    // Check if this is the patcher process
+    if (argc > 1 && std::string(argv[1]) == "--patcher") {
+        SetConsoleTitle("ZeroFN Patcher");
+        std::cout << "ZeroFN Patcher Window\n";
+        std::cout << "====================\n\n";
+        
+        // Run live patcher in this console
+        FortniteServer patcher;
+        while (true) {
+            patcher.LivePatchFortnite();
+            Sleep(5000); // Check every 5 seconds
+        }
+        return 0;
+    }
+
+    // Main server process
     SetConsoleTitle("ZeroFN Launcher");
     
     FortniteServer server;

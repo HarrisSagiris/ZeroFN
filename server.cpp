@@ -17,6 +17,8 @@
 #include <memory>
 #include <algorithm>
 
+#define _WIN32_WINNT 0x0600 // Required for InetPton
+
 namespace fs = std::experimental::filesystem;
 
 // Game session data
@@ -383,7 +385,7 @@ public:
         sockaddr_in serverAddr;
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons(PORT);
-        inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
+        serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
         if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
             std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;

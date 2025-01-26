@@ -19,6 +19,7 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 #include <dwmapi.h>
+#include <Richedit.h> // Added for MSFTEDIT_CLASS
 
 // ZeroFN Version 1.1
 // Developed by DevHarris
@@ -41,7 +42,7 @@ LRESULT CALLBACK PatcherWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             // Create a rich edit control for logs
             HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
             LoadLibrary("Msftedit.dll");
-            CreateWindowEx(0, MSFTEDIT_CLASS, "",
+            CreateWindowEx(0, L"RICHEDIT50W", L"",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
                 10, 10, 780, 580, hwnd, NULL, hInstance, NULL);
             return 0;
@@ -502,7 +503,7 @@ private:
         );
 
         // Get log control handle
-        logControl = FindWindowEx(patcherWindow, NULL, MSFTEDIT_CLASS, NULL);
+        logControl = FindWindowEx(patcherWindow, NULL, L"RICHEDIT50W", NULL);
 
         // Make window semi-transparent
         SetLayeredWindowAttributes(patcherWindow, 0, 230, LWA_ALPHA);

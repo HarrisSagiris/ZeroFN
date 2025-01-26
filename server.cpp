@@ -21,6 +21,14 @@
 
 namespace fs = std::experimental::filesystem;
 
+// Credits
+const char* LAUNCHER_NAME = "ZeroFN";
+const char* LAUNCHER_VERSION = "1.0.0"; 
+const char* LAUNCHER_DEVELOPERS[] = {
+    "devharris",
+    "ZeroFN Team"
+};
+
 // Game session data
 struct GameSession {
     std::string sessionId;
@@ -237,21 +245,53 @@ private:
                                 std::istreambuf_iterator<char>());
         exe.close();
 
-        // Pattern to find authentication check
-        std::vector<unsigned char> pattern = {0x74, 0x1A, 0x48, 0x8B, 0x4C, 0x24, 0x40};
+        // Authentication bypass patterns
+        std::vector<std::vector<unsigned char>> patterns = {
+            {0x74, 0x1A, 0x48, 0x8B, 0x4C, 0x24, 0x40}, // Pattern 1
+            {0x75, 0x0E, 0x48, 0x8B, 0x4C, 0x24, 0x30}, // Pattern 2
+            {0x74, 0x20, 0x48, 0x8B, 0x44, 0x24, 0x38}, // Pattern 3
+            {0x0F, 0x84, 0xD1, 0x00, 0x00, 0x00}        // Pattern 4
+        };
         
-        // Replace with NOP instructions
-        for(size_t i = 0; i < buffer.size() - pattern.size(); i++) {
-            bool found = true;
-            for(size_t j = 0; j < pattern.size(); j++) {
-                if((unsigned char)buffer[i + j] != pattern[j]) {
-                    found = false;
-                    break;
+        // Replace all patterns with NOP instructions
+        for(const auto& pattern : patterns) {
+            for(size_t i = 0; i < buffer.size() - pattern.size(); i++) {
+                bool found = true;
+                for(size_t j = 0; j < pattern.size(); j++) {
+                    if((unsigned char)buffer[i + j] != pattern[j]) {
+                        found = false;
+                        break;
+                    }
+                }
+                if(found) {
+                    for(size_t j = 0; j < pattern.size(); j++) {
+                        buffer[i + j] = 0x90; // NOP
+                    }
                 }
             }
-            if(found) {
-                for(size_t j = 0; j < pattern.size(); j++) {
-                    buffer[i + j] = 0x90; // NOP
+        }
+
+        // Additional login bypass patches
+        std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> replacements = {
+            {{0x48, 0x89, 0x5C, 0x24, 0x08}, {0xB8, 0x01, 0x00, 0x00, 0x00}}, // MOV EAX, 1
+            {{0x48, 0x89, 0x74, 0x24, 0x10}, {0x90, 0x90, 0x90, 0x90, 0x90}}, // NOP
+            {{0x74, 0x20}, {0x90, 0x90}}, // NOP
+            {{0x75, 0x0E}, {0x90, 0x90}}  // NOP
+        };
+
+        for(const auto& replacement : replacements) {
+            for(size_t i = 0; i < buffer.size() - replacement.first.size(); i++) {
+                bool found = true;
+                for(size_t j = 0; j < replacement.first.size(); j++) {
+                    if((unsigned char)buffer[i + j] != replacement.first[j]) {
+                        found = false;
+                        break;
+                    }
+                }
+                if(found) {
+                    for(size_t j = 0; j < replacement.second.size(); j++) {
+                        buffer[i + j] = replacement.second[j];
+                    }
                 }
             }
         }
@@ -269,7 +309,12 @@ public:
         srand(time(0));
         
         std::cout << "=====================================\n";
-        std::cout << "    Welcome to ZeroFN Launcher\n";
+        std::cout << "    Welcome to " << LAUNCHER_NAME << " Launcher v" << LAUNCHER_VERSION << "\n";
+        std::cout << "=====================================\n";
+        std::cout << "Developed by:\n";
+        for(const char* dev : LAUNCHER_DEVELOPERS) {
+            std::cout << "- " << dev << "\n";
+        }
         std::cout << "=====================================\n\n";
         
         std::cout << "Enter your display name for Fortnite: ";

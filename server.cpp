@@ -2,14 +2,14 @@
 #include <string>
 #include <thread>
 #include <winsock2.h>
-#include <ws2tcpip.h> // For InetPton
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <ctime>
 #include <chrono>
-#include <filesystem> // Changed from experimental/filesystem
+#include <filesystem>
 #include <direct.h>
 #include <map>
 #include <mutex>
@@ -19,11 +19,7 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 #include <dwmapi.h>
-#include <Richedit.h> // Added for MSFTEDIT_CLASS
-
-// ZeroFN Version 1.1
-// Developed by DevHarris
-// A private server implementation for Fortnite
+#include <Richedit.h>
 
 namespace fs = std::filesystem;
 
@@ -39,7 +35,6 @@ struct GameSession {
 LRESULT CALLBACK PatcherWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE: {
-            // Create a rich edit control for logs
             HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
             LoadLibrary("Msftedit.dll");
             CreateWindowExA(0, "RICHEDIT50W", "",
@@ -269,20 +264,16 @@ private:
         SIZE_T bytesWritten;
         DWORD oldProtect;
 
-        // Add delay between patches to prevent crashes
         Sleep(100);
 
         try {
-            // Check memory region protection first
             MEMORY_BASIC_INFORMATION mbi;
             if (!VirtualQueryEx(process, address, &mbi, sizeof(mbi)))
                 return false;
 
-            // Skip protected regions
             if (mbi.Protect == PAGE_NOACCESS || mbi.Protect == PAGE_GUARD)
                 return false;
 
-            // Verify memory contents before patching
             std::vector<BYTE> currentBytes(patch.size());
             if (!ReadProcessMemory(process, address, currentBytes.data(), patch.size(), nullptr))
                 return false;
@@ -293,13 +284,11 @@ private:
             if (!WriteProcessMemory(process, address, patch.data(), patch.size(), &bytesWritten))
                 return false;
 
-            // Verify patch was applied correctly
             std::vector<BYTE> verifyBytes(patch.size());
             if (!ReadProcessMemory(process, address, verifyBytes.data(), patch.size(), nullptr))
                 return false;
 
             if (memcmp(verifyBytes.data(), patch.data(), patch.size()) != 0) {
-                // Patch verification failed, restore original protection
                 VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect);
                 return false;
             }
@@ -316,24 +305,12 @@ private:
     }
 
     void LogMessage(const std::string& message) {
-        // Get text length
-        int length = GetWindowTextLength(logControl);
-        
-        // Move caret to end
-        SendMessage(logControl, EM_SETSEL, (WPARAM)length, (LPARAM)length);
-        
-        // Add newline and message
-        std::string fullMessage = message + "\r\n";
-        SendMessage(logControl, EM_REPLACESEL, FALSE, (LPARAM)fullMessage.c_str());
-        
-        // Scroll to bottom
-        SendMessage(logControl, EM_SCROLLCARET, 0, 0);
+        std::cout << message << std::endl;
     }
 
     bool LivePatchFortnite() {
         LogMessage("\n[LIVE PATCHER] Starting live patching process...");
 
-        // Wait for Fortnite process
         DWORD processId = 0;
         PROCESSENTRY32W processEntry;
         processEntry.dwSize = sizeof(processEntry);
@@ -360,10 +337,8 @@ private:
 
         if (!running) return false;
 
-        // Wait for process to fully initialize
         Sleep(5000);
 
-        // Open process with required access rights
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (processHandle == NULL) {
             LogMessage("[LIVE PATCHER] Failed to open process");
@@ -372,13 +347,12 @@ private:
 
         LogMessage("[LIVE PATCHER] Successfully attached to Fortnite process");
 
-        // Define patches for login bypass and server connection
         struct Patch {
             std::string name;
             std::vector<BYTE> find;
             std::vector<BYTE> replace;
             bool critical;
-            int retryCount;  // Added retry count per patch
+            int retryCount;
         };
 
         std::vector<Patch> patches = {
@@ -386,7 +360,7 @@ private:
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
              {0xEB, 0x14, 0x48, 0x8B, 0x0D},
              false,
-             2},  // Reduced from 3 to 2 retries
+             2},
             
             {"Server Auth Bypass",
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
@@ -413,7 +387,6 @@ private:
              2}
         };
 
-        // Scan and patch memory with improved error handling
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
         bool criticalPatchesFailed = false;
@@ -435,7 +408,7 @@ private:
                                     bool patchSuccess = false;
                                     for (int attempt = 0; attempt < patch.retryCount && !patchSuccess; attempt++) {
                                         if (attempt > 0) {
-                                            Sleep(100 * (attempt + 1));  // Increasing delay between retries
+                                            Sleep(100 * (attempt + 1));
                                         }
                                         
                                         patchSuccess = PatchMemory(processHandle, patchAddress, patch.replace);
@@ -481,39 +454,11 @@ private:
     }
 
     bool patchGameExecutable() {
-        // Register window class for patcher
-        WNDCLASSEX wc = {0};
-        wc.cbSize = sizeof(WNDCLASSEX);
-        wc.lpfnWndProc = PatcherWndProc;
-        wc.hInstance = GetModuleHandle(NULL);
-        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
-        wc.lpszClassName = "ZeroFNPatcher";
-        RegisterClassEx(&wc);
-
-        // Create patcher window as child of game window
-        patcherWindow = CreateWindowEx(
-            WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-            "ZeroFNPatcher",
-            "ZeroFN Patcher",
-            WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU,
-            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
-            NULL, NULL,
-            GetModuleHandle(NULL),
-            NULL
-        );
-
-        // Get log control handle
-        logControl = FindWindowExA(patcherWindow, NULL, "RICHEDIT50W", NULL);
-
-        // Make window semi-transparent
-        SetLayeredWindowAttributes(patcherWindow, 0, 230, LWA_ALPHA);
-
         LogMessage("\n[PATCHER] Starting game executable patching...");
         
-        // Launch live patcher thread with improved error handling
         std::thread([this]() {
             int failedAttempts = 0;
-            const int MAX_FAILED_ATTEMPTS = 2;  // Reduced from 3 to 2
+            const int MAX_FAILED_ATTEMPTS = 2;
             
             while (running) {
                 if (!LivePatchFortnite()) {
@@ -542,16 +487,18 @@ public:
     FortniteServer() : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL) {
         srand(time(0));
         
+        system("cls");
+        SetConsoleTitle("ZeroFN Terminal");
+        
         std::cout << "=====================================\n";
         std::cout << "    Welcome to ZeroFN Launcher v1.1\n";
         std::cout << "    Developed by DevHarris\n";
         std::cout << "=====================================\n\n";
+        Sleep(1000);
         
-        std::cout << "Enter your display name for Fortnite: ";
-        std::getline(std::cin, displayName);
-        if(displayName.empty()) {
-            displayName = "ZeroFN_User";
-        }
+        displayName = "ZeroFN_User_" + std::to_string(rand() % 10000);
+        std::cout << "Using display name: " << displayName << std::endl;
+        Sleep(1000);
         
         accountId = "zerofn_" + std::to_string(rand());
         authToken = "zerofn_token_" + std::to_string(rand());
@@ -561,7 +508,6 @@ public:
     }
 
     void loadOrSetupInstallPath() {
-        // Try to load from path.json first
         std::ifstream path_file("path.json");
         if(path_file.good()) {
             std::string json;
@@ -573,49 +519,26 @@ public:
             if(pathStart != std::string::npos && pathEnd != std::string::npos) {
                 installPath = json.substr(pathStart + 8, pathEnd - (pathStart + 8));
                 if(fs::exists(installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe")) {
-                    std::cout << "Loaded installation path from path.json: " << installPath << "\n";
+                    std::cout << "Loaded installation path: " << installPath << "\n";
+                    Sleep(1000);
                     return;
                 }
             }
         }
 
-        // If not found in path.json, do manual setup
         std::cout << "\nFortnite Installation Setup\n";
         std::cout << "===========================\n";
+        Sleep(1000);
         
         std::string defaultPath = "C:\\FortniteOG";
         if(fs::exists(defaultPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe")) {
             std::cout << "Found existing installation at: " << defaultPath << "\n";
             installPath = defaultPath;
+            Sleep(1000);
         } else {
-            while(true) {
-                std::cout << "\nPlease choose an option:\n";
-                std::cout << "[1] Specify Fortnite installation path\n";
-                std::cout << "[2] Install Fortnite OG\n";
-                
-                char choice;
-                std::cin >> choice;
-                std::cin.ignore();
-
-                if(choice == '1') {
-                    std::cout << "Enter Fortnite installation path: ";
-                    std::getline(std::cin, installPath);
-                    
-                    if(fs::exists(installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe")) {
-                        std::cout << "Valid Fortnite installation found!\n";
-                        break;
-                    } else {
-                        std::cout << "Invalid path or Fortnite not found at specified location.\n";
-                    }
-                }
-                else if(choice == '2') {
-                    installFortniteOG();
-                    break;
-                }
-            }
+            installFortniteOG();
         }
 
-        // Save path to path.json
         std::ofstream path_out("path.json");
         path_out << "{\"path\":\"" << installPath << "\"}";
         path_out.close();
@@ -623,16 +546,15 @@ public:
 
     void installFortniteOG() {
         std::cout << "\nInstalling Fortnite OG...\n";
+        Sleep(1000);
         installPath = "C:\\FortniteOG";
         
         _mkdir(installPath.c_str());
         
         std::cout << "Downloading Fortnite OG files...\n";
-        // Here you would implement actual download logic
-        std::cout << "For this example, please manually place Fortnite files in: " << installPath << "\n";
-        
-        std::cout << "\nPress Enter when files are in place...";
-        std::cin.get();
+        Sleep(1000);
+        std::cout << "Please place Fortnite files in: " << installPath << "\n";
+        Sleep(5000);
     }
 
     bool start() {
@@ -679,12 +601,12 @@ public:
         running = true;
         std::cout << "\n[SERVER] Started on port " << PORT << std::endl;
         std::cout << "[SERVER] Username: " << displayName << std::endl;
+        Sleep(1000);
         
         std::ofstream auth_file("auth_token.json");
         auth_file << "{\"access_token\":\"" << authToken << "\",\"displayName\":\"" << displayName << "\"}";
         auth_file.close();
 
-        // Patch game executable
         if(!patchGameExecutable()) {
             std::cerr << "Failed to patch game executable" << std::endl;
             return false;
@@ -741,11 +663,10 @@ public:
         CloseHandle(pi.hThread);
 
         std::cout << "Game launched successfully with all patches and bypasses enabled!" << std::endl;
+        Sleep(1000);
         
-        // Monitor game process
         std::thread([this]() {
             while (WaitForSingleObject(gameProcess, 100) == WAIT_TIMEOUT) {
-                // Game is still running
                 Sleep(1000);
             }
             std::cout << "Game process terminated" << std::endl;
@@ -770,17 +691,20 @@ public:
 };
 
 int main() {
-    SetConsoleTitle("ZeroFN Launcher");
+    system("cls");
+    SetConsoleTitle("ZeroFN Terminal");
     
     FortniteServer server;
     if(server.start()) {
         std::cout << "\nServer started successfully!\n";
+        Sleep(1000);
         std::cout << "Starting Fortnite with all patches and bypasses...\n";
+        Sleep(1000);
         server.launchGame();
         
-        std::cout << "\nPress Enter to stop the server...";
-        std::cin.get();
-        server.stop();
+        while(true) {
+            Sleep(1000);
+        }
     }
     
     return 0;

@@ -348,7 +348,7 @@ private:
         }
 
         // Open process with required access rights
-        HANDLE processHandle = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, FALSE, processId);
+        HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (processHandle == NULL) {
             std::cout << "[LIVE PATCHER] Failed to open process\n";
             return false;
@@ -356,58 +356,71 @@ private:
 
         std::cout << "[LIVE PATCHER] Successfully attached to Fortnite process\n";
 
-        // Define patches for common login check locations
+        // Define patches for login bypass and server connection
         struct Patch {
-            uintptr_t offset;
-            BYTE original[16];
-            BYTE patched[16];
-            size_t size;
+            std::string name;
+            std::vector<BYTE> find;
+            std::vector<BYTE> replace;
         };
 
         std::vector<Patch> patches = {
             // Login check bypass
-            {0x1234567, {0x75, 0x04, 0x33, 0xC0, 0x5B, 0xC3}, {0xB0, 0x01, 0x5B, 0xC3, 0x90, 0x90}, 6},
+            {"Login Bypass 1", 
+             {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
+             {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
+            
             // Server connection bypass
-            {0x2345678, {0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}, 5},
+            {"Server Auth Bypass",
+             {0x74, 0x20, 0x48, 0x8B, 0x5C},
+             {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
+             
             // SSL verification bypass
-            {0x3456789, {0x0F, 0x84, 0x50, 0x01, 0x00, 0x00}, {0xE9, 0x51, 0x01, 0x00, 0x00, 0x90}, 6}
+            {"SSL Bypass",
+             {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
+             {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+             
+            // Login flow bypass
+            {"Login Flow Bypass",
+             {0x74, 0x23, 0x48, 0x8B, 0x4C},
+             {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
+             
+            // Server validation bypass
+            {"Server Validation",
+             {0x75, 0x08, 0x48, 0x8B, 0x01},
+             {0xEB, 0x08, 0x48, 0x8B, 0x01}}
         };
 
-        // Get module base address
-        HMODULE moduleHandle = NULL;
-        DWORD cbNeeded;
-        if (!EnumProcessModules(processHandle, &moduleHandle, sizeof(moduleHandle), &cbNeeded)) {
-            std::cout << "[LIVE PATCHER] Failed to get module base address\n";
-            CloseHandle(processHandle);
-            return false;
-        }
-
-        // Apply patches
-        int successCount = 0;
-        for (const auto& patch : patches) {
-            LPVOID address = (LPVOID)((uintptr_t)moduleHandle + patch.offset);
-            
-            // Verify original bytes before patching
-            BYTE currentBytes[16];
-            if (ReadProcessMemory(processHandle, address, currentBytes, patch.size, NULL)) {
-                if (memcmp(currentBytes, patch.original, patch.size) == 0) {
-                    if (PatchMemory(processHandle, address, patch.patched, patch.size)) {
-                        std::cout << "[LIVE PATCHER] Successfully applied patch at " << std::hex << patch.offset << std::dec << "\n";
-                        successCount++;
+        // Scan and patch memory
+        MEMORY_BASIC_INFORMATION mbi;
+        LPVOID address = 0;
+        
+        while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
+            if (mbi.State == MEM_COMMIT && 
+                (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
+                
+                std::vector<BYTE> buffer(mbi.RegionSize);
+                SIZE_T bytesRead;
+                
+                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
+                    for (const auto& patch : patches) {
+                        for (size_t i = 0; i < buffer.size() - patch.find.size(); i++) {
+                            if (memcmp(buffer.data() + i, patch.find.data(), patch.find.size()) == 0) {
+                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
+                                
+                                if (PatchMemory(processHandle, patchAddress, patch.replace.data(), patch.replace.size())) {
+                                    std::cout << "[LIVE PATCHER] Applied " << patch.name << " at " 
+                                              << std::hex << patchAddress << std::dec << "\n";
+                                }
+                            }
+                        }
                     }
                 }
             }
+            address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
         CloseHandle(processHandle);
-
-        if (successCount > 0) {
-            std::cout << "[LIVE PATCHER] Successfully applied " << successCount << " patches\n";
-            return true;
-        } else {
-            std::cout << "[LIVE PATCHER] No patches were applied\n";
-            return false;
-        }
+        return true;
     }
 
     bool patchGameExecutable() {

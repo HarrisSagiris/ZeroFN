@@ -19,7 +19,7 @@
 
 #define _WIN32_WINNT 0x0600 // Required for InetPton
 
-// ZeroFN Version 1.0
+// ZeroFN Version 1.1
 // Developed by DevHarris
 // A private server implementation for Fortnite
 
@@ -264,7 +264,7 @@ private:
                                 std::istreambuf_iterator<char>());
         exe.close();
 
-        // Comprehensive patterns to patch
+        // Enhanced patterns to patch
         std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> patterns = {
             // SSL verification bypass
             {{0x75, 0x04, 0x33, 0xC0, 0x5B, 0xC3}, {0xB0, 0x01, 0x5B, 0xC3, 0x90, 0x90}},
@@ -281,7 +281,12 @@ private:
             // Additional auth checks
             {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
             {{0x0F, 0x84, 0x76, 0x01, 0x00}, {0xE9, 0x77, 0x01, 0x00, 0x90}},
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}}
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
+            // New additional patches
+            {{0x74, 0x0A, 0x48, 0x83, 0xC4}, {0xEB, 0x0A, 0x48, 0x83, 0xC4}},
+            {{0x75, 0x1A, 0x48, 0x8B, 0x45}, {0xEB, 0x1A, 0x48, 0x8B, 0x45}},
+            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0xE9, 0x96, 0x00, 0x00, 0x90}},
+            {{0x74, 0x15, 0x48, 0x8B, 0x01}, {0xEB, 0x15, 0x48, 0x8B, 0x01}}
         };
 
         bool patchesApplied = false;
@@ -351,7 +356,7 @@ public:
         srand(time(0));
         
         std::cout << "=====================================\n";
-        std::cout << "    Welcome to ZeroFN Launcher v1.0\n";
+        std::cout << "    Welcome to ZeroFN Launcher v1.1\n";
         std::cout << "    Developed by DevHarris\n";
         std::cout << "=====================================\n\n";
         
@@ -531,6 +536,10 @@ public:
         cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
         cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION -NOSTEAM -NOEAC_V2 -NOBE_V2";
         cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT -USEALLAVAILABLECORES -PREFERREDPROCESSOR=0";
+        cmd += " -DISABLEFORTNITELOGIN_V2 -DISABLEEPICLOGIN_V2 -DISABLEEPICGAMESLOGIN_V2"; // Additional login bypasses
+        cmd += " -DISABLEEPICGAMESPORTAL_V2 -DISABLEEPICGAMESVERIFY_V2"; // Additional portal bypasses
+        cmd += " -NOENCRYPTION_V2 -NOSTEAM_V2"; // Additional encryption bypasses
+        cmd += " -ALLOWALLSSL_V2 -BYPASSSSL_V2"; // Additional SSL bypasses
 
         // Set working directory to Fortnite binary location
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";

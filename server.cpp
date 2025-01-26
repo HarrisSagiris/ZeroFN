@@ -16,25 +16,10 @@
 #include <cstdio>
 #include <memory>
 #include <algorithm>
-#include <wininet.h>
-#include <urlmon.h>
-#include <shlobj.h>
-
-#pragma comment(lib, "wininet.lib")
-#pragma comment(lib, "urlmon.lib")
-#pragma comment(lib, "ws2_32.lib")
 
 #define _WIN32_WINNT 0x0600 // Required for InetPton
 
 namespace fs = std::experimental::filesystem;
-
-// Credits
-const char* LAUNCHER_NAME = "ZeroFN";
-const char* LAUNCHER_VERSION = "1.0.0"; 
-const char* LAUNCHER_DEVELOPERS[] = {
-    "devharris",
-    "ZeroFN Team"
-};
 
 // Game session data
 struct GameSession {
@@ -153,12 +138,12 @@ private:
             if (endpoint == "/account/api/oauth/token") {
                 std::string response = "{";
                 response += "\"access_token\":\"" + authToken + "\",";
-                response += "\"expires_in\":28800,";
+                response += "\"expires_in\":\"28800\",";
                 response += "\"expires_at\":\"9999-12-31T23:59:59.999Z\",";
                 response += "\"token_type\":\"bearer\",";
                 response += "\"account_id\":\"" + accountId + "\",";
                 response += "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",";
-                response += "\"internal_client\":true,";
+                response += "\"internal_client\":\"true\",";
                 response += "\"client_service\":\"fortnite\",";
                 response += "\"displayName\":\"" + displayName + "\",";
                 response += "\"app\":\"fortnite\",";
@@ -170,8 +155,7 @@ private:
             else if (endpoint == "/account/api/public/account") {
                 std::string response = "{";
                 response += "\"id\":\"" + accountId + "\",";
-                response += "\"displayName\":\"" + displayName + "\",";
-                response += "\"externalAuths\":{}";
+                response += "\"displayName\":\"" + displayName + "\"";
                 response += "}";
                 
                 sendResponse(clientSocket, headers + response);
@@ -179,17 +163,7 @@ private:
             else if (endpoint == "/fortnite/api/game/v2/profile/" + accountId + "/client/QueryProfile") {
                 std::string response = "{";
                 response += "\"profileId\":\"athena\",";
-                response += "\"profileChanges\":[{";
-                response += "\"changeType\":\"fullProfileUpdate\",";
-                response += "\"profile\":{";
-                response += "\"_id\":\"" + accountId + "\",";
-                response += "\"accountId\":\"" + accountId + "\",";
-                response += "\"profileId\":\"athena\",";
-                response += "\"version\":\"1\",";
-                response += "\"items\":{},";
-                response += "\"stats\":{\"attributes\":{\"season_num\":0}},";
-                response += "\"commandRevision\":1";
-                response += "}}],";
+                response += "\"profileChanges\":[],";
                 response += "\"profileCommandRevision\":1,";
                 response += "\"serverTime\":\"2023-12-31T23:59:59.999Z\",";
                 response += "\"responseVersion\":1";
@@ -263,53 +237,21 @@ private:
                                 std::istreambuf_iterator<char>());
         exe.close();
 
-        // Authentication bypass patterns
-        std::vector<std::vector<unsigned char>> patterns = {
-            {0x74, 0x1A, 0x48, 0x8B, 0x4C, 0x24, 0x40}, // Pattern 1
-            {0x75, 0x0E, 0x48, 0x8B, 0x4C, 0x24, 0x30}, // Pattern 2
-            {0x74, 0x20, 0x48, 0x8B, 0x44, 0x24, 0x38}, // Pattern 3
-            {0x0F, 0x84, 0xD1, 0x00, 0x00, 0x00}        // Pattern 4
-        };
+        // Pattern to find authentication check
+        std::vector<unsigned char> pattern = {0x74, 0x1A, 0x48, 0x8B, 0x4C, 0x24, 0x40};
         
-        // Replace all patterns with NOP instructions
-        for(const auto& pattern : patterns) {
-            for(size_t i = 0; i < buffer.size() - pattern.size(); i++) {
-                bool found = true;
-                for(size_t j = 0; j < pattern.size(); j++) {
-                    if((unsigned char)buffer[i + j] != pattern[j]) {
-                        found = false;
-                        break;
-                    }
-                }
-                if(found) {
-                    for(size_t j = 0; j < pattern.size(); j++) {
-                        buffer[i + j] = 0x90; // NOP
-                    }
+        // Replace with NOP instructions
+        for(size_t i = 0; i < buffer.size() - pattern.size(); i++) {
+            bool found = true;
+            for(size_t j = 0; j < pattern.size(); j++) {
+                if((unsigned char)buffer[i + j] != pattern[j]) {
+                    found = false;
+                    break;
                 }
             }
-        }
-
-        // Additional login bypass patches
-        std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> replacements = {
-            {{0x48, 0x89, 0x5C, 0x24, 0x08}, {0xB8, 0x01, 0x00, 0x00, 0x00}}, // MOV EAX, 1
-            {{0x48, 0x89, 0x74, 0x24, 0x10}, {0x90, 0x90, 0x90, 0x90, 0x90}}, // NOP
-            {{0x74, 0x20}, {0x90, 0x90}}, // NOP
-            {{0x75, 0x0E}, {0x90, 0x90}}  // NOP
-        };
-
-        for(const auto& replacement : replacements) {
-            for(size_t i = 0; i < buffer.size() - replacement.first.size(); i++) {
-                bool found = true;
-                for(size_t j = 0; j < replacement.first.size(); j++) {
-                    if((unsigned char)buffer[i + j] != replacement.first[j]) {
-                        found = false;
-                        break;
-                    }
-                }
-                if(found) {
-                    for(size_t j = 0; j < replacement.second.size(); j++) {
-                        buffer[i + j] = replacement.second[j];
-                    }
+            if(found) {
+                for(size_t j = 0; j < pattern.size(); j++) {
+                    buffer[i + j] = 0x90; // NOP
                 }
             }
         }
@@ -327,12 +269,7 @@ public:
         srand(time(0));
         
         std::cout << "=====================================\n";
-        std::cout << "    Welcome to " << LAUNCHER_NAME << " Launcher v" << LAUNCHER_VERSION << "\n";
-        std::cout << "=====================================\n";
-        std::cout << "Developed by:\n";
-        for(const char* dev : LAUNCHER_DEVELOPERS) {
-            std::cout << "- " << dev << "\n";
-        }
+        std::cout << "    Welcome to ZeroFN Launcher\n";
         std::cout << "=====================================\n\n";
         
         std::cout << "Enter your display name for Fortnite: ";
@@ -416,8 +353,7 @@ public:
         _mkdir(installPath.c_str());
         
         std::cout << "Downloading Fortnite OG files...\n";
-        // Download Fortnite OG files from a CDN or local source
-        // This is a placeholder - you would need to implement actual download logic
+        // Here you would implement actual download logic
         std::cout << "For this example, please manually place Fortnite files in: " << installPath << "\n";
         
         std::cout << "\nPress Enter when files are in place...";
@@ -474,12 +410,10 @@ public:
         auth_file.close();
 
         // Patch game executable
-        std::cout << "\nPatching game executable...\n";
         if(!patchGameExecutable()) {
             std::cerr << "Failed to patch game executable" << std::endl;
             return false;
         }
-        std::cout << "Game executable patched successfully!\n";
 
         std::thread(&FortniteServer::handleMatchmaking, this).detach();
 
@@ -497,18 +431,13 @@ public:
     }
 
     void launchGame() {
-        std::cout << "\nLaunching Fortnite...\n";
-        
         SECURITY_ATTRIBUTES sa;
         sa.nLength = sizeof(SECURITY_ATTRIBUTES);
         sa.bInheritHandle = TRUE;
         sa.lpSecurityDescriptor = NULL;
 
         HANDLE hReadPipe, hWritePipe;
-        if (!CreatePipe(&hReadPipe, &hWritePipe, &sa, 0)) {
-            std::cerr << "Failed to create pipe" << std::endl;
-            return;
-        }
+        CreatePipe(&hReadPipe, &hWritePipe, &sa, 0);
         outputPipe = hReadPipe;
 
         STARTUPINFO si;
@@ -528,11 +457,8 @@ public:
         cmd += " -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN";
         cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
 
-        std::cout << "Launching with command:\n" << cmd << "\n\n";
-
         if(CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, TRUE, 
                         CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-            std::cout << "Game process started successfully!\n";
             gameProcess = pi.hProcess;
             CloseHandle(pi.hThread);
 
@@ -546,8 +472,6 @@ public:
                     }
                 }
             }).detach();
-        } else {
-            std::cerr << "Failed to start game process. Error code: " << GetLastError() << std::endl;
         }
     }
 

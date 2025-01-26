@@ -268,12 +268,40 @@ private:
         SIZE_T bytesWritten;
         DWORD oldProtect;
 
+        // Add delay between patches to prevent crashes
+        Sleep(100);
+
         try {
+            // Check memory region protection first
+            MEMORY_BASIC_INFORMATION mbi;
+            if (!VirtualQueryEx(process, address, &mbi, sizeof(mbi)))
+                return false;
+
+            // Skip protected regions
+            if (mbi.Protect == PAGE_NOACCESS || mbi.Protect == PAGE_GUARD)
+                return false;
+
+            // Verify memory contents before patching
+            std::vector<BYTE> currentBytes(patch.size());
+            if (!ReadProcessMemory(process, address, currentBytes.data(), patch.size(), nullptr))
+                return false;
+
             if (!VirtualProtectEx(process, address, patch.size(), PAGE_EXECUTE_READWRITE, &oldProtect))
                 return false;
 
             if (!WriteProcessMemory(process, address, patch.data(), patch.size(), &bytesWritten))
                 return false;
+
+            // Verify patch was applied correctly
+            std::vector<BYTE> verifyBytes(patch.size());
+            if (!ReadProcessMemory(process, address, verifyBytes.data(), patch.size(), nullptr))
+                return false;
+
+            if (memcmp(verifyBytes.data(), patch.data(), patch.size()) != 0) {
+                // Patch verification failed, restore original protection
+                VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect);
+                return false;
+            }
 
             if (!VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect))
                 return false;
@@ -331,6 +359,9 @@ private:
 
         if (!running) return false;
 
+        // Wait for process to fully initialize
+        Sleep(5000);
+
         // Open process with required access rights
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (processHandle == NULL) {
@@ -346,33 +377,39 @@ private:
             std::vector<BYTE> find;
             std::vector<BYTE> replace;
             bool critical;
+            int retryCount;  // Added retry count per patch
         };
 
         std::vector<Patch> patches = {
             {"Login Bypass 1", 
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
              {0xEB, 0x14, 0x48, 0x8B, 0x0D},
-             false},
+             false,
+             2},  // Reduced from 3 to 2 retries
             
             {"Server Auth Bypass",
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
              {0xEB, 0x20, 0x48, 0x8B, 0x5C},
-             true},
+             true,
+             2},
              
             {"SSL Bypass",
              {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
              {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
-             false},
+             false,
+             2},
              
             {"Login Flow Bypass",
              {0x74, 0x23, 0x48, 0x8B, 0x4C},
              {0xEB, 0x23, 0x48, 0x8B, 0x4C},
-             false},
+             false,
+             2},
              
             {"Server Validation",
              {0x75, 0x08, 0x48, 0x8B, 0x01},
              {0xEB, 0x08, 0x48, 0x8B, 0x01},
-             true}
+             true,
+             2}
         };
 
         // Scan and patch memory with improved error handling
@@ -389,21 +426,33 @@ private:
                 
                 try {
                     if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                        for (const auto& patch : patches) {
+                        for (auto& patch : patches) {
                             for (size_t i = 0; i < buffer.size() - patch.find.size(); i++) {
                                 if (memcmp(buffer.data() + i, patch.find.data(), patch.find.size()) == 0) {
                                     LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                     
-                                    if (!PatchMemory(processHandle, patchAddress, patch.replace)) {
+                                    bool patchSuccess = false;
+                                    for (int attempt = 0; attempt < patch.retryCount && !patchSuccess; attempt++) {
+                                        if (attempt > 0) {
+                                            Sleep(100 * (attempt + 1));  // Increasing delay between retries
+                                        }
+                                        
+                                        patchSuccess = PatchMemory(processHandle, patchAddress, patch.replace);
+                                        
+                                        if (patchSuccess) {
+                                            std::stringstream ss;
+                                            ss << "[LIVE PATCHER] Applied " << patch.name << " at 0x" 
+                                               << std::hex << patchAddress;
+                                            LogMessage(ss.str());
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (!patchSuccess) {
                                         LogMessage("[LIVE PATCHER] Failed to apply " + patch.name);
                                         if (patch.critical) {
                                             criticalPatchesFailed = true;
                                         }
-                                    } else {
-                                        std::stringstream ss;
-                                        ss << "[LIVE PATCHER] Applied " << patch.name << " at 0x" 
-                                           << std::hex << patchAddress;
-                                        LogMessage(ss.str());
                                     }
                                 }
                             }
@@ -463,7 +512,7 @@ private:
         // Launch live patcher thread with improved error handling
         std::thread([this]() {
             int failedAttempts = 0;
-            const int MAX_FAILED_ATTEMPTS = 3;
+            const int MAX_FAILED_ATTEMPTS = 2;  // Reduced from 3 to 2
             
             while (running) {
                 if (!LivePatchFortnite()) {

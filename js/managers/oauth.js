@@ -84,7 +84,7 @@ module.exports = (app) => {
 	app.delete('/account/api/oauth/sessions/kill', (req, res) => {
 		res.status(204).end();
 	});
-
+	
 	app.delete('/account/api/oauth/sessions/kill/:token', (req, res) => {
 		delete global[req.params.token]
 		res.status(204).end();

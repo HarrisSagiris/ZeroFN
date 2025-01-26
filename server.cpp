@@ -244,52 +244,61 @@ private:
     bool patchGameExecutable() {
         std::string exePath = installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
         
+        std::cout << "\n[PATCHER] Starting game executable patching...\n";
+        std::cout << "[PATCHER] Target file: " << exePath << "\n";
+        
         // Create backup if doesn't exist
         if (!fs::exists(exePath + ".bak")) {
+            std::cout << "[PATCHER] Creating backup file...\n";
             if (!fs::copy_file(exePath, exePath + ".bak")) {
-                std::cerr << "Failed to create backup file" << std::endl;
+                std::cerr << "[PATCHER] ERROR: Failed to create backup file\n";
                 return false;
             }
-            std::cout << "Created backup at " << exePath << ".bak" << std::endl;
+            std::cout << "[PATCHER] Backup created successfully at " << exePath << ".bak\n";
         }
 
         // Read exe into memory
+        std::cout << "[PATCHER] Reading executable into memory...\n";
         std::ifstream exe(exePath, std::ios::binary);
         if (!exe) {
-            std::cerr << "Failed to open executable file" << std::endl;
+            std::cerr << "[PATCHER] ERROR: Failed to open executable file\n";
             return false;
         }
 
         std::vector<char> buffer((std::istreambuf_iterator<char>(exe)), 
                                 std::istreambuf_iterator<char>());
         exe.close();
+        std::cout << "[PATCHER] Successfully read " << buffer.size() << " bytes\n";
 
-        // Enhanced patterns to patch
+        // Enhanced patterns to patch including server connection bypass
         std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> patterns = {
-            // SSL verification bypass
+            // Server connection check bypass
             {{0x75, 0x04, 0x33, 0xC0, 0x5B, 0xC3}, {0xB0, 0x01, 0x5B, 0xC3, 0x90, 0x90}},
-            // Login check bypass 
             {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
-            // Connection check bypass
             {{0x0F, 0x84, 0x50, 0x01, 0x00, 0x00}, {0xE9, 0x51, 0x01, 0x00, 0x00, 0x90}},
-            // Auth bypass
+            // Server connection error bypass
             {{0x74, 0x1D, 0x48, 0x8B, 0x0D}, {0xEB, 0x1D, 0x48, 0x8B, 0x0D}},
-            // SSL pinning bypass
             {{0x0F, 0x85, 0x8B, 0x00, 0x00, 0x00}, {0xE9, 0x8C, 0x00, 0x00, 0x00, 0x90}},
-            // Epic login bypass
-            {{0x75, 0x0E, 0x48, 0x8B, 0x4C}, {0xEB, 0x0E, 0x48, 0x8B, 0x4C}},
-            // Additional auth checks
-            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
-            {{0x0F, 0x84, 0x76, 0x01, 0x00}, {0xE9, 0x77, 0x01, 0x00, 0x90}},
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
-            // New additional patches
-            {{0x74, 0x0A, 0x48, 0x83, 0xC4}, {0xEB, 0x0A, 0x48, 0x83, 0xC4}},
-            {{0x75, 0x1A, 0x48, 0x8B, 0x45}, {0xEB, 0x1A, 0x48, 0x8B, 0x45}},
-            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0xE9, 0x96, 0x00, 0x00, 0x90}},
-            {{0x74, 0x15, 0x48, 0x8B, 0x01}, {0xEB, 0x15, 0x48, 0x8B, 0x01}}
+            // Login error bypass
+            {{0x75, 0x0E, 0x48, 0x8B, 0x4C}, {0x90, 0x90, 0x48, 0x8B, 0x4C}},
+            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0x90, 0x90, 0x48, 0x8B, 0x4C}},
+            {{0x0F, 0x84, 0x76, 0x01, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Server connection validation bypass
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x48, 0x8B, 0x0D}},
+            {{0x74, 0x0A, 0x48, 0x83, 0xC4}, {0x90, 0x90, 0x48, 0x83, 0xC4}},
+            {{0x75, 0x1A, 0x48, 0x8B, 0x45}, {0x90, 0x90, 0x48, 0x8B, 0x45}},
+            // Additional server checks bypass
+            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x74, 0x15, 0x48, 0x8B, 0x01}, {0x90, 0x90, 0x48, 0x8B, 0x01}},
+            // New server connection error bypasses
+            {{0x75, 0x08, 0x8B, 0x45, 0xFC}, {0x90, 0x90, 0x8B, 0x45, 0xFC}},
+            {{0x74, 0x12, 0x48, 0x8B, 0x4D}, {0x90, 0x90, 0x48, 0x8B, 0x4D}},
+            {{0x0F, 0x84, 0x85, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}}
         };
 
-        bool patchesApplied = false;
+        int patchCount = 0;
+        std::cout << "\n[PATCHER] Starting patch application...\n";
+        
         // Apply patches carefully with verification
         for(const auto& pattern : patterns) {
             for(size_t i = 0; i < buffer.size() - pattern.first.size(); i++) {
@@ -301,6 +310,8 @@ private:
                     }
                 }
                 if(found) {
+                    std::cout << "[PATCHER] Found pattern at offset 0x" << std::hex << i << std::dec << "\n";
+                    
                     // Verify patch location safety
                     bool canPatch = true;
                     for(size_t j = 0; j < pattern.second.size(); j++) {
@@ -311,42 +322,48 @@ private:
                     }
                     
                     if(canPatch) {
+                        std::cout << "[PATCHER] Applying patch...\n";
                         // Apply patch with verification
                         for(size_t j = 0; j < pattern.second.size(); j++) {
                             buffer[i + j] = pattern.second[j];
                         }
-                        patchesApplied = true;
-                        std::cout << "Applied patch at offset: 0x" << std::hex << i << std::dec << std::endl;
+                        patchCount++;
+                        std::cout << "[PATCHER] Successfully applied patch " << patchCount << "\n";
                     }
                 }
             }
         }
 
-        if (!patchesApplied) {
-            std::cout << "No patches were needed - file may already be patched" << std::endl;
+        if (patchCount == 0) {
+            std::cout << "[PATCHER] No patches were needed - file may already be patched\n";
             return true;
         }
+
+        std::cout << "\n[PATCHER] Applied total of " << patchCount << " patches\n";
+        std::cout << "[PATCHER] Writing patched executable...\n";
 
         // Write patched exe with verification
         std::ofstream patched(exePath, std::ios::binary | std::ios::trunc);
         if (!patched) {
-            std::cerr << "Failed to write patched executable" << std::endl;
+            std::cerr << "[PATCHER] ERROR: Failed to write patched executable\n";
             return false;
         }
         patched.write(buffer.data(), buffer.size());
         patched.close();
 
         // Verify file was written correctly
+        std::cout << "[PATCHER] Verifying patched file...\n";
         std::ifstream verify(exePath, std::ios::binary);
         std::vector<char> verifyBuffer((std::istreambuf_iterator<char>(verify)), 
                                       std::istreambuf_iterator<char>());
         verify.close();
 
         if (verifyBuffer == buffer) {
-            std::cout << "Game executable successfully patched and verified!" << std::endl;
+            std::cout << "[PATCHER] Game executable successfully patched and verified!\n";
+            std::cout << "[PATCHER] All server connection bypasses are in place\n";
             return true;
         } else {
-            std::cerr << "Patch verification failed" << std::endl;
+            std::cerr << "[PATCHER] ERROR: Patch verification failed\n";
             return false;
         }
     }

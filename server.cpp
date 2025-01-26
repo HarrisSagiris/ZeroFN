@@ -2,7 +2,7 @@
 #include <string>
 #include <thread>
 #include <winsock2.h>
-#include <ws2tcpip.h>
+#include <ws2tcpip.h> // For InetPton
 #include <windows.h>
 #include <fstream>
 #include <sstream>
@@ -383,7 +383,7 @@ public:
         sockaddr_in serverAddr;
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons(PORT);
-        InetPton(AF_INET, L"127.0.0.1", &serverAddr.sin_addr);
+        inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
 
         if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
             std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;

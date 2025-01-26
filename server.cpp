@@ -262,6 +262,7 @@ private:
         return success && (bytesWritten == patch.size());
     }
 
+public:
     bool LivePatchFortnite() {
         std::cout << "\n[LIVE PATCHER] Starting live patching process...\n";
 
@@ -371,6 +372,7 @@ private:
         return patchesApplied;
     }
 
+private:
     bool patchGameExecutable() {
         // Launch patcher in new console window
         STARTUPINFO si = {0};

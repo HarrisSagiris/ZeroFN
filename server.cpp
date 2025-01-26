@@ -19,6 +19,10 @@
 
 #define _WIN32_WINNT 0x0600 // Required for InetPton
 
+// ZeroFN Version 1.0
+// Developed by DevHarris
+// A private server implementation for Fortnite
+
 namespace fs = std::experimental::filesystem;
 
 // Game session data
@@ -138,12 +142,15 @@ private:
             if (endpoint == "/account/api/oauth/token") {
                 std::string response = "{";
                 response += "\"access_token\":\"" + authToken + "\",";
-                response += "\"expires_in\":\"28800\",";
+                response += "\"expires_in\":28800,";
                 response += "\"expires_at\":\"9999-12-31T23:59:59.999Z\",";
                 response += "\"token_type\":\"bearer\",";
+                response += "\"refresh_token\":\"" + authToken + "\",";
+                response += "\"refresh_expires\":28800,";
+                response += "\"refresh_expires_at\":\"9999-12-31T23:59:59.999Z\",";
                 response += "\"account_id\":\"" + accountId + "\",";
                 response += "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",";
-                response += "\"internal_client\":\"true\",";
+                response += "\"internal_client\":true,";
                 response += "\"client_service\":\"fortnite\",";
                 response += "\"displayName\":\"" + displayName + "\",";
                 response += "\"app\":\"fortnite\",";
@@ -155,7 +162,8 @@ private:
             else if (endpoint == "/account/api/public/account") {
                 std::string response = "{";
                 response += "\"id\":\"" + accountId + "\",";
-                response += "\"displayName\":\"" + displayName + "\"";
+                response += "\"displayName\":\"" + displayName + "\",";
+                response += "\"externalAuths\":{}";
                 response += "}";
                 
                 sendResponse(clientSocket, headers + response);
@@ -163,7 +171,17 @@ private:
             else if (endpoint == "/fortnite/api/game/v2/profile/" + accountId + "/client/QueryProfile") {
                 std::string response = "{";
                 response += "\"profileId\":\"athena\",";
-                response += "\"profileChanges\":[],";
+                response += "\"profileChanges\":[{";
+                response += "\"_type\":\"fullProfileUpdate\",";
+                response += "\"profile\":{";
+                response += "\"_id\":\"" + accountId + "\",";
+                response += "\"accountId\":\"" + accountId + "\",";
+                response += "\"profileId\":\"athena\",";
+                response += "\"version\":\"1\",";
+                response += "\"items\":{},";
+                response += "\"stats\":{\"attributes\":{\"season_num\":0}},";
+                response += "\"commandRevision\":1";
+                response += "}}],";
                 response += "\"profileCommandRevision\":1,";
                 response += "\"serverTime\":\"2023-12-31T23:59:59.999Z\",";
                 response += "\"responseVersion\":1";
@@ -237,21 +255,30 @@ private:
                                 std::istreambuf_iterator<char>());
         exe.close();
 
-        // Pattern to find authentication check
-        std::vector<unsigned char> pattern = {0x74, 0x1A, 0x48, 0x8B, 0x4C, 0x24, 0x40};
-        
-        // Replace with NOP instructions
-        for(size_t i = 0; i < buffer.size() - pattern.size(); i++) {
-            bool found = true;
-            for(size_t j = 0; j < pattern.size(); j++) {
-                if((unsigned char)buffer[i + j] != pattern[j]) {
-                    found = false;
-                    break;
+        // Patterns to find and patch
+        std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> patterns = {
+            // Login check bypass
+            {{0x74, 0x1A, 0x48, 0x8B, 0x4C, 0x24, 0x40}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Server connection check
+            {{0x75, 0x0C, 0x33, 0xC0, 0x48, 0x83, 0xC4, 0x20}, {0xEB, 0x0C, 0x33, 0xC0, 0x48, 0x83, 0xC4, 0x20}},
+            // SSL verification
+            {{0x74, 0x20, 0x48, 0x8B, 0x4C, 0x24, 0x48}, {0xEB, 0x20, 0x48, 0x8B, 0x4C, 0x24, 0x48}}
+        };
+
+        // Apply all patches
+        for(const auto& pattern : patterns) {
+            for(size_t i = 0; i < buffer.size() - pattern.first.size(); i++) {
+                bool found = true;
+                for(size_t j = 0; j < pattern.first.size(); j++) {
+                    if((unsigned char)buffer[i + j] != pattern.first[j]) {
+                        found = false;
+                        break;
+                    }
                 }
-            }
-            if(found) {
-                for(size_t j = 0; j < pattern.size(); j++) {
-                    buffer[i + j] = 0x90; // NOP
+                if(found) {
+                    for(size_t j = 0; j < pattern.second.size(); j++) {
+                        buffer[i + j] = pattern.second[j];
+                    }
                 }
             }
         }
@@ -269,7 +296,8 @@ public:
         srand(time(0));
         
         std::cout << "=====================================\n";
-        std::cout << "    Welcome to ZeroFN Launcher\n";
+        std::cout << "    Welcome to ZeroFN Launcher v1.0\n";
+        std::cout << "    Developed by DevHarris\n";
         std::cout << "=====================================\n\n";
         
         std::cout << "Enter your display name for Fortnite: ";

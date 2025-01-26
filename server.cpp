@@ -626,11 +626,6 @@ public:
         auth_file << "{\"access_token\":\"" << authToken << "\",\"displayName\":\"" << displayName << "\"}";
         auth_file.close();
 
-        if(!patchGameExecutable()) {
-            std::cerr << "Failed to patch game executable" << std::endl;
-            return false;
-        }
-
         std::thread(&FortniteServer::handleMatchmaking, this).detach();
 
         std::thread([this]() {
@@ -672,16 +667,28 @@ public:
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
         if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
-                         CREATE_NEW_CONSOLE | HIGH_PRIORITY_CLASS,
+                         CREATE_SUSPENDED | CREATE_NEW_CONSOLE | HIGH_PRIORITY_CLASS,
                          NULL, workingDir.c_str(), &si, &pi)) {
             LogMessage("Failed to launch game. Error code: " + std::to_string(GetLastError()));
             return;
         }
 
         gameProcess = pi.hProcess;
+
+        // Apply patches while process is suspended
+        if (!LivePatchFortnite()) {
+            LogMessage("[PATCHER] Failed to apply critical patches. Terminating process.");
+            TerminateProcess(gameProcess, 0);
+            CloseHandle(gameProcess);
+            CloseHandle(pi.hThread);
+            return;
+        }
+
+        // Resume the process after patches are applied
+        ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);
 
-        std::cout << "Game launched successfully with all patches and bypasses enabled!" << std::endl;
+        std::cout << "Game launched successfully with all patches applied!" << std::endl;
         Sleep(1000);
         
         std::thread([this]() {

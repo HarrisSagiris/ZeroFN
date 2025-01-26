@@ -246,22 +246,16 @@ private:
         SIZE_T bytesWritten;
         DWORD oldProtect;
 
-        try {
-            if (!VirtualProtectEx(process, address, patch.size(), PAGE_EXECUTE_READWRITE, &oldProtect))
-                return false;
-
-            if (!WriteProcessMemory(process, address, patch.data(), patch.size(), &bytesWritten))
-                return false;
-
-            if (!VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect))
-                return false;
-
-            return bytesWritten == patch.size();
-        }
-        catch (...) {
-            std::cout << "[LIVE PATCHER] Exception occurred while patching memory\n";
+        if (!VirtualProtectEx(process, address, patch.size(), PAGE_EXECUTE_READWRITE, &oldProtect))
             return false;
-        }
+
+        if (!WriteProcessMemory(process, address, patch.data(), patch.size(), &bytesWritten))
+            return false;
+
+        if (!VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect))
+            return false;
+
+        return bytesWritten == patch.size();
     }
 
     bool LivePatchFortnite() {
@@ -306,45 +300,38 @@ private:
             std::string name;
             std::vector<BYTE> find;
             std::vector<BYTE> replace;
-            bool critical; // Flag for critical patches
         };
 
         std::vector<Patch> patches = {
             // Login check bypass
             {"Login Bypass 1", 
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
-             {0xEB, 0x14, 0x48, 0x8B, 0x0D},
-             false},
+             {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
             
             // Server connection bypass
             {"Server Auth Bypass",
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
-             {0xEB, 0x20, 0x48, 0x8B, 0x5C},
-             true},
+             {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
              
             // SSL verification bypass
             {"SSL Bypass",
              {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
-             {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
-             false},
+             {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
              
             // Login flow bypass
             {"Login Flow Bypass",
              {0x74, 0x23, 0x48, 0x8B, 0x4C},
-             {0xEB, 0x23, 0x48, 0x8B, 0x4C},
-             false},
+             {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
              
             // Server validation bypass
             {"Server Validation",
              {0x75, 0x08, 0x48, 0x8B, 0x01},
-             {0xEB, 0x08, 0x48, 0x8B, 0x01},
-             true}
+             {0xEB, 0x08, 0x48, 0x8B, 0x01}}
         };
 
-        // Scan and patch memory with improved error handling
+        // Scan and patch memory
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
-        bool criticalPatchesFailed = false;
         
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
@@ -353,42 +340,25 @@ private:
                 std::vector<BYTE> buffer(mbi.RegionSize);
                 SIZE_T bytesRead;
                 
-                try {
-                    if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                        for (const auto& patch : patches) {
-                            for (size_t i = 0; i < buffer.size() - patch.find.size(); i++) {
-                                if (memcmp(buffer.data() + i, patch.find.data(), patch.find.size()) == 0) {
-                                    LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
-                                    
-                                    if (!PatchMemory(processHandle, patchAddress, patch.replace)) {
-                                        std::cout << "[LIVE PATCHER] Failed to apply " << patch.name << "\n";
-                                        if (patch.critical) {
-                                            criticalPatchesFailed = true;
-                                        }
-                                    } else {
-                                        std::cout << "[LIVE PATCHER] Applied " << patch.name << " at " 
-                                                  << std::hex << patchAddress << std::dec << "\n";
-                                    }
+                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
+                    for (const auto& patch : patches) {
+                        for (size_t i = 0; i < buffer.size() - patch.find.size(); i++) {
+                            if (memcmp(buffer.data() + i, patch.find.data(), patch.find.size()) == 0) {
+                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
+                                
+                                if (PatchMemory(processHandle, patchAddress, patch.replace)) {
+                                    std::cout << "[LIVE PATCHER] Applied " << patch.name << " at " 
+                                              << std::hex << patchAddress << std::dec << "\n";
                                 }
                             }
                         }
                     }
-                }
-                catch (...) {
-                    std::cout << "[LIVE PATCHER] Exception while scanning memory region at " 
-                              << std::hex << mbi.BaseAddress << std::dec << "\n";
                 }
             }
             address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
         CloseHandle(processHandle);
-        
-        if (criticalPatchesFailed) {
-            std::cout << "[LIVE PATCHER] Critical patches failed, game may be unstable\n";
-            return false;
-        }
-        
         return true;
     }
 
@@ -418,26 +388,13 @@ private:
 
         std::cout << "\n[PATCHER] Starting game executable patching...\n";
         
-        // Launch live patcher thread with improved error handling
+        // Launch live patcher thread
         std::thread([this]() {
-            int failedAttempts = 0;
-            const int MAX_FAILED_ATTEMPTS = 3;
-            
             while (running) {
-                if (!LivePatchFortnite()) {
-                    failedAttempts++;
-                    std::cout << "[PATCHER] Patch attempt failed (" << failedAttempts << "/" << MAX_FAILED_ATTEMPTS << ")\n";
-                    
-                    if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-                        std::cout << "[PATCHER] Too many failed attempts, waiting longer before retry...\n";
-                        Sleep(30000); // Wait 30 seconds before trying again
-                        failedAttempts = 0;
-                    }
-                } else {
-                    failedAttempts = 0;
+                if (LivePatchFortnite()) {
                     std::cout << "[PATCHER] Live patches applied successfully\n";
-                    Sleep(5000); // Normal delay between successful patches
                 }
+                Sleep(5000); // Check every 5 seconds
             }
         }).detach();
 

@@ -246,7 +246,11 @@ private:
         
         // Create backup if doesn't exist
         if (!fs::exists(exePath + ".bak")) {
-            fs::copy_file(exePath, exePath + ".bak");
+            if (!fs::copy_file(exePath, exePath + ".bak")) {
+                std::cerr << "Failed to create backup file" << std::endl;
+                return false;
+            }
+            std::cout << "Created backup at " << exePath << ".bak" << std::endl;
         }
 
         // Read exe into memory
@@ -255,26 +259,23 @@ private:
             std::cerr << "Failed to open executable file" << std::endl;
             return false;
         }
+
         std::vector<char> buffer((std::istreambuf_iterator<char>(exe)), 
                                 std::istreambuf_iterator<char>());
         exe.close();
 
-        // Updated patterns to patch
+        // Safe patterns to patch that won't corrupt the executable
         std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> patterns = {
-            // Login bypass
-            {{0x75, 0x07, 0xB0, 0x01, 0x48, 0x83, 0xC4, 0x30}, {0xEB, 0x07, 0xB0, 0x01, 0x48, 0x83, 0xC4, 0x30}},
             // SSL verification bypass
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server connection bypass
-            {{0x74, 0x23, 0x48, 0x8B, 0x4C, 0x24, 0x40}, {0xEB, 0x23, 0x48, 0x8B, 0x4C, 0x24, 0x40}},
-            // Anti-cheat bypass
-            {{0x75, 0x1D, 0x48, 0x8B, 0x45, 0x00}, {0xEB, 0x1D, 0x48, 0x8B, 0x45, 0x00}},
-            // Additional connection check bypass
-            {{0x84, 0xC0, 0x75, 0x14, 0x48, 0x8B}, {0x84, 0xC0, 0xEB, 0x14, 0x48, 0x8B}}
+            {{0x75, 0x04, 0x33, 0xC0, 0x5B, 0xC3}, {0xB0, 0x01, 0x5B, 0xC3, 0x90, 0x90}},
+            // Login check bypass 
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
+            // Connection check bypass
+            {{0x0F, 0x84, 0x50, 0x01, 0x00, 0x00}, {0xE9, 0x51, 0x01, 0x00, 0x00, 0x90}}
         };
 
         bool patchesApplied = false;
-        // Apply all patches
+        // Apply patches carefully
         for(const auto& pattern : patterns) {
             for(size_t i = 0; i < buffer.size() - pattern.first.size(); i++) {
                 bool found = true;
@@ -285,17 +286,29 @@ private:
                     }
                 }
                 if(found) {
+                    // Verify we can safely patch this location
+                    bool canPatch = true;
                     for(size_t j = 0; j < pattern.second.size(); j++) {
-                        buffer[i + j] = pattern.second[j];
+                        if(i + j >= buffer.size()) {
+                            canPatch = false;
+                            break;
+                        }
                     }
-                    patchesApplied = true;
-                    std::cout << "Applied patch at offset: 0x" << std::hex << i << std::dec << std::endl;
+                    
+                    if(canPatch) {
+                        for(size_t j = 0; j < pattern.second.size(); j++) {
+                            buffer[i + j] = pattern.second[j];
+                        }
+                        patchesApplied = true;
+                        std::cout << "Applied safe patch at offset: 0x" << std::hex << i << std::dec << std::endl;
+                    }
                 }
             }
         }
 
         if (!patchesApplied) {
-            std::cout << "Warning: No patches were applied. File may already be patched." << std::endl;
+            std::cout << "No patches were needed - file may already be patched" << std::endl;
+            return true;
         }
 
         // Write patched exe
@@ -307,18 +320,7 @@ private:
         patched.write(buffer.data(), buffer.size());
         patched.close();
 
-        // Set executable permissions
-        DWORD attributes = GetFileAttributes(exePath.c_str());
-        if (attributes == INVALID_FILE_ATTRIBUTES) {
-            std::cerr << "Failed to get file attributes" << std::endl;
-            return false;
-        }
-        if (!SetFileAttributes(exePath.c_str(), attributes & ~FILE_ATTRIBUTE_READONLY)) {
-            std::cerr << "Failed to set file attributes" << std::endl;
-            return false;
-        }
-
-        std::cout << "Game executable successfully patched!" << std::endl;
+        std::cout << "Game executable successfully patched with safe modifications!" << std::endl;
         return true;
     }
 

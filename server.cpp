@@ -2,14 +2,14 @@
 #include <string>
 #include <thread>
 #include <winsock2.h>
-#include <ws2tcpip.h> // For InetPton
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <ctime>
 #include <chrono>
-#include <filesystem> // Changed from experimental/filesystem
+#include <filesystem>
 #include <direct.h>
 #include <map>
 #include <mutex>
@@ -19,11 +19,11 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 #include <dwmapi.h>
-#include <Richedit.h> // Added for MSFTEDIT_CLASS
+#include <Richedit.h>
+#include <CommCtrl.h>
 
-// ZeroFN Version 1.1
-// Developed by DevHarris
-// A private server implementation for Fortnite
+#pragma comment(lib, "comctl32.lib")
+#pragma comment(lib, "dwmapi.lib")
 
 namespace fs = std::filesystem;
 
@@ -35,21 +35,59 @@ struct GameSession {
     std::string playlistId;
 };
 
-// Custom window procedure for patcher window
+// Custom window procedure with improved message handling
 LRESULT CALLBACK PatcherWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE: {
-            // Create a rich edit control for logs
-            HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
+            // Initialize common controls
+            INITCOMMONCONTROLSEX icex;
+            icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+            icex.dwICC = ICC_STANDARD_CLASSES;
+            InitCommonControlsEx(&icex);
+
+            // Load rich edit control
             LoadLibrary("Msftedit.dll");
-            CreateWindowExA(0, "RICHEDIT50W", "",
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
-                10, 10, 780, 580, hwnd, NULL, hInstance, NULL);
+            
+            // Create rich edit with proper styles
+            HWND hEdit = CreateWindowEx(
+                WS_EX_CLIENTEDGE,
+                MSFTEDIT_CLASS,
+                "",
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
+                10, 10, 780, 580,
+                hwnd,
+                NULL,
+                (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+                NULL
+            );
+
+            // Set rich edit background and text colors
+            SendMessage(hEdit, EM_SETBKGNDCOLOR, 0, RGB(240, 240, 240));
+            CHARFORMAT2 cf;
+            ZeroMemory(&cf, sizeof(cf));
+            cf.cbSize = sizeof(cf);
+            cf.dwMask = CFM_COLOR;
+            cf.crTextColor = RGB(0, 0, 0);
+            SendMessage(hEdit, EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
+
             return 0;
         }
+
         case WM_CLOSE:
             ShowWindow(hwnd, SW_HIDE);
             return 0;
+
+        case WM_ERASEBKGND:
+            return TRUE;
+
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW+1));
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+
         default:
             return DefWindowProc(hwnd, msg, wParam, lParam);
     }
@@ -68,6 +106,7 @@ private:
     HANDLE outputPipe;
     HWND patcherWindow;
     HWND logControl;
+    std::mutex logMutex;
 
     // Matchmaking state
     std::map<std::string, GameSession> activeSessions;
@@ -316,6 +355,12 @@ private:
     }
 
     void LogMessage(const std::string& message) {
+        std::lock_guard<std::mutex> lock(logMutex);
+        
+        if (!IsWindow(logControl)) {
+            return;
+        }
+
         // Get text length
         int length = GetWindowTextLength(logControl);
         
@@ -324,10 +369,15 @@ private:
         
         // Add newline and message
         std::string fullMessage = message + "\r\n";
+
+        // Post message instead of sending directly
         SendMessage(logControl, EM_REPLACESEL, FALSE, (LPARAM)fullMessage.c_str());
         
         // Scroll to bottom
         SendMessage(logControl, EM_SCROLLCARET, 0, 0);
+
+        // Force window update
+        UpdateWindow(patcherWindow);
     }
 
     bool LivePatchFortnite() {
@@ -378,45 +428,59 @@ private:
             std::vector<BYTE> find;
             std::vector<BYTE> replace;
             bool critical;
-            int retryCount;  // Added retry count per patch
+            int retryCount;
         };
 
         std::vector<Patch> patches = {
             {"Login Bypass 1", 
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
              {0xEB, 0x14, 0x48, 0x8B, 0x0D},
-             false,
-             2},  // Reduced from 3 to 2 retries
+             true,
+             3},
             
             {"Server Auth Bypass",
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
              {0xEB, 0x20, 0x48, 0x8B, 0x5C},
              true,
-             2},
+             3},
              
             {"SSL Bypass",
              {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
              {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
-             false,
-             2},
+             true,
+             3},
              
             {"Login Flow Bypass",
              {0x74, 0x23, 0x48, 0x8B, 0x4C},
              {0xEB, 0x23, 0x48, 0x8B, 0x4C},
-             false,
-             2},
+             true,
+             3},
              
             {"Server Validation",
              {0x75, 0x08, 0x48, 0x8B, 0x01},
              {0xEB, 0x08, 0x48, 0x8B, 0x01},
              true,
-             2}
+             3},
+
+            // Additional patches for login issues
+            {"Login Error Bypass",
+             {0x74, 0x15, 0x48, 0x8B, 0x01},
+             {0xEB, 0x15, 0x48, 0x8B, 0x01},
+             true,
+             3},
+
+            {"Connection Error Bypass",
+             {0x75, 0x0C, 0x48, 0x8B, 0x01},
+             {0xEB, 0x0C, 0x48, 0x8B, 0x01},
+             true,
+             3}
         };
 
         // Scan and patch memory with improved error handling
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
         bool criticalPatchesFailed = false;
+        std::map<std::string, bool> patchStatus;
         
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
@@ -428,6 +492,8 @@ private:
                 try {
                     if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
                         for (auto& patch : patches) {
+                            if (patchStatus[patch.name]) continue; // Skip if already applied
+
                             for (size_t i = 0; i < buffer.size() - patch.find.size(); i++) {
                                 if (memcmp(buffer.data() + i, patch.find.data(), patch.find.size()) == 0) {
                                     LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
@@ -435,7 +501,7 @@ private:
                                     bool patchSuccess = false;
                                     for (int attempt = 0; attempt < patch.retryCount && !patchSuccess; attempt++) {
                                         if (attempt > 0) {
-                                            Sleep(100 * (attempt + 1));  // Increasing delay between retries
+                                            Sleep(100 * (attempt + 1));
                                         }
                                         
                                         patchSuccess = PatchMemory(processHandle, patchAddress, patch.replace);
@@ -445,15 +511,14 @@ private:
                                             ss << "[LIVE PATCHER] Applied " << patch.name << " at 0x" 
                                                << std::hex << patchAddress;
                                             LogMessage(ss.str());
+                                            patchStatus[patch.name] = true;
                                             break;
                                         }
                                     }
                                     
-                                    if (!patchSuccess) {
-                                        LogMessage("[LIVE PATCHER] Failed to apply " + patch.name);
-                                        if (patch.critical) {
-                                            criticalPatchesFailed = true;
-                                        }
+                                    if (!patchSuccess && patch.critical) {
+                                        criticalPatchesFailed = true;
+                                        LogMessage("[LIVE PATCHER] Critical patch failed: " + patch.name);
                                     }
                                 }
                             }
@@ -472,11 +537,26 @@ private:
 
         CloseHandle(processHandle);
         
+        // Verify all critical patches were applied
+        bool allCriticalPatchesApplied = true;
+        for (const auto& patch : patches) {
+            if (patch.critical && !patchStatus[patch.name]) {
+                allCriticalPatchesApplied = false;
+                break;
+            }
+        }
+
+        if (!allCriticalPatchesApplied) {
+            LogMessage("[LIVE PATCHER] Not all critical patches were applied");
+            return false;
+        }
+        
         if (criticalPatchesFailed) {
             LogMessage("[LIVE PATCHER] Critical patches failed, game may be unstable");
             return false;
         }
         
+        LogMessage("[LIVE PATCHER] All patches applied successfully");
         return true;
     }
 
@@ -488,32 +568,46 @@ private:
         wc.hInstance = GetModuleHandle(NULL);
         wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
         wc.lpszClassName = "ZeroFNPatcher";
+        wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
         RegisterClassEx(&wc);
 
-        // Create patcher window as child of game window
+        // Create patcher window with proper styles
         patcherWindow = CreateWindowEx(
-            WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED,
             "ZeroFNPatcher",
             "ZeroFN Patcher",
-            WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU,
+            WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
             CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
             NULL, NULL,
             GetModuleHandle(NULL),
             NULL
         );
 
+        if (!patcherWindow) {
+            MessageBox(NULL, "Failed to create patcher window", "Error", MB_ICONERROR);
+            return false;
+        }
+
         // Get log control handle
         logControl = FindWindowExA(patcherWindow, NULL, "RICHEDIT50W", NULL);
+        if (!logControl) {
+            MessageBox(NULL, "Failed to create log control", "Error", MB_ICONERROR);
+            return false;
+        }
 
         // Make window semi-transparent
         SetLayeredWindowAttributes(patcherWindow, 0, 230, LWA_ALPHA);
+
+        // Enable visual styles
+        SetWindowTheme(patcherWindow, L"Explorer", NULL);
 
         LogMessage("\n[PATCHER] Starting game executable patching...");
         
         // Launch live patcher thread with improved error handling
         std::thread([this]() {
             int failedAttempts = 0;
-            const int MAX_FAILED_ATTEMPTS = 2;  // Reduced from 3 to 2
+            const int MAX_FAILED_ATTEMPTS = 3;
             
             while (running) {
                 if (!LivePatchFortnite()) {
@@ -526,11 +620,20 @@ private:
                         LogMessage("[PATCHER] Too many failed attempts, waiting longer before retry...");
                         Sleep(30000);
                         failedAttempts = 0;
+                    } else {
+                        Sleep(5000); // Wait before retry
                     }
                 } else {
                     failedAttempts = 0;
                     LogMessage("[PATCHER] Live patches applied successfully");
-                    Sleep(5000);
+                    Sleep(10000); // Longer interval between successful patches
+                }
+
+                // Process window messages
+                MSG msg;
+                while (PeekMessage(&msg, patcherWindow, 0, 0, PM_REMOVE)) {
+                    TranslateMessage(&msg);
+                    DispatchMessage(&msg);
                 }
             }
         }).detach();

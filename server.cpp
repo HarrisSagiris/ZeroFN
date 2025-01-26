@@ -20,10 +20,6 @@
 #include <Psapi.h>
 #include <dwmapi.h>
 #include <Richedit.h>
-#include <shellapi.h>
-
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "dwmapi.lib")
 
 namespace fs = std::filesystem;
 
@@ -360,54 +356,35 @@ private:
         };
 
         std::vector<Patch> patches = {
-            // Enhanced login bypass patches
-            {"Login Bypass Main", 
+            {"Login Bypass 1", 
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
              {0xEB, 0x14, 0x48, 0x8B, 0x0D},
-             true,
-             3},
-             
-            {"Login Bypass Secondary",
-             {0x74, 0x20, 0x48, 0x8B, 0x5C},
-             {0x90, 0x90, 0x48, 0x8B, 0x5C},
-             true,
-             3},
-             
-            {"Server Auth Bypass Primary",
+             false,
+             2},
+            
+            {"Server Auth Bypass",
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
              {0xEB, 0x20, 0x48, 0x8B, 0x5C},
              true,
-             3},
+             2},
              
-            {"Server Auth Bypass Secondary",
+            {"SSL Bypass",
              {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
              {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
-             true,
-             3},
+             false,
+             2},
              
-            {"SSL Verification Bypass",
-             {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
-             {0xE9, 0x86, 0x00, 0x00, 0x00, 0x90},
-             true,
-             3},
-             
-            {"Login Flow Override",
+            {"Login Flow Bypass",
              {0x74, 0x23, 0x48, 0x8B, 0x4C},
-             {0x90, 0x90, 0x48, 0x8B, 0x4C},
-             true,
-             3},
+             {0xEB, 0x23, 0x48, 0x8B, 0x4C},
+             false,
+             2},
              
-            {"Server Validation Bypass",
+            {"Server Validation",
              {0x75, 0x08, 0x48, 0x8B, 0x01},
-             {0x90, 0x90, 0x48, 0x8B, 0x01},
+             {0xEB, 0x08, 0x48, 0x8B, 0x01},
              true,
-             3},
-             
-            {"Authentication Check Bypass",
-             {0x74, 0x20, 0x48, 0x8B, 0x5C},
-             {0x90, 0x90, 0x48, 0x8B, 0x5C},
-             true,
-             3}
+             2}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -481,7 +458,7 @@ private:
         
         std::thread([this]() {
             int failedAttempts = 0;
-            const int MAX_FAILED_ATTEMPTS = 3;
+            const int MAX_FAILED_ATTEMPTS = 2;
             
             while (running) {
                 if (!LivePatchFortnite()) {
@@ -630,6 +607,11 @@ public:
         auth_file << "{\"access_token\":\"" << authToken << "\",\"displayName\":\"" << displayName << "\"}";
         auth_file.close();
 
+        if(!patchGameExecutable()) {
+            std::cerr << "Failed to patch game executable" << std::endl;
+            return false;
+        }
+
         std::thread(&FortniteServer::handleMatchmaking, this).detach();
 
         std::thread([this]() {
@@ -646,26 +628,6 @@ public:
     }
 
     void launchGame() {
-        // Check and kill any existing Fortnite processes
-        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if (snapshot != INVALID_HANDLE_VALUE) {
-            PROCESSENTRY32W processEntry;
-            processEntry.dwSize = sizeof(processEntry);
-            if (Process32FirstW(snapshot, &processEntry)) {
-                do {
-                    if (_wcsicmp(processEntry.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
-                        HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, processEntry.th32ProcessID);
-                        if (process != NULL) {
-                            TerminateProcess(process, 0);
-                            CloseHandle(process);
-                        }
-                    }
-                } while (Process32NextW(snapshot, &processEntry));
-            }
-            CloseHandle(snapshot);
-        }
-
-        // Set up process creation flags and attributes
         STARTUPINFO si;
         PROCESS_INFORMATION pi;
         ZeroMemory(&si, sizeof(STARTUPINFO));
@@ -674,11 +636,6 @@ public:
         si.dwFlags = STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_SHOW;
 
-        // Set working directory and environment
-        std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
-        SetCurrentDirectory(workingDir.c_str());
-
-        // Prepare command line with all necessary parameters
         std::string cmd = "\"" + installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe\"";
         cmd += " -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=" + authToken;
         cmd += " -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck";
@@ -693,32 +650,19 @@ public:
         cmd += " -NOENCRYPTION_V2 -NOSTEAM_V2";
         cmd += " -ALLOWALLSSL_V2 -BYPASSSSL_V2";
 
-        // Create process with proper environment
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
         if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
-                         CREATE_SUSPENDED | CREATE_NEW_CONSOLE | HIGH_PRIORITY_CLASS,
+                         CREATE_NEW_CONSOLE | HIGH_PRIORITY_CLASS,
                          NULL, workingDir.c_str(), &si, &pi)) {
             LogMessage("Failed to launch game. Error code: " + std::to_string(GetLastError()));
             return;
         }
 
         gameProcess = pi.hProcess;
-
-        // Apply patches while process is suspended
-        if (!LivePatchFortnite()) {
-            LogMessage("[PATCHER] Failed to apply critical patches. Terminating process.");
-            TerminateProcess(gameProcess, 0);
-            CloseHandle(gameProcess);
-            CloseHandle(pi.hThread);
-            return;
-        }
-
-        // Resume the process after patches are applied
-        ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);
 
-        std::cout << "Game launched successfully with all patches applied!" << std::endl;
+        std::cout << "Game launched successfully with all patches and bypasses enabled!" << std::endl;
         Sleep(1000);
         
         std::thread([this]() {

@@ -16,6 +16,13 @@
 #include <cstdio>
 #include <memory>
 #include <algorithm>
+#include <wininet.h>
+#include <urlmon.h>
+#include <shlobj.h>
+
+#pragma comment(lib, "wininet.lib")
+#pragma comment(lib, "urlmon.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 #define _WIN32_WINNT 0x0600 // Required for InetPton
 
@@ -146,12 +153,12 @@ private:
             if (endpoint == "/account/api/oauth/token") {
                 std::string response = "{";
                 response += "\"access_token\":\"" + authToken + "\",";
-                response += "\"expires_in\":\"28800\",";
+                response += "\"expires_in\":28800,";
                 response += "\"expires_at\":\"9999-12-31T23:59:59.999Z\",";
                 response += "\"token_type\":\"bearer\",";
                 response += "\"account_id\":\"" + accountId + "\",";
                 response += "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",";
-                response += "\"internal_client\":\"true\",";
+                response += "\"internal_client\":true,";
                 response += "\"client_service\":\"fortnite\",";
                 response += "\"displayName\":\"" + displayName + "\",";
                 response += "\"app\":\"fortnite\",";
@@ -163,7 +170,8 @@ private:
             else if (endpoint == "/account/api/public/account") {
                 std::string response = "{";
                 response += "\"id\":\"" + accountId + "\",";
-                response += "\"displayName\":\"" + displayName + "\"";
+                response += "\"displayName\":\"" + displayName + "\",";
+                response += "\"externalAuths\":{}";
                 response += "}";
                 
                 sendResponse(clientSocket, headers + response);
@@ -171,7 +179,17 @@ private:
             else if (endpoint == "/fortnite/api/game/v2/profile/" + accountId + "/client/QueryProfile") {
                 std::string response = "{";
                 response += "\"profileId\":\"athena\",";
-                response += "\"profileChanges\":[],";
+                response += "\"profileChanges\":[{";
+                response += "\"changeType\":\"fullProfileUpdate\",";
+                response += "\"profile\":{";
+                response += "\"_id\":\"" + accountId + "\",";
+                response += "\"accountId\":\"" + accountId + "\",";
+                response += "\"profileId\":\"athena\",";
+                response += "\"version\":\"1\",";
+                response += "\"items\":{},";
+                response += "\"stats\":{\"attributes\":{\"season_num\":0}},";
+                response += "\"commandRevision\":1";
+                response += "}}],";
                 response += "\"profileCommandRevision\":1,";
                 response += "\"serverTime\":\"2023-12-31T23:59:59.999Z\",";
                 response += "\"responseVersion\":1";
@@ -398,7 +416,8 @@ public:
         _mkdir(installPath.c_str());
         
         std::cout << "Downloading Fortnite OG files...\n";
-        // Here you would implement actual download logic
+        // Download Fortnite OG files from a CDN or local source
+        // This is a placeholder - you would need to implement actual download logic
         std::cout << "For this example, please manually place Fortnite files in: " << installPath << "\n";
         
         std::cout << "\nPress Enter when files are in place...";

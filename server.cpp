@@ -42,7 +42,7 @@ LRESULT CALLBACK PatcherWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             // Create a rich edit control for logs
             HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
             LoadLibrary("Msftedit.dll");
-            CreateWindowEx(0, L"RICHEDIT50W", L"",
+            CreateWindowExA(0, "RICHEDIT50W", "",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
                 10, 10, 780, 580, hwnd, NULL, hInstance, NULL);
             return 0;
@@ -503,7 +503,7 @@ private:
         );
 
         // Get log control handle
-        logControl = FindWindowEx(patcherWindow, NULL, L"RICHEDIT50W", NULL);
+        logControl = FindWindowExA(patcherWindow, NULL, "RICHEDIT50W", NULL);
 
         // Make window semi-transparent
         SetLayeredWindowAttributes(patcherWindow, 0, 230, LWA_ALPHA);

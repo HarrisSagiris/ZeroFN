@@ -356,35 +356,54 @@ private:
         };
 
         std::vector<Patch> patches = {
-            {"Login Bypass 1", 
+            // Enhanced login bypass patches
+            {"Login Bypass Main", 
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
              {0xEB, 0x14, 0x48, 0x8B, 0x0D},
-             false,
-             2},
-            
-            {"Server Auth Bypass",
+             true,
+             3},
+             
+            {"Login Bypass Secondary",
+             {0x74, 0x20, 0x48, 0x8B, 0x5C},
+             {0x90, 0x90, 0x48, 0x8B, 0x5C},
+             true,
+             3},
+             
+            {"Server Auth Bypass Primary",
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
              {0xEB, 0x20, 0x48, 0x8B, 0x5C},
              true,
-             2},
+             3},
              
-            {"SSL Bypass",
+            {"Server Auth Bypass Secondary",
              {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
              {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
-             false,
-             2},
-             
-            {"Login Flow Bypass",
-             {0x74, 0x23, 0x48, 0x8B, 0x4C},
-             {0xEB, 0x23, 0x48, 0x8B, 0x4C},
-             false,
-             2},
-             
-            {"Server Validation",
-             {0x75, 0x08, 0x48, 0x8B, 0x01},
-             {0xEB, 0x08, 0x48, 0x8B, 0x01},
              true,
-             2}
+             3},
+             
+            {"SSL Verification Bypass",
+             {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
+             {0xE9, 0x86, 0x00, 0x00, 0x00, 0x90},
+             true,
+             3},
+             
+            {"Login Flow Override",
+             {0x74, 0x23, 0x48, 0x8B, 0x4C},
+             {0x90, 0x90, 0x48, 0x8B, 0x4C},
+             true,
+             3},
+             
+            {"Server Validation Bypass",
+             {0x75, 0x08, 0x48, 0x8B, 0x01},
+             {0x90, 0x90, 0x48, 0x8B, 0x01},
+             true,
+             3},
+             
+            {"Authentication Check Bypass",
+             {0x74, 0x20, 0x48, 0x8B, 0x5C},
+             {0x90, 0x90, 0x48, 0x8B, 0x5C},
+             true,
+             3}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -458,7 +477,7 @@ private:
         
         std::thread([this]() {
             int failedAttempts = 0;
-            const int MAX_FAILED_ATTEMPTS = 2;
+            const int MAX_FAILED_ATTEMPTS = 3;
             
             while (running) {
                 if (!LivePatchFortnite()) {

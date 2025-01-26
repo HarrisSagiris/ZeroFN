@@ -251,20 +251,29 @@ private:
 
         // Read exe into memory
         std::ifstream exe(exePath, std::ios::binary);
+        if (!exe) {
+            std::cerr << "Failed to open executable file" << std::endl;
+            return false;
+        }
         std::vector<char> buffer((std::istreambuf_iterator<char>(exe)), 
                                 std::istreambuf_iterator<char>());
         exe.close();
 
-        // Patterns to find and patch
+        // Updated patterns to patch
         std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> patterns = {
-            // Login check bypass
-            {{0x74, 0x1A, 0x48, 0x8B, 0x4C, 0x24, 0x40}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server connection check
-            {{0x75, 0x0C, 0x33, 0xC0, 0x48, 0x83, 0xC4, 0x20}, {0xEB, 0x0C, 0x33, 0xC0, 0x48, 0x83, 0xC4, 0x20}},
-            // SSL verification
-            {{0x74, 0x20, 0x48, 0x8B, 0x4C, 0x24, 0x48}, {0xEB, 0x20, 0x48, 0x8B, 0x4C, 0x24, 0x48}}
+            // Login bypass
+            {{0x75, 0x07, 0xB0, 0x01, 0x48, 0x83, 0xC4, 0x30}, {0xEB, 0x07, 0xB0, 0x01, 0x48, 0x83, 0xC4, 0x30}},
+            // SSL verification bypass
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Server connection bypass
+            {{0x74, 0x23, 0x48, 0x8B, 0x4C, 0x24, 0x40}, {0xEB, 0x23, 0x48, 0x8B, 0x4C, 0x24, 0x40}},
+            // Anti-cheat bypass
+            {{0x75, 0x1D, 0x48, 0x8B, 0x45, 0x00}, {0xEB, 0x1D, 0x48, 0x8B, 0x45, 0x00}},
+            // Additional connection check bypass
+            {{0x84, 0xC0, 0x75, 0x14, 0x48, 0x8B}, {0x84, 0xC0, 0xEB, 0x14, 0x48, 0x8B}}
         };
 
+        bool patchesApplied = false;
         // Apply all patches
         for(const auto& pattern : patterns) {
             for(size_t i = 0; i < buffer.size() - pattern.first.size(); i++) {
@@ -279,15 +288,37 @@ private:
                     for(size_t j = 0; j < pattern.second.size(); j++) {
                         buffer[i + j] = pattern.second[j];
                     }
+                    patchesApplied = true;
+                    std::cout << "Applied patch at offset: 0x" << std::hex << i << std::dec << std::endl;
                 }
             }
         }
 
+        if (!patchesApplied) {
+            std::cout << "Warning: No patches were applied. File may already be patched." << std::endl;
+        }
+
         // Write patched exe
-        std::ofstream patched(exePath, std::ios::binary);
+        std::ofstream patched(exePath, std::ios::binary | std::ios::trunc);
+        if (!patched) {
+            std::cerr << "Failed to write patched executable" << std::endl;
+            return false;
+        }
         patched.write(buffer.data(), buffer.size());
         patched.close();
 
+        // Set executable permissions
+        DWORD attributes = GetFileAttributes(exePath.c_str());
+        if (attributes == INVALID_FILE_ATTRIBUTES) {
+            std::cerr << "Failed to get file attributes" << std::endl;
+            return false;
+        }
+        if (!SetFileAttributes(exePath.c_str(), attributes & ~FILE_ATTRIBUTE_READONLY)) {
+            std::cerr << "Failed to set file attributes" << std::endl;
+            return false;
+        }
+
+        std::cout << "Game executable successfully patched!" << std::endl;
         return true;
     }
 
@@ -459,23 +490,13 @@ public:
     }
 
     void launchGame() {
-        SECURITY_ATTRIBUTES sa;
-        sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-        sa.bInheritHandle = TRUE;
-        sa.lpSecurityDescriptor = NULL;
-
-        HANDLE hReadPipe, hWritePipe;
-        CreatePipe(&hReadPipe, &hWritePipe, &sa, 0);
-        outputPipe = hReadPipe;
-
         STARTUPINFO si;
         PROCESS_INFORMATION pi;
         ZeroMemory(&si, sizeof(STARTUPINFO));
         ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
         si.cb = sizeof(STARTUPINFO);
-        si.hStdOutput = hWritePipe;
-        si.hStdError = hWritePipe;
-        si.dwFlags |= STARTF_USESTDHANDLES;
+        si.dwFlags = STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_SHOW;
 
         std::string cmd = "\"" + installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe\"";
         cmd += " -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=" + authToken;
@@ -485,22 +506,30 @@ public:
         cmd += " -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN";
         cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
 
-        if(CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, TRUE, 
-                        CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-            gameProcess = pi.hProcess;
-            CloseHandle(pi.hThread);
+        // Set working directory to Fortnite binary location
+        std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
-            // Start thread to read and display game output
-            std::thread([this, hReadPipe]() {
-                char buffer[4096];
-                DWORD bytesRead;
-                while(ReadFile(hReadPipe, buffer, sizeof(buffer), &bytesRead, NULL)) {
-                    if(bytesRead > 0) {
-                        std::cout.write(buffer, bytesRead);
-                    }
-                }
-            }).detach();
+        // Launch with elevated privileges
+        if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
+                         CREATE_NEW_CONSOLE | NORMAL_PRIORITY_CLASS,
+                         NULL, workingDir.c_str(), &si, &pi)) {
+            std::cerr << "Failed to launch game. Error code: " << GetLastError() << std::endl;
+            return;
         }
+
+        gameProcess = pi.hProcess;
+        CloseHandle(pi.hThread);
+
+        std::cout << "Game launched successfully!" << std::endl;
+        
+        // Monitor game process
+        std::thread([this]() {
+            while (WaitForSingleObject(gameProcess, 100) == WAIT_TIMEOUT) {
+                // Game is still running
+                Sleep(1000);
+            }
+            std::cout << "Game process terminated" << std::endl;
+        }).detach();
     }
 
     void stop() {

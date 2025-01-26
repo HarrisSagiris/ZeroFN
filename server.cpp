@@ -18,12 +18,13 @@
 #include <algorithm>
 #include <TlHelp32.h>
 #include <Psapi.h>
+#include <dwmapi.h>
 
 // ZeroFN Version 1.1
 // Developed by DevHarris
 // A private server implementation for Fortnite
 
-namespace fs = std::filesystem; // Changed from experimental::filesystem
+namespace fs = std::filesystem;
 
 // Game session data
 struct GameSession {
@@ -32,6 +33,26 @@ struct GameSession {
     bool inProgress;
     std::string playlistId;
 };
+
+// Custom window procedure for patcher window
+LRESULT CALLBACK PatcherWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_CREATE: {
+            // Create a rich edit control for logs
+            HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
+            LoadLibrary("Msftedit.dll");
+            CreateWindowEx(0, MSFTEDIT_CLASS, "",
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
+                10, 10, 780, 580, hwnd, NULL, hInstance, NULL);
+            return 0;
+        }
+        case WM_CLOSE:
+            ShowWindow(hwnd, SW_HIDE);
+            return 0;
+        default:
+            return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+}
 
 class FortniteServer {
 private:
@@ -45,6 +66,7 @@ private:
     HANDLE gameProcess;
     HANDLE outputPipe;
     HWND patcherWindow;
+    HWND logControl;
 
     // Matchmaking state
     std::map<std::string, GameSession> activeSessions;
@@ -118,8 +140,8 @@ private:
                 
                 activeSessions[session.sessionId] = session;
                 
-                std::cout << "[MATCHMAKING] Created session " << session.sessionId 
-                         << " with " << session.players.size() << " players" << std::endl;
+                LogMessage("[MATCHMAKING] Created session " + session.sessionId + 
+                          " with " + std::to_string(session.players.size()) + " players");
             }
             
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -259,20 +281,35 @@ private:
             return bytesWritten == patch.size();
         }
         catch (...) {
-            std::cout << "[LIVE PATCHER] Exception occurred while patching memory\n";
+            LogMessage("[LIVE PATCHER] Exception occurred while patching memory");
             return false;
         }
     }
 
+    void LogMessage(const std::string& message) {
+        // Get text length
+        int length = GetWindowTextLength(logControl);
+        
+        // Move caret to end
+        SendMessage(logControl, EM_SETSEL, (WPARAM)length, (LPARAM)length);
+        
+        // Add newline and message
+        std::string fullMessage = message + "\r\n";
+        SendMessage(logControl, EM_REPLACESEL, FALSE, (LPARAM)fullMessage.c_str());
+        
+        // Scroll to bottom
+        SendMessage(logControl, EM_SCROLLCARET, 0, 0);
+    }
+
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting live patching process...\n";
+        LogMessage("\n[LIVE PATCHER] Starting live patching process...");
 
         // Wait for Fortnite process
         DWORD processId = 0;
         PROCESSENTRY32W processEntry;
         processEntry.dwSize = sizeof(processEntry);
         
-        while (processId == 0) {
+        while (processId == 0 && running) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             if (snapshot != INVALID_HANDLE_VALUE) {
                 if (Process32FirstW(snapshot, &processEntry)) {
@@ -287,54 +324,51 @@ private:
             }
             
             if (processId == 0) {
-                std::cout << "[LIVE PATCHER] Waiting for Fortnite process...\n";
+                LogMessage("[LIVE PATCHER] Waiting for Fortnite process...");
                 Sleep(1000);
             }
         }
 
+        if (!running) return false;
+
         // Open process with required access rights
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (processHandle == NULL) {
-            std::cout << "[LIVE PATCHER] Failed to open process\n";
+            LogMessage("[LIVE PATCHER] Failed to open process");
             return false;
         }
 
-        std::cout << "[LIVE PATCHER] Successfully attached to Fortnite process\n";
+        LogMessage("[LIVE PATCHER] Successfully attached to Fortnite process");
 
         // Define patches for login bypass and server connection
         struct Patch {
             std::string name;
             std::vector<BYTE> find;
             std::vector<BYTE> replace;
-            bool critical; // Flag for critical patches
+            bool critical;
         };
 
         std::vector<Patch> patches = {
-            // Login check bypass
             {"Login Bypass 1", 
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
              {0xEB, 0x14, 0x48, 0x8B, 0x0D},
              false},
             
-            // Server connection bypass
             {"Server Auth Bypass",
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
              {0xEB, 0x20, 0x48, 0x8B, 0x5C},
              true},
              
-            // SSL verification bypass
             {"SSL Bypass",
              {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
              {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
              false},
              
-            // Login flow bypass
             {"Login Flow Bypass",
              {0x74, 0x23, 0x48, 0x8B, 0x4C},
              {0xEB, 0x23, 0x48, 0x8B, 0x4C},
              false},
              
-            // Server validation bypass
             {"Server Validation",
              {0x75, 0x08, 0x48, 0x8B, 0x01},
              {0xEB, 0x08, 0x48, 0x8B, 0x01},
@@ -361,13 +395,15 @@ private:
                                     LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                     
                                     if (!PatchMemory(processHandle, patchAddress, patch.replace)) {
-                                        std::cout << "[LIVE PATCHER] Failed to apply " << patch.name << "\n";
+                                        LogMessage("[LIVE PATCHER] Failed to apply " + patch.name);
                                         if (patch.critical) {
                                             criticalPatchesFailed = true;
                                         }
                                     } else {
-                                        std::cout << "[LIVE PATCHER] Applied " << patch.name << " at " 
-                                                  << std::hex << patchAddress << std::dec << "\n";
+                                        std::stringstream ss;
+                                        ss << "[LIVE PATCHER] Applied " << patch.name << " at 0x" 
+                                           << std::hex << patchAddress;
+                                        LogMessage(ss.str());
                                     }
                                 }
                             }
@@ -375,8 +411,10 @@ private:
                     }
                 }
                 catch (...) {
-                    std::cout << "[LIVE PATCHER] Exception while scanning memory region at " 
-                              << std::hex << mbi.BaseAddress << std::dec << "\n";
+                    std::stringstream ss;
+                    ss << "[LIVE PATCHER] Exception while scanning memory region at 0x" 
+                       << std::hex << mbi.BaseAddress;
+                    LogMessage(ss.str());
                 }
             }
             address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
@@ -385,7 +423,7 @@ private:
         CloseHandle(processHandle);
         
         if (criticalPatchesFailed) {
-            std::cout << "[LIVE PATCHER] Critical patches failed, game may be unstable\n";
+            LogMessage("[LIVE PATCHER] Critical patches failed, game may be unstable");
             return false;
         }
         
@@ -393,30 +431,34 @@ private:
     }
 
     bool patchGameExecutable() {
-        // Create patcher window
+        // Register window class for patcher
         WNDCLASSEX wc = {0};
         wc.cbSize = sizeof(WNDCLASSEX);
-        wc.lpfnWndProc = DefWindowProc;
+        wc.lpfnWndProc = PatcherWndProc;
         wc.hInstance = GetModuleHandle(NULL);
-        wc.lpszClassName = "PatcherWindow";
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
+        wc.lpszClassName = "ZeroFNPatcher";
         RegisterClassEx(&wc);
 
+        // Create patcher window as child of game window
         patcherWindow = CreateWindowEx(
-            0,
-            "PatcherWindow",
+            WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            "ZeroFNPatcher",
             "ZeroFN Patcher",
-            WS_OVERLAPPEDWINDOW,
+            WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU,
             CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
-            NULL,
-            NULL,
+            NULL, NULL,
             GetModuleHandle(NULL),
             NULL
         );
 
-        ShowWindow(patcherWindow, SW_SHOW);
-        UpdateWindow(patcherWindow);
+        // Get log control handle
+        logControl = FindWindowEx(patcherWindow, NULL, MSFTEDIT_CLASS, NULL);
 
-        std::cout << "\n[PATCHER] Starting game executable patching...\n";
+        // Make window semi-transparent
+        SetLayeredWindowAttributes(patcherWindow, 0, 230, LWA_ALPHA);
+
+        LogMessage("\n[PATCHER] Starting game executable patching...");
         
         // Launch live patcher thread with improved error handling
         std::thread([this]() {
@@ -426,17 +468,19 @@ private:
             while (running) {
                 if (!LivePatchFortnite()) {
                     failedAttempts++;
-                    std::cout << "[PATCHER] Patch attempt failed (" << failedAttempts << "/" << MAX_FAILED_ATTEMPTS << ")\n";
+                    LogMessage("[PATCHER] Patch attempt failed (" + 
+                             std::to_string(failedAttempts) + "/" + 
+                             std::to_string(MAX_FAILED_ATTEMPTS) + ")");
                     
                     if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-                        std::cout << "[PATCHER] Too many failed attempts, waiting longer before retry...\n";
-                        Sleep(30000); // Wait 30 seconds before trying again
+                        LogMessage("[PATCHER] Too many failed attempts, waiting longer before retry...");
+                        Sleep(30000);
                         failedAttempts = 0;
                     }
                 } else {
                     failedAttempts = 0;
-                    std::cout << "[PATCHER] Live patches applied successfully\n";
-                    Sleep(5000); // Normal delay between successful patches
+                    LogMessage("[PATCHER] Live patches applied successfully");
+                    Sleep(5000);
                 }
             }
         }).detach();
@@ -602,7 +646,7 @@ public:
             while (running) {
                 SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
                 if (clientSocket != INVALID_SOCKET) {
-                    std::cout << "[SERVER] Client connected" << std::endl;
+                    LogMessage("[SERVER] Client connected");
                     std::thread(&FortniteServer::handleClient, this, clientSocket).detach();
                 }
             }
@@ -629,19 +673,17 @@ public:
         cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
         cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION -NOSTEAM -NOEAC_V2 -NOBE_V2";
         cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT -USEALLAVAILABLECORES -PREFERREDPROCESSOR=0";
-        cmd += " -DISABLEFORTNITELOGIN_V2 -DISABLEEPICLOGIN_V2 -DISABLEEPICGAMESLOGIN_V2"; // Additional login bypasses
-        cmd += " -DISABLEEPICGAMESPORTAL_V2 -DISABLEEPICGAMESVERIFY_V2"; // Additional portal bypasses
-        cmd += " -NOENCRYPTION_V2 -NOSTEAM_V2"; // Additional encryption bypasses
-        cmd += " -ALLOWALLSSL_V2 -BYPASSSSL_V2"; // Additional SSL bypasses
+        cmd += " -DISABLEFORTNITELOGIN_V2 -DISABLEEPICLOGIN_V2 -DISABLEEPICGAMESLOGIN_V2";
+        cmd += " -DISABLEEPICGAMESPORTAL_V2 -DISABLEEPICGAMESVERIFY_V2";
+        cmd += " -NOENCRYPTION_V2 -NOSTEAM_V2";
+        cmd += " -ALLOWALLSSL_V2 -BYPASSSSL_V2";
 
-        // Set working directory to Fortnite binary location
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
-        // Launch with elevated privileges
         if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
-                         CREATE_NEW_CONSOLE | NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
+                         CREATE_NEW_CONSOLE | HIGH_PRIORITY_CLASS,
                          NULL, workingDir.c_str(), &si, &pi)) {
-            std::cerr << "Failed to launch game. Error code: " << GetLastError() << std::endl;
+            LogMessage("Failed to launch game. Error code: " + std::to_string(GetLastError()));
             return;
         }
 

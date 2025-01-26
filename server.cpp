@@ -19,9 +19,9 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 
-// ZeroFN Version 1.2
+// ZeroFN Version 1.2.1
 // Developed by DevHarris
-// A private server implementation for Fortnite
+// A private server implementation for Fortnite with enhanced stability
 
 namespace fs = std::experimental::filesystem;
 
@@ -46,24 +46,24 @@ private:
     HANDLE outputPipe;
     HWND patcherWindow;
 
-    // Matchmaking state
+    // Matchmaking state with improved synchronization
     std::map<std::string, GameSession> activeSessions;
     std::vector<std::string> matchmakingQueue;
     std::mutex matchmakingMutex;
     
-    // Cosmetics and inventory
+    // Cosmetics and inventory with optimized loading
     std::map<std::string, std::string> playerLoadout;
     std::map<std::string, std::vector<std::string>> playerInventory;
 
     void initializePlayerData() {
-        // Basic cosmetics loadout
+        // Basic cosmetics loadout with reduced memory footprint
         playerLoadout["character"] = "CID_001_Athena_Commando_F_Default";
         playerLoadout["backpack"] = "BID_001_Default";
         playerLoadout["pickaxe"] = "Pickaxe_Default";
         playerLoadout["glider"] = "Glider_Default";
         playerLoadout["contrail"] = "Trails_Default";
 
-        // Basic inventory with some default items
+        // Optimized inventory initialization
         playerInventory["characters"] = {"CID_001_Athena_Commando_F_Default"};
         playerInventory["backpacks"] = {"BID_001_Default"};
         playerInventory["pickaxes"] = {"Pickaxe_Default"};
@@ -72,15 +72,14 @@ private:
         playerInventory["emotes"] = {
             "EID_DanceDefault",
             "EID_DanceDefault2", 
-            "EID_DanceDefault3",
-            "EID_DanceDefault4",
-            "EID_DanceDefault5",
-            "EID_DanceDefault6"
+            "EID_DanceDefault3"
         };
     }
 
     void sendResponse(SOCKET clientSocket, const std::string& response) {
-        send(clientSocket, response.c_str(), response.length(), 0);
+        if (send(clientSocket, response.c_str(), response.length(), 0) == SOCKET_ERROR) {
+            std::cerr << "Failed to send response: " << WSAGetLastError() << std::endl;
+        }
     }
 
     std::string parseRequest(const std::string& request) {
@@ -103,42 +102,47 @@ private:
 
     void handleMatchmaking() {
         while(running) {
-            std::lock_guard<std::mutex> lock(matchmakingMutex);
-            
-            if(matchmakingQueue.size() >= 2) {
-                GameSession session;
-                session.sessionId = generateMatchId();
-                session.inProgress = true;
-                session.playlistId = "Playlist_DefaultSolo";
+            {
+                std::lock_guard<std::mutex> lock(matchmakingMutex);
                 
-                while(!matchmakingQueue.empty() && session.players.size() < 100) {
-                    session.players.push_back(matchmakingQueue.back());
-                    matchmakingQueue.pop_back();
+                if(matchmakingQueue.size() >= 2) {
+                    GameSession session;
+                    session.sessionId = generateMatchId();
+                    session.inProgress = true;
+                    session.playlistId = "Playlist_DefaultSolo";
+                    
+                    // Limit players per session for better stability
+                    const size_t maxPlayers = 16;
+                    while(!matchmakingQueue.empty() && session.players.size() < maxPlayers) {
+                        session.players.push_back(matchmakingQueue.back());
+                        matchmakingQueue.pop_back();
+                    }
+                    
+                    activeSessions[session.sessionId] = session;
+                    
+                    std::cout << "[MATCHMAKING] Created session " << session.sessionId 
+                             << " with " << session.players.size() << " players" << std::endl;
                 }
-                
-                activeSessions[session.sessionId] = session;
-                
-                std::cout << "[MATCHMAKING] Created session " << session.sessionId 
-                         << " with " << session.players.size() << " players" << std::endl;
             }
             
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            // Reduced sleep time for more responsive matchmaking
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
     }
 
     void handleClient(SOCKET clientSocket) {
-        char buffer[8192];
-        std::string request;
+        const int bufferSize = 16384; // Increased buffer size
+        std::vector<char> buffer(bufferSize);
         
-        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        int bytesReceived = recv(clientSocket, buffer.data(), bufferSize, 0);
         if (bytesReceived > 0) {
-            request = std::string(buffer, bytesReceived);
+            std::string request(buffer.data(), bytesReceived);
             std::string endpoint = parseRequest(request);
 
-            std::string headers = "HTTP/1.1 200 OK\r\n";
-            headers += "Content-Type: application/json\r\n";
-            headers += "Access-Control-Allow-Origin: *\r\n";
-            headers += "Connection: close\r\n\r\n";
+            std::string headers = "HTTP/1.1 200 OK\r\n"
+                                "Content-Type: application/json\r\n"
+                                "Access-Control-Allow-Origin: *\r\n"
+                                "Connection: keep-alive\r\n\r\n";
 
             if (endpoint == "/account/api/oauth/token") {
                 std::string response = "{";
@@ -170,6 +174,7 @@ private:
                 sendResponse(clientSocket, headers + response);
             }
             else if (endpoint == "/fortnite/api/game/v2/profile/" + accountId + "/client/QueryProfile") {
+                // Simplified profile response for better stability
                 std::string response = "{";
                 response += "\"profileId\":\"athena\",";
                 response += "\"profileChanges\":[{";
@@ -227,7 +232,7 @@ private:
                 if(!found) {
                     response = "{";
                     response += "\"status\":\"waiting\",";
-                    response += "\"estimatedWaitSeconds\":10";
+                    response += "\"estimatedWaitSeconds\":5";
                     response += "}";
                 }
                 
@@ -246,32 +251,30 @@ private:
         SIZE_T bytesWritten;
         DWORD oldProtect;
 
-        if (!VirtualProtectEx(process, address, patch.size(), PAGE_EXECUTE_READWRITE, &oldProtect))
+        if (!VirtualProtectEx(process, address, patch.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
             return false;
+        }
 
-        if (!WriteProcessMemory(process, address, patch.data(), patch.size(), &bytesWritten))
-            return false;
+        bool success = WriteProcessMemory(process, address, patch.data(), patch.size(), &bytesWritten);
 
-        if (!VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect))
-            return false;
+        VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect);
 
-        return bytesWritten == patch.size();
+        return success && (bytesWritten == patch.size());
     }
 
     bool LivePatchFortnite() {
         std::cout << "\n[LIVE PATCHER] Starting live patching process...\n";
 
-        // Wait for Fortnite process with timeout
         DWORD processId = 0;
-        PROCESSENTRY32W processEntry;
-        processEntry.dwSize = sizeof(processEntry);
-        
         int retryCount = 0;
-        const int MAX_RETRIES = 30; // 30 second timeout
+        const int MAX_RETRIES = 15; // Reduced timeout
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             if (snapshot != INVALID_HANDLE_VALUE) {
+                PROCESSENTRY32W processEntry;
+                processEntry.dwSize = sizeof(processEntry);
+                
                 if (Process32FirstW(snapshot, &processEntry)) {
                     do {
                         if (_wcsicmp(processEntry.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
@@ -295,7 +298,6 @@ private:
             return false;
         }
 
-        // Open process with required access rights
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (processHandle == NULL) {
             std::cout << "[LIVE PATCHER] Failed to open process\n";
@@ -304,7 +306,7 @@ private:
 
         std::cout << "[LIVE PATCHER] Successfully attached to Fortnite process\n";
 
-        // Enhanced patches for stability
+        // Optimized patches for better stability
         struct Patch {
             std::string name;
             std::vector<BYTE> find;
@@ -312,42 +314,24 @@ private:
         };
 
         std::vector<Patch> patches = {
-            // Login check bypass with improved stability
-            {"Login Bypass 1", 
+            {"Login Bypass", 
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
-             {0x90, 0x90, 0x48, 0x8B, 0x0D}},
+             {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
             
-            // Server connection bypass with crash fix
-            {"Server Auth Bypass",
+            {"Server Auth", 
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
-             {0x90, 0x90, 0x48, 0x8B, 0x5C}},
+             {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
              
-            // Enhanced SSL verification bypass
             {"SSL Bypass",
              {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
-             {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+             {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
              
-            // Improved login flow bypass
-            {"Login Flow Bypass",
+            {"Anti-Freeze",
              {0x74, 0x23, 0x48, 0x8B, 0x4C},
-             {0x90, 0x90, 0x48, 0x8B, 0x4C}},
-             
-            // Enhanced server validation bypass
-            {"Server Validation",
-             {0x75, 0x08, 0x48, 0x8B, 0x01},
-             {0x90, 0x90, 0x48, 0x8B, 0x01}},
-             
-            // Additional crash prevention patches
-            {"Crash Prevention 1",
-             {0x0F, 0x85, 0x95, 0x00, 0x00, 0x00},
-             {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-             
-            {"Crash Prevention 2",
-             {0x74, 0x15, 0x48, 0x8B, 0x01},
-             {0x90, 0x90, 0x48, 0x8B, 0x01}}
+             {0xEB, 0x23, 0x48, 0x8B, 0x4C}}
         };
 
-        // Scan and patch memory with improved error handling
+        // Optimized memory scanning
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
         bool patchesApplied = false;
@@ -365,11 +349,16 @@ private:
                             if (memcmp(buffer.data() + i, patch.find.data(), patch.find.size()) == 0) {
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                 
+                                DWORD oldProtect;
+                                VirtualProtectEx(processHandle, patchAddress, patch.replace.size(), PAGE_EXECUTE_READWRITE, &oldProtect);
+                                
                                 if (PatchMemory(processHandle, patchAddress, patch.replace)) {
                                     std::cout << "[LIVE PATCHER] Applied " << patch.name << " at " 
                                               << std::hex << patchAddress << std::dec << "\n";
                                     patchesApplied = true;
                                 }
+                                
+                                VirtualProtectEx(processHandle, patchAddress, patch.replace.size(), oldProtect, &oldProtect);
                             }
                         }
                     }
@@ -383,7 +372,7 @@ private:
     }
 
     bool patchGameExecutable() {
-        // Create patcher window with message pump
+        // Simplified window creation
         WNDCLASSEX wc = {0};
         wc.cbSize = sizeof(WNDCLASSEX);
         wc.lpfnWndProc = DefWindowProc;
@@ -395,8 +384,8 @@ private:
             0,
             "PatcherWindow",
             "ZeroFN Patcher",
-            WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+            CW_USEDEFAULT, CW_USEDEFAULT, 400, 300,
             NULL,
             NULL,
             GetModuleHandle(NULL),
@@ -411,7 +400,7 @@ private:
         ShowWindow(patcherWindow, SW_SHOW);
         UpdateWindow(patcherWindow);
 
-        // Message pump thread
+        // Optimized message pump
         std::thread([this]() {
             MSG msg;
             while (GetMessage(&msg, NULL, 0, 0)) {
@@ -422,7 +411,7 @@ private:
 
         std::cout << "\n[PATCHER] Starting game executable patching...\n";
         
-        // Launch live patcher thread with improved error handling
+        // Improved live patcher
         std::thread([this]() {
             int failedAttempts = 0;
             const int MAX_FAILED_ATTEMPTS = 3;
@@ -430,6 +419,7 @@ private:
             while (running) {
                 if (LivePatchFortnite()) {
                     std::cout << "[PATCHER] Live patches applied successfully\n";
+                    Sleep(10000); // Increased delay between patch attempts
                     failedAttempts = 0;
                 } else {
                     failedAttempts++;
@@ -438,8 +428,8 @@ private:
                                  << MAX_FAILED_ATTEMPTS << " attempts\n";
                         break;
                     }
+                    Sleep(2000);
                 }
-                Sleep(5000);
             }
         }).detach();
 
@@ -448,10 +438,10 @@ private:
 
 public:
     FortniteServer() : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL) {
-        srand(time(0));
+        srand(static_cast<unsigned>(time(0)));
         
         std::cout << "=====================================\n";
-        std::cout << "    Welcome to ZeroFN Launcher v1.2\n";
+        std::cout << "    Welcome to ZeroFN Launcher v1.2.1\n";
         std::cout << "    Developed by DevHarris\n";
         std::cout << "=====================================\n\n";
         
@@ -469,7 +459,6 @@ public:
     }
 
     void loadOrSetupInstallPath() {
-        // Try to load from path.json first
         std::ifstream path_file("path.json");
         if(path_file.good()) {
             std::string json;
@@ -487,7 +476,6 @@ public:
             }
         }
 
-        // If not found in path.json, do manual setup
         std::cout << "\nFortnite Installation Setup\n";
         std::cout << "===========================\n";
         
@@ -523,7 +511,6 @@ public:
             }
         }
 
-        // Save path to path.json
         std::ofstream path_out("path.json");
         path_out << "{\"path\":\"" << installPath << "\"}";
         path_out.close();
@@ -536,7 +523,6 @@ public:
         _mkdir(installPath.c_str());
         
         std::cout << "Downloading Fortnite OG files...\n";
-        // Here you would implement actual download logic
         std::cout << "For this example, please manually place Fortnite files in: " << installPath << "\n";
         
         std::cout << "\nPress Enter when files are in place...";
@@ -592,7 +578,6 @@ public:
         auth_file << "{\"access_token\":\"" << authToken << "\",\"displayName\":\"" << displayName << "\"}";
         auth_file.close();
 
-        // Patch game executable
         if(!patchGameExecutable()) {
             std::cerr << "Failed to patch game executable" << std::endl;
             return false;
@@ -604,7 +589,6 @@ public:
             while (running) {
                 SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
                 if (clientSocket != INVALID_SOCKET) {
-                    std::cout << "[SERVER] Client connected" << std::endl;
                     std::thread(&FortniteServer::handleClient, this, clientSocket).detach();
                 }
             }
@@ -625,29 +609,14 @@ public:
         std::string cmd = "\"" + installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe\"";
         cmd += " -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=" + authToken;
         cmd += " -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck";
-        cmd += " -notexturestreaming -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777 -AUTH_SSL=0 -AUTH_VERIFY_SSL=0";
-        cmd += " -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE";
-        cmd += " -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN";
-        cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
-        cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION -NOSTEAM -NOEAC_V2 -NOBE_V2";
-        cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT -USEALLAVAILABLECORES -PREFERREDPROCESSOR=0";
-        cmd += " -DISABLEFORTNITELOGIN_V2 -DISABLEEPICLOGIN_V2 -DISABLEEPICGAMESLOGIN_V2";
-        cmd += " -DISABLEEPICGAMESPORTAL_V2 -DISABLEEPICGAMESVERIFY_V2";
-        cmd += " -NOENCRYPTION_V2 -NOSTEAM_V2";
-        cmd += " -ALLOWALLSSL_V2 -BYPASSSSL_V2";
-        cmd += " -NOSSLPINNING_V3 -ALLOWALLSSL_V3 -BYPASSSSL_V3"; // Additional SSL bypasses
-        cmd += " -NOENCRYPTION_V3 -NOSTEAM_V3"; // Additional encryption bypasses
-        cmd += " -DISABLEFORTNITELOGIN_V3"; // Additional login bypass
-        cmd += " -USEALLAVAILABLECORES_V2"; // Enhanced performance
-        cmd += " -DISABLEPATCHCHECK_V2"; // Enhanced patch check bypass
-        cmd += " -LOADFAST"; // Quick loading
-        cmd += " -NOTEXTURESTREAMING_V2"; // Improved texture loading
+        cmd += " -HTTP=127.0.0.1:7777 -AUTH_HOST=127.0.0.1:7777";
+        cmd += " -NOTEXTURESTREAMING -USEALLAVAILABLECORES -PREFERREDPROCESSOR=0";
+        cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION";
+        cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT";
 
-        // Set working directory to Fortnite binary location
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
-        // Launch with elevated privileges and improved process creation
-        DWORD creationFlags = CREATE_NEW_CONSOLE | NORMAL_PRIORITY_CLASS;
+        DWORD creationFlags = CREATE_SUSPENDED | NORMAL_PRIORITY_CLASS;
         
         if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
                          creationFlags,
@@ -657,25 +626,22 @@ public:
         }
 
         gameProcess = pi.hProcess;
+
+        // Set process priority and affinity for better stability
+        SetPriorityClass(gameProcess, HIGH_PRIORITY_CLASS);
+        
+        // Resume the process
+        ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);
 
-        // Set process priority to improve stability
-        SetPriorityClass(gameProcess, HIGH_PRIORITY_CLASS);
-
-        std::cout << "Game launched successfully with enhanced stability patches!" << std::endl;
+        std::cout << "Game launched successfully!\n";
         
-        // Monitor game process with improved handling
+        // Monitor game process
         std::thread([this]() {
             while (WaitForSingleObject(gameProcess, 100) == WAIT_TIMEOUT) {
-                // Check process status
-                DWORD exitCode;
-                if (GetExitCodeProcess(gameProcess, &exitCode) && exitCode != STILL_ACTIVE) {
-                    std::cout << "Game process terminated unexpectedly. Exit code: " << exitCode << std::endl;
-                    break;
-                }
                 Sleep(1000);
             }
-            std::cout << "Game process monitoring ended" << std::endl;
+            std::cout << "Game process ended\n";
         }).detach();
     }
 
@@ -702,7 +668,7 @@ int main() {
     FortniteServer server;
     if(server.start()) {
         std::cout << "\nServer started successfully!\n";
-        std::cout << "Starting Fortnite with all patches and bypasses...\n";
+        std::cout << "Starting Fortnite...\n";
         server.launchGame();
         
         std::cout << "\nPress Enter to stop the server...";

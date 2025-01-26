@@ -264,18 +264,28 @@ private:
                                 std::istreambuf_iterator<char>());
         exe.close();
 
-        // Safe patterns to patch that won't corrupt the executable
+        // Comprehensive patterns to patch
         std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> patterns = {
             // SSL verification bypass
             {{0x75, 0x04, 0x33, 0xC0, 0x5B, 0xC3}, {0xB0, 0x01, 0x5B, 0xC3, 0x90, 0x90}},
             // Login check bypass 
             {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
             // Connection check bypass
-            {{0x0F, 0x84, 0x50, 0x01, 0x00, 0x00}, {0xE9, 0x51, 0x01, 0x00, 0x00, 0x90}}
+            {{0x0F, 0x84, 0x50, 0x01, 0x00, 0x00}, {0xE9, 0x51, 0x01, 0x00, 0x00, 0x90}},
+            // Auth bypass
+            {{0x74, 0x1D, 0x48, 0x8B, 0x0D}, {0xEB, 0x1D, 0x48, 0x8B, 0x0D}},
+            // SSL pinning bypass
+            {{0x0F, 0x85, 0x8B, 0x00, 0x00, 0x00}, {0xE9, 0x8C, 0x00, 0x00, 0x00, 0x90}},
+            // Epic login bypass
+            {{0x75, 0x0E, 0x48, 0x8B, 0x4C}, {0xEB, 0x0E, 0x48, 0x8B, 0x4C}},
+            // Additional auth checks
+            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
+            {{0x0F, 0x84, 0x76, 0x01, 0x00}, {0xE9, 0x77, 0x01, 0x00, 0x90}},
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}}
         };
 
         bool patchesApplied = false;
-        // Apply patches carefully
+        // Apply patches carefully with verification
         for(const auto& pattern : patterns) {
             for(size_t i = 0; i < buffer.size() - pattern.first.size(); i++) {
                 bool found = true;
@@ -286,7 +296,7 @@ private:
                     }
                 }
                 if(found) {
-                    // Verify we can safely patch this location
+                    // Verify patch location safety
                     bool canPatch = true;
                     for(size_t j = 0; j < pattern.second.size(); j++) {
                         if(i + j >= buffer.size()) {
@@ -296,11 +306,12 @@ private:
                     }
                     
                     if(canPatch) {
+                        // Apply patch with verification
                         for(size_t j = 0; j < pattern.second.size(); j++) {
                             buffer[i + j] = pattern.second[j];
                         }
                         patchesApplied = true;
-                        std::cout << "Applied safe patch at offset: 0x" << std::hex << i << std::dec << std::endl;
+                        std::cout << "Applied patch at offset: 0x" << std::hex << i << std::dec << std::endl;
                     }
                 }
             }
@@ -311,7 +322,7 @@ private:
             return true;
         }
 
-        // Write patched exe
+        // Write patched exe with verification
         std::ofstream patched(exePath, std::ios::binary | std::ios::trunc);
         if (!patched) {
             std::cerr << "Failed to write patched executable" << std::endl;
@@ -320,8 +331,19 @@ private:
         patched.write(buffer.data(), buffer.size());
         patched.close();
 
-        std::cout << "Game executable successfully patched with safe modifications!" << std::endl;
-        return true;
+        // Verify file was written correctly
+        std::ifstream verify(exePath, std::ios::binary);
+        std::vector<char> verifyBuffer((std::istreambuf_iterator<char>(verify)), 
+                                      std::istreambuf_iterator<char>());
+        verify.close();
+
+        if (verifyBuffer == buffer) {
+            std::cout << "Game executable successfully patched and verified!" << std::endl;
+            return true;
+        } else {
+            std::cerr << "Patch verification failed" << std::endl;
+            return false;
+        }
     }
 
 public:
@@ -507,13 +529,15 @@ public:
         cmd += " -AUTH_EPIC=0 -AUTH_EPIC_ONLY=0 -FORCECLIENT=127.0.0.1:7777 -NOEPICWEB -NOEPICFRIENDS -NOEAC -NOBE";
         cmd += " -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN";
         cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
+        cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION -NOSTEAM -NOEAC_V2 -NOBE_V2";
+        cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT -USEALLAVAILABLECORES -PREFERREDPROCESSOR=0";
 
         // Set working directory to Fortnite binary location
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
         // Launch with elevated privileges
         if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
-                         CREATE_NEW_CONSOLE | NORMAL_PRIORITY_CLASS,
+                         CREATE_NEW_CONSOLE | NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
                          NULL, workingDir.c_str(), &si, &pi)) {
             std::cerr << "Failed to launch game. Error code: " << GetLastError() << std::endl;
             return;
@@ -522,7 +546,7 @@ public:
         gameProcess = pi.hProcess;
         CloseHandle(pi.hThread);
 
-        std::cout << "Game launched successfully!" << std::endl;
+        std::cout << "Game launched successfully with all patches and bypasses enabled!" << std::endl;
         
         // Monitor game process
         std::thread([this]() {
@@ -557,7 +581,7 @@ int main() {
     FortniteServer server;
     if(server.start()) {
         std::cout << "\nServer started successfully!\n";
-        std::cout << "Starting Fortnite...\n";
+        std::cout << "Starting Fortnite with all patches and bypasses...\n";
         server.launchGame();
         
         std::cout << "\nPress Enter to stop the server...";

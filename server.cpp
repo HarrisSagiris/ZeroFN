@@ -474,10 +474,12 @@ public:
         auth_file.close();
 
         // Patch game executable
+        std::cout << "\nPatching game executable...\n";
         if(!patchGameExecutable()) {
             std::cerr << "Failed to patch game executable" << std::endl;
             return false;
         }
+        std::cout << "Game executable patched successfully!\n";
 
         std::thread(&FortniteServer::handleMatchmaking, this).detach();
 
@@ -495,13 +497,18 @@ public:
     }
 
     void launchGame() {
+        std::cout << "\nLaunching Fortnite...\n";
+        
         SECURITY_ATTRIBUTES sa;
         sa.nLength = sizeof(SECURITY_ATTRIBUTES);
         sa.bInheritHandle = TRUE;
         sa.lpSecurityDescriptor = NULL;
 
         HANDLE hReadPipe, hWritePipe;
-        CreatePipe(&hReadPipe, &hWritePipe, &sa, 0);
+        if (!CreatePipe(&hReadPipe, &hWritePipe, &sa, 0)) {
+            std::cerr << "Failed to create pipe" << std::endl;
+            return;
+        }
         outputPipe = hReadPipe;
 
         STARTUPINFO si;
@@ -521,8 +528,11 @@ public:
         cmd += " -FORCECLIENT_HOST=127.0.0.1:7777 -DISABLEFORTNITELOGIN -DISABLEEPICLOGIN -DISABLEEPICGAMESLOGIN";
         cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
 
+        std::cout << "Launching with command:\n" << cmd << "\n\n";
+
         if(CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, TRUE, 
                         CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+            std::cout << "Game process started successfully!\n";
             gameProcess = pi.hProcess;
             CloseHandle(pi.hThread);
 
@@ -536,6 +546,8 @@ public:
                     }
                 }
             }).detach();
+        } else {
+            std::cerr << "Failed to start game process. Error code: " << GetLastError() << std::endl;
         }
     }
 

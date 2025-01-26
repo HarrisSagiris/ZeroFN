@@ -19,8 +19,6 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 
-#define _WIN32_WINNT 0x0600 // Required for InetPton
-
 // ZeroFN Version 1.1
 // Developed by DevHarris
 // A private server implementation for Fortnite
@@ -244,39 +242,20 @@ private:
         closesocket(clientSocket);
     }
 
-    DWORD GetProcessIdByName(const wchar_t* processName) {
-        DWORD processId = 0;
-        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if (snapshot != INVALID_HANDLE_VALUE) {
-            PROCESSENTRY32W processEntry;
-            processEntry.dwSize = sizeof(processEntry);
-            if (Process32FirstW(snapshot, &processEntry)) {
-                do {
-                    if (_wcsicmp(processEntry.szExeFile, processName) == 0) {
-                        processId = processEntry.th32ProcessID;
-                        break;
-                    }
-                } while (Process32NextW(snapshot, &processEntry));
-            }
-            CloseHandle(snapshot);
-        }
-        return processId;
-    }
-
-    bool PatchMemory(HANDLE process, LPVOID address, BYTE* patch, SIZE_T size) {
+    bool PatchMemory(HANDLE process, LPVOID address, const std::vector<BYTE>& patch) {
         SIZE_T bytesWritten;
         DWORD oldProtect;
 
-        if (!VirtualProtectEx(process, address, size, PAGE_EXECUTE_READWRITE, &oldProtect))
+        if (!VirtualProtectEx(process, address, patch.size(), PAGE_EXECUTE_READWRITE, &oldProtect))
             return false;
 
-        if (!WriteProcessMemory(process, address, patch, size, &bytesWritten))
+        if (!WriteProcessMemory(process, address, patch.data(), patch.size(), &bytesWritten))
             return false;
 
-        if (!VirtualProtectEx(process, address, size, oldProtect, &oldProtect))
+        if (!VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect))
             return false;
 
-        return bytesWritten == size;
+        return bytesWritten == patch.size();
     }
 
     bool LivePatchFortnite() {
@@ -284,8 +263,23 @@ private:
 
         // Wait for Fortnite process
         DWORD processId = 0;
+        PROCESSENTRY32W processEntry;
+        processEntry.dwSize = sizeof(processEntry);
+        
         while (processId == 0) {
-            processId = GetProcessIdByName(L"FortniteClient-Win64-Shipping.exe");
+            HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if (snapshot != INVALID_HANDLE_VALUE) {
+                if (Process32FirstW(snapshot, &processEntry)) {
+                    do {
+                        if (_wcsicmp(processEntry.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
+                            processId = processEntry.th32ProcessID;
+                            break;
+                        }
+                    } while (Process32NextW(snapshot, &processEntry));
+                }
+                CloseHandle(snapshot);
+            }
+            
             if (processId == 0) {
                 std::cout << "[LIVE PATCHER] Waiting for Fortnite process...\n";
                 Sleep(1000);
@@ -352,7 +346,7 @@ private:
                             if (memcmp(buffer.data() + i, patch.find.data(), patch.find.size()) == 0) {
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                 
-                                if (PatchMemory(processHandle, patchAddress, patch.replace.data(), patch.replace.size())) {
+                                if (PatchMemory(processHandle, patchAddress, patch.replace)) {
                                     std::cout << "[LIVE PATCHER] Applied " << patch.name << " at " 
                                               << std::hex << patchAddress << std::dec << "\n";
                                 }

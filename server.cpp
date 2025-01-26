@@ -244,16 +244,71 @@ private:
         closesocket(clientSocket);
     }
 
-    DWORD GetProcessIdByName(const wchar_t* processName) {
-        DWORD processId = 0;
-        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if (snapshot != INVALID_HANDLE_VALUE) {
-            PROCESSENTRY32W processEntry;
-            processEntry.dwSize = sizeof(processEntry);
-            if (Process32FirstW(snapshot, &processEntry)) {
-                do {
-                    if (_wcsicmp(processEntry.szExeFile, processName) == 0) {
-                        processId = processEntry.th32ProcessID;
+    bool patchGameExecutable() {
+        std::string exePath = installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
+        
+        std::cout << "\n[PATCHER] Starting game executable patching...\n";
+        std::cout << "[PATCHER] Target file: " << exePath << "\n";
+        
+        // Create backup if doesn't exist
+        if (!fs::exists(exePath + ".bak")) {
+            std::cout << "[PATCHER] Creating backup file...\n";
+            if (!fs::copy_file(exePath, exePath + ".bak")) {
+                std::cerr << "[PATCHER] ERROR: Failed to create backup file\n";
+                return false;
+            }
+            std::cout << "[PATCHER] Backup created successfully at " << exePath << ".bak\n";
+        }
+
+        // Read exe into memory
+        std::cout << "[PATCHER] Reading executable into memory...\n";
+        std::ifstream exe(exePath, std::ios::binary);
+        if (!exe) {
+            std::cerr << "[PATCHER] ERROR: Failed to open executable file\n";
+            return false;
+        }
+
+        std::vector<char> buffer((std::istreambuf_iterator<char>(exe)), 
+                                std::istreambuf_iterator<char>());
+        exe.close();
+        std::cout << "[PATCHER] Successfully read " << buffer.size() << " bytes\n";
+
+        // Enhanced patterns to patch including server connection bypass
+        std::vector<std::pair<std::vector<unsigned char>, std::vector<unsigned char>>> patterns = {
+            // Server connection check bypass
+            {{0x75, 0x04, 0x33, 0xC0, 0x5B, 0xC3}, {0xB0, 0x01, 0x5B, 0xC3, 0x90, 0x90}},
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
+            {{0x0F, 0x84, 0x50, 0x01, 0x00, 0x00}, {0xE9, 0x51, 0x01, 0x00, 0x00, 0x90}},
+            // Server connection error bypass
+            {{0x74, 0x1D, 0x48, 0x8B, 0x0D}, {0xEB, 0x1D, 0x48, 0x8B, 0x0D}},
+            {{0x0F, 0x85, 0x8B, 0x00, 0x00, 0x00}, {0xE9, 0x8C, 0x00, 0x00, 0x00, 0x90}},
+            // Login error bypass
+            {{0x75, 0x0E, 0x48, 0x8B, 0x4C}, {0x90, 0x90, 0x48, 0x8B, 0x4C}},
+            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0x90, 0x90, 0x48, 0x8B, 0x4C}},
+            {{0x0F, 0x84, 0x76, 0x01, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Server connection validation bypass
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x48, 0x8B, 0x0D}},
+            {{0x74, 0x0A, 0x48, 0x83, 0xC4}, {0x90, 0x90, 0x48, 0x83, 0xC4}},
+            {{0x75, 0x1A, 0x48, 0x8B, 0x45}, {0x90, 0x90, 0x48, 0x8B, 0x45}},
+            // Additional server checks bypass
+            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x74, 0x15, 0x48, 0x8B, 0x01}, {0x90, 0x90, 0x48, 0x8B, 0x01}},
+            // New server connection error bypasses
+            {{0x75, 0x08, 0x8B, 0x45, 0xFC}, {0x90, 0x90, 0x8B, 0x45, 0xFC}},
+            {{0x74, 0x12, 0x48, 0x8B, 0x4D}, {0x90, 0x90, 0x48, 0x8B, 0x4D}},
+            {{0x0F, 0x84, 0x85, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}}
+        };
+
+        int patchCount = 0;
+        std::cout << "\n[PATCHER] Starting patch application...\n";
+        
+        // Apply patches carefully with verification
+        for(const auto& pattern : patterns) {
+            for(size_t i = 0; i < buffer.size() - pattern.first.size(); i++) {
+                bool found = true;
+                for(size_t j = 0; j < pattern.first.size(); j++) {
+                    if((unsigned char)buffer[i + j] != pattern.first[j]) {
+                        found = false;
                         break;
                     }
                 } while (Process32NextW(snapshot, &processEntry));

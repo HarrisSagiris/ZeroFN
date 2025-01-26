@@ -246,8 +246,7 @@ private:
         SIZE_T bytesWritten;
         DWORD oldProtect;
 
-        // Add exception handling
-        __try {
+        try {
             if (!VirtualProtectEx(process, address, patch.size(), PAGE_EXECUTE_READWRITE, &oldProtect))
                 return false;
 
@@ -259,7 +258,7 @@ private:
 
             return bytesWritten == patch.size();
         }
-        __except(EXCEPTION_EXECUTE_HANDLER) {
+        catch (...) {
             std::cout << "[LIVE PATCHER] Exception occurred while patching memory\n";
             return false;
         }
@@ -354,7 +353,7 @@ private:
                 std::vector<BYTE> buffer(mbi.RegionSize);
                 SIZE_T bytesRead;
                 
-                __try {
+                try {
                     if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
                         for (const auto& patch : patches) {
                             for (size_t i = 0; i < buffer.size() - patch.find.size(); i++) {
@@ -375,7 +374,7 @@ private:
                         }
                     }
                 }
-                __except(EXCEPTION_EXECUTE_HANDLER) {
+                catch (...) {
                     std::cout << "[LIVE PATCHER] Exception while scanning memory region at " 
                               << std::hex << mbi.BaseAddress << std::dec << "\n";
                 }

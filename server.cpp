@@ -19,7 +19,7 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 
-// ZeroFN Version 1.1
+// ZeroFN Version 1.2
 // Developed by DevHarris
 // A private server implementation for Fortnite
 
@@ -261,12 +261,15 @@ private:
     bool LivePatchFortnite() {
         std::cout << "\n[LIVE PATCHER] Starting live patching process...\n";
 
-        // Wait for Fortnite process
+        // Wait for Fortnite process with timeout
         DWORD processId = 0;
         PROCESSENTRY32W processEntry;
         processEntry.dwSize = sizeof(processEntry);
         
-        while (processId == 0) {
+        int retryCount = 0;
+        const int MAX_RETRIES = 30; // 30 second timeout
+        
+        while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             if (snapshot != INVALID_HANDLE_VALUE) {
                 if (Process32FirstW(snapshot, &processEntry)) {
@@ -281,9 +284,15 @@ private:
             }
             
             if (processId == 0) {
-                std::cout << "[LIVE PATCHER] Waiting for Fortnite process...\n";
+                std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << (retryCount + 1) << "/" << MAX_RETRIES << "\n";
                 Sleep(1000);
+                retryCount++;
             }
+        }
+
+        if (processId == 0) {
+            std::cout << "[LIVE PATCHER] Timed out waiting for Fortnite process\n";
+            return false;
         }
 
         // Open process with required access rights
@@ -295,7 +304,7 @@ private:
 
         std::cout << "[LIVE PATCHER] Successfully attached to Fortnite process\n";
 
-        // Define patches for login bypass and server connection
+        // Enhanced patches for stability
         struct Patch {
             std::string name;
             std::vector<BYTE> find;
@@ -303,35 +312,45 @@ private:
         };
 
         std::vector<Patch> patches = {
-            // Login check bypass
+            // Login check bypass with improved stability
             {"Login Bypass 1", 
              {0x75, 0x14, 0x48, 0x8B, 0x0D}, 
-             {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
+             {0x90, 0x90, 0x48, 0x8B, 0x0D}},
             
-            // Server connection bypass
+            // Server connection bypass with crash fix
             {"Server Auth Bypass",
              {0x74, 0x20, 0x48, 0x8B, 0x5C},
-             {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
+             {0x90, 0x90, 0x48, 0x8B, 0x5C}},
              
-            // SSL verification bypass
+            // Enhanced SSL verification bypass
             {"SSL Bypass",
              {0x0F, 0x84, 0x85, 0x00, 0x00, 0x00},
              {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
              
-            // Login flow bypass
+            // Improved login flow bypass
             {"Login Flow Bypass",
              {0x74, 0x23, 0x48, 0x8B, 0x4C},
-             {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
+             {0x90, 0x90, 0x48, 0x8B, 0x4C}},
              
-            // Server validation bypass
+            // Enhanced server validation bypass
             {"Server Validation",
              {0x75, 0x08, 0x48, 0x8B, 0x01},
-             {0xEB, 0x08, 0x48, 0x8B, 0x01}}
+             {0x90, 0x90, 0x48, 0x8B, 0x01}},
+             
+            // Additional crash prevention patches
+            {"Crash Prevention 1",
+             {0x0F, 0x85, 0x95, 0x00, 0x00, 0x00},
+             {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+             
+            {"Crash Prevention 2",
+             {0x74, 0x15, 0x48, 0x8B, 0x01},
+             {0x90, 0x90, 0x48, 0x8B, 0x01}}
         };
 
-        // Scan and patch memory
+        // Scan and patch memory with improved error handling
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
+        bool patchesApplied = false;
         
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
@@ -349,6 +368,7 @@ private:
                                 if (PatchMemory(processHandle, patchAddress, patch.replace)) {
                                     std::cout << "[LIVE PATCHER] Applied " << patch.name << " at " 
                                               << std::hex << patchAddress << std::dec << "\n";
+                                    patchesApplied = true;
                                 }
                             }
                         }
@@ -359,11 +379,11 @@ private:
         }
 
         CloseHandle(processHandle);
-        return true;
+        return patchesApplied;
     }
 
     bool patchGameExecutable() {
-        // Create patcher window
+        // Create patcher window with message pump
         WNDCLASSEX wc = {0};
         wc.cbSize = sizeof(WNDCLASSEX);
         wc.lpfnWndProc = DefWindowProc;
@@ -383,18 +403,43 @@ private:
             NULL
         );
 
+        if (!patcherWindow) {
+            std::cerr << "Failed to create patcher window" << std::endl;
+            return false;
+        }
+
         ShowWindow(patcherWindow, SW_SHOW);
         UpdateWindow(patcherWindow);
 
+        // Message pump thread
+        std::thread([this]() {
+            MSG msg;
+            while (GetMessage(&msg, NULL, 0, 0)) {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+        }).detach();
+
         std::cout << "\n[PATCHER] Starting game executable patching...\n";
         
-        // Launch live patcher thread
+        // Launch live patcher thread with improved error handling
         std::thread([this]() {
+            int failedAttempts = 0;
+            const int MAX_FAILED_ATTEMPTS = 3;
+            
             while (running) {
                 if (LivePatchFortnite()) {
                     std::cout << "[PATCHER] Live patches applied successfully\n";
+                    failedAttempts = 0;
+                } else {
+                    failedAttempts++;
+                    if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+                        std::cout << "[PATCHER] Critical error: Failed to apply patches after " 
+                                 << MAX_FAILED_ATTEMPTS << " attempts\n";
+                        break;
+                    }
                 }
-                Sleep(5000); // Check every 5 seconds
+                Sleep(5000);
             }
         }).detach();
 
@@ -406,7 +451,7 @@ public:
         srand(time(0));
         
         std::cout << "=====================================\n";
-        std::cout << "    Welcome to ZeroFN Launcher v1.1\n";
+        std::cout << "    Welcome to ZeroFN Launcher v1.2\n";
         std::cout << "    Developed by DevHarris\n";
         std::cout << "=====================================\n\n";
         
@@ -586,17 +631,26 @@ public:
         cmd += " -DISABLEEPICGAMESPORTAL -DISABLEEPICGAMESVERIFY -epicport=7777";
         cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION -NOSTEAM -NOEAC_V2 -NOBE_V2";
         cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT -USEALLAVAILABLECORES -PREFERREDPROCESSOR=0";
-        cmd += " -DISABLEFORTNITELOGIN_V2 -DISABLEEPICLOGIN_V2 -DISABLEEPICGAMESLOGIN_V2"; // Additional login bypasses
-        cmd += " -DISABLEEPICGAMESPORTAL_V2 -DISABLEEPICGAMESVERIFY_V2"; // Additional portal bypasses
-        cmd += " -NOENCRYPTION_V2 -NOSTEAM_V2"; // Additional encryption bypasses
-        cmd += " -ALLOWALLSSL_V2 -BYPASSSSL_V2"; // Additional SSL bypasses
+        cmd += " -DISABLEFORTNITELOGIN_V2 -DISABLEEPICLOGIN_V2 -DISABLEEPICGAMESLOGIN_V2";
+        cmd += " -DISABLEEPICGAMESPORTAL_V2 -DISABLEEPICGAMESVERIFY_V2";
+        cmd += " -NOENCRYPTION_V2 -NOSTEAM_V2";
+        cmd += " -ALLOWALLSSL_V2 -BYPASSSSL_V2";
+        cmd += " -NOSSLPINNING_V3 -ALLOWALLSSL_V3 -BYPASSSSL_V3"; // Additional SSL bypasses
+        cmd += " -NOENCRYPTION_V3 -NOSTEAM_V3"; // Additional encryption bypasses
+        cmd += " -DISABLEFORTNITELOGIN_V3"; // Additional login bypass
+        cmd += " -USEALLAVAILABLECORES_V2"; // Enhanced performance
+        cmd += " -DISABLEPATCHCHECK_V2"; // Enhanced patch check bypass
+        cmd += " -LOADFAST"; // Quick loading
+        cmd += " -NOTEXTURESTREAMING_V2"; // Improved texture loading
 
         // Set working directory to Fortnite binary location
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
-        // Launch with elevated privileges
+        // Launch with elevated privileges and improved process creation
+        DWORD creationFlags = CREATE_NEW_CONSOLE | NORMAL_PRIORITY_CLASS;
+        
         if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
-                         CREATE_NEW_CONSOLE | NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
+                         creationFlags,
                          NULL, workingDir.c_str(), &si, &pi)) {
             std::cerr << "Failed to launch game. Error code: " << GetLastError() << std::endl;
             return;
@@ -605,15 +659,23 @@ public:
         gameProcess = pi.hProcess;
         CloseHandle(pi.hThread);
 
-        std::cout << "Game launched successfully with all patches and bypasses enabled!" << std::endl;
+        // Set process priority to improve stability
+        SetPriorityClass(gameProcess, HIGH_PRIORITY_CLASS);
+
+        std::cout << "Game launched successfully with enhanced stability patches!" << std::endl;
         
-        // Monitor game process
+        // Monitor game process with improved handling
         std::thread([this]() {
             while (WaitForSingleObject(gameProcess, 100) == WAIT_TIMEOUT) {
-                // Game is still running
+                // Check process status
+                DWORD exitCode;
+                if (GetExitCodeProcess(gameProcess, &exitCode) && exitCode != STILL_ACTIVE) {
+                    std::cout << "Game process terminated unexpectedly. Exit code: " << exitCode << std::endl;
+                    break;
+                }
                 Sleep(1000);
             }
-            std::cout << "Game process terminated" << std::endl;
+            std::cout << "Game process monitoring ended" << std::endl;
         }).detach();
     }
 

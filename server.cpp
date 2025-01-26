@@ -9,14 +9,15 @@
 #include <vector>
 #include <ctime>
 #include <chrono>
-#include <filesystem>
+#include <experimental/filesystem>
 #include <direct.h>
 #include <map>
 #include <mutex>
 #include <cstdio>
 #include <memory>
+#include <algorithm>
 
-namespace fs = std::filesystem;
+namespace fs = std::experimental::filesystem;
 
 // Game session data
 struct GameSession {
@@ -187,9 +188,10 @@ private:
                 
                 bool found = false;
                 for(const auto& session : activeSessions) {
-                    if(std::find(session.second.players.begin(), 
-                               session.second.players.end(), 
-                               accountId) != session.second.players.end()) {
+                    auto it = std::find(session.second.players.begin(), 
+                                      session.second.players.end(), 
+                                      accountId);
+                    if(it != session.second.players.end()) {
                         response = "{";
                         response += "\"status\":\"found\",";
                         response += "\"matchId\":\"" + session.first + "\",";
@@ -381,7 +383,7 @@ public:
         sockaddr_in serverAddr;
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons(PORT);
-        inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
+        InetPton(AF_INET, L"127.0.0.1", &serverAddr.sin_addr);
 
         if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
             std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;

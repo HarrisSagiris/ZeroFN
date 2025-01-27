@@ -10,6 +10,7 @@
 #include <shlwapi.h>
 #include <vector>
 #include <map>
+#include <random>
 
 // Simple JSON library implementation
 class json {
@@ -60,13 +61,8 @@ namespace fs = std::filesystem;
 
 class HybridLauncher {
 private:
-    // Server endpoints for version 3.3
-    const std::string AUTH_URL = "http://127.0.0.1:7777/account/api/oauth/token";
-    const std::string EXCHANGE_URL = "http://127.0.0.1:7777/fortnite/api/game/v2/profile/";
-    const std::string COSMETICS_URL = "http://127.0.0.1:7777/fortnite/api/game/v2/cosmetics/";
     const std::string GAME_EXE = "FortniteClient-Win64-Shipping.exe";
     
-    std::string accessToken;
     std::string accountId;
     HANDLE gameProcess = NULL;
     bool serverRunning = false;
@@ -76,9 +72,11 @@ private:
     // Cosmetics database loaded from cosmetics.json
     std::map<std::string, std::vector<std::string>> cosmeticsDb;
 
-    static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
-        userp->append((char*)contents, size * nmemb);
-        return size * nmemb;
+    std::string generateAccountId() {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(1000000, 9999999);
+        return "HybridFN_" + std::to_string(dis(gen));
     }
 
     void loadCosmeticsDatabase() {
@@ -102,16 +100,19 @@ private:
     }
 
     bool checkLocalServer() {
-        CURL* curl = curl_easy_init();
-        if(curl) {
-            curl_easy_setopt(curl, CURLOPT_URL, AUTH_URL.c_str());
-            curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
-            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
-            CURLcode res = curl_easy_perform(curl);
-            curl_easy_cleanup(curl);
-            return (res == CURLE_OK);
+        HINTERNET hInternet = InternetOpen("HybridFN", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+        if(!hInternet) return false;
+
+        HINTERNET hConnect = InternetConnect(hInternet, "127.0.0.1", 7777, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+        if(!hConnect) {
+            InternetCloseHandle(hInternet);
+            return false;
         }
-        return false;
+
+        InternetCloseHandle(hConnect);
+        InternetCloseHandle(hInternet);
+        serverRunning = true;
+        return true;
     }
 
     void startLocalServer() {
@@ -120,16 +121,15 @@ private:
         si.dwFlags = STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_HIDE;
 
-        std::string cmdLine = serverPath + "\\HybridServer.exe --season=3.3 --auth-bypass --cosmetics-path=cosmetics.json";
+        std::string cmdLine = serverPath + "\\HybridServer.exe --season=3.3 --auth-bypass --cosmetics-path=cosmetics.json --enable-matchmaking";
 
-        if(CreateProcessA(cmdLine.c_str(), NULL, NULL, NULL, FALSE, 
+        if(CreateProcessA(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE, 
                          CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
-            serverRunning = true;
             
             std::cout << "Starting server..." << std::endl;
-            for(int i = 0; i < 15; i++) {
+            for(int i = 0; i < 30; i++) {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
                 if(checkLocalServer()) {
                     std::cout << "Server started successfully!" << std::endl;
@@ -143,50 +143,10 @@ private:
         }
     }
 
-    std::string getAuthToken() {
-        CURL* curl = curl_easy_init();
-        std::string response;
-
-        if(curl) {
-            struct curl_slist* headers = NULL;
-            headers = curl_slist_append(headers, "Content-Type: application/json");
-            
-            std::string uniqueId = "HybridFN_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
-            
-            json authData;
-            authData.object["grant_type"] = {"client_credentials"};
-            authData.object["account_id"] = {uniqueId};
-            authData.object["client_id"] = {"HybridFNClient"};
-            authData.object["secret"] = {"hybrid_s3cret"};
-
-            std::string postData = authData.dump();
-
-            curl_easy_setopt(curl, CURLOPT_URL, AUTH_URL.c_str());
-            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-
-            CURLcode res = curl_easy_perform(curl);
-            curl_slist_free_all(headers);
-            curl_easy_cleanup(curl);
-
-            if(res != CURLE_OK) {
-                throw std::runtime_error("Failed to get auth token from server");
-            }
-
-            json j;
-            j.raw = response;
-            accountId = uniqueId;
-            return "dummy_token"; // Simplified for demo
-        }
-        
-        throw std::runtime_error("Failed to initialize CURL");
-    }
-
     void patchGameFiles() {
         std::cout << "Patching game files for version 3.3..." << std::endl;
+        
+        accountId = generateAccountId();
         
         std::string pakPath = gamePath + "\\FortniteGame\\Content\\Paks\\";
         std::string backupPath = pakPath + "backup\\";
@@ -208,8 +168,10 @@ private:
         config << "UseCustomCosmetics=true\n";
         config << "AllowModding=true\n";
         config << "GameVersion=3.3.0\n";
-        config << "DisableMatchmaking=true\n";
+        config << "EnableMatchmaking=true\n";
         config << "BypassAuthentication=true\n";
+        config << "EnableBattlePass=true\n";
+        config << "UnlockAllCosmetics=true\n";
         config.close();
 
         // Create cosmetics override file
@@ -280,16 +242,10 @@ public:
                 throw std::runtime_error("Local server not running");
             }
 
-            std::cout << "Obtaining authentication token..." << std::endl;
-            accessToken = getAuthToken();
-
             std::cout << "Starting Fortnite v3.3..." << std::endl;
             
             // Launch with server parameters
             std::string cmdLine = "\"" + gamePath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe\" "
-                                "-AUTH_TYPE=hybrid "
-                                "-AUTH_LOGIN=hybrid_user "
-                                "-AUTH_PASSWORD=" + accessToken + " "
                                 "-epicapp=Fortnite "
                                 "-epicenv=Prod "
                                 "-epiclocale=en-us "
@@ -298,8 +254,7 @@ public:
                                 "-useallavailablecores "
                                 "-NOSSLPINNING "
                                 "-noeac -nobe -fltoken=none "
-                                "-nodamagefx "
-                                "-DisableMatchmaking "
+                                "-EnableClientPerfStats "
                                 "-ServerURL=127.0.0.1:7777";
 
             STARTUPINFO si = { sizeof(STARTUPINFO) };
@@ -314,7 +269,7 @@ public:
                 
                 std::cout << "HybridFN v3.3 initialized successfully!" << std::endl;
                 std::cout << "You now have access to all Season 3 cosmetics." << std::endl;
-                std::cout << "Note: Matchmaking is disabled in this version." << std::endl;
+                std::cout << "Matchmaking is enabled - enjoy playing!" << std::endl;
                 
                 WaitForSingleObject(gameProcess, INFINITE);
             } else {
@@ -331,7 +286,7 @@ public:
 int main() {
     SetConsoleTitleA("HybridFN v3.3 Launcher");
     std::cout << "Welcome to HybridFN Private Server" << std::endl;
-    std::cout << "Version 3.3.0 - Cosmetics Only Mode" << std::endl;
+    std::cout << "Version 3.3.0 - Full Featured Mode" << std::endl;
     std::cout << "Initializing private environment..." << std::endl;
 
     try {

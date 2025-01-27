@@ -21,11 +21,10 @@
 
 // ZeroFN Version 1.2.1
 // Developed by DevHarris
-// A private server implementation for Fortnite with enhanced stability
+// A private server implementation for Fortnite
 
 namespace fs = std::experimental::filesystem;
 
-// Game session data
 struct GameSession {
     std::string sessionId;
     std::vector<std::string> players;
@@ -43,28 +42,21 @@ private:
     std::string accountId;
     std::string installPath;
     HANDLE gameProcess;
-    HANDLE outputPipe;
-    HWND patcherWindow;
-    HWND mainWindow;
-
-    // Matchmaking state with improved synchronization
+    
     std::map<std::string, GameSession> activeSessions;
     std::vector<std::string> matchmakingQueue;
     std::mutex matchmakingMutex;
     
-    // Cosmetics and inventory with optimized loading
     std::map<std::string, std::string> playerLoadout;
     std::map<std::string, std::vector<std::string>> playerInventory;
 
     void initializePlayerData() {
-        // Basic cosmetics loadout with reduced memory footprint
         playerLoadout["character"] = "CID_001_Athena_Commando_F_Default";
         playerLoadout["backpack"] = "BID_001_Default";
         playerLoadout["pickaxe"] = "Pickaxe_Default";
         playerLoadout["glider"] = "Glider_Default";
         playerLoadout["contrail"] = "Trails_Default";
 
-        // Optimized inventory initialization
         playerInventory["characters"] = {"CID_001_Athena_Commando_F_Default"};
         playerInventory["backpacks"] = {"BID_001_Default"};
         playerInventory["pickaxes"] = {"Pickaxe_Default"};
@@ -75,27 +67,6 @@ private:
             "EID_DanceDefault2", 
             "EID_DanceDefault3"
         };
-    }
-
-    void createMainWindow() {
-        WNDCLASSEX wc = {0};
-        wc.cbSize = sizeof(WNDCLASSEX);
-        wc.lpfnWndProc = DefWindowProc;
-        wc.hInstance = GetModuleHandle(NULL);
-        wc.lpszClassName = "ZeroFNLauncher";
-        RegisterClassEx(&wc);
-
-        mainWindow = CreateWindowEx(
-            0,
-            "ZeroFNLauncher",
-            "ZeroFN Launcher",
-            WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
-            NULL, NULL, GetModuleHandle(NULL), NULL
-        );
-
-        ShowWindow(mainWindow, SW_SHOW);
-        UpdateWindow(mainWindow);
     }
 
     void sendResponse(SOCKET clientSocket, const std::string& response) {
@@ -133,7 +104,6 @@ private:
                     session.inProgress = true;
                     session.playlistId = "Playlist_DefaultSolo";
                     
-                    // Limit players per session for better stability
                     const size_t maxPlayers = 16;
                     while(!matchmakingQueue.empty() && session.players.size() < maxPlayers) {
                         session.players.push_back(matchmakingQueue.back());
@@ -146,14 +116,12 @@ private:
                              << " with " << session.players.size() << " players" << std::endl;
                 }
             }
-            
-            // Reduced sleep time for more responsive matchmaking
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
     }
 
     void handleClient(SOCKET clientSocket) {
-        const int bufferSize = 16384; // Increased buffer size
+        const int bufferSize = 16384;
         std::vector<char> buffer(bufferSize);
         
         int bytesReceived = recv(clientSocket, buffer.data(), bufferSize, 0);
@@ -196,7 +164,6 @@ private:
                 sendResponse(clientSocket, headers + response);
             }
             else if (endpoint == "/fortnite/api/game/v2/profile/" + accountId + "/client/QueryProfile") {
-                // Simplified profile response for better stability
                 std::string response = "{";
                 response += "\"profileId\":\"athena\",";
                 response += "\"profileChanges\":[{";
@@ -269,21 +236,6 @@ private:
         closesocket(clientSocket);
     }
 
-    bool PatchMemory(HANDLE process, LPVOID address, const std::vector<BYTE>& patch) {
-        SIZE_T bytesWritten;
-        DWORD oldProtect;
-
-        if (!VirtualProtectEx(process, address, patch.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
-            return false;
-        }
-
-        bool success = WriteProcessMemory(process, address, patch.data(), patch.size(), &bytesWritten);
-
-        VirtualProtectEx(process, address, patch.size(), oldProtect, &oldProtect);
-
-        return success && (bytesWritten == patch.size());
-    }
-
 public:
     bool LivePatchFortnite() {
         std::cout << "\n[LIVE PATCHER] Starting live patching process...\n";
@@ -327,21 +279,11 @@ public:
             return false;
         }
 
-        // Authentication bypass patches
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Login bypass
             {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
-            
-            // Server auth bypass
             {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
-            
-            // SSL verification bypass
             {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
-            
-            // EAC bypass
             {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
-            
-            // Additional auth bypass
             {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xEB, 0x08, 0x8B, 0x45, 0xE8}}
         };
 
@@ -361,10 +303,16 @@ public:
                         for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
                             if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
-                                if (PatchMemory(processHandle, patchAddress, patch.second)) {
-                                    std::cout << "[LIVE PATCHER] Successfully applied patch at " 
-                                              << std::hex << patchAddress << std::dec << "\n";
-                                    patchSuccess = true;
+                                SIZE_T bytesWritten;
+                                DWORD oldProtect;
+
+                                if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                                    if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
+                                        VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
+                                        std::cout << "[LIVE PATCHER] Successfully applied patch at " 
+                                                  << std::hex << patchAddress << std::dec << "\n";
+                                        patchSuccess = true;
+                                    }
                                 }
                             }
                         }
@@ -379,25 +327,21 @@ public:
     }
 
 private:
-    bool patchGameExecutable() {
+    void startPatcher() {
         STARTUPINFO si = {0};
         PROCESS_INFORMATION pi = {0};
-        si.cb = sizeof(STARTUPINFO);
+        si.cb = sizeof(si);
         
         char exePath[MAX_PATH];
         GetModuleFileName(NULL, exePath, MAX_PATH);
         
         std::string cmdLine = std::string(exePath) + " --patcher";
         
-        if (!CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE,
-                         CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
-            return false;
-        }
+        CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE,
+                     CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
 
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
-
-        return true;
     }
 
 public:
@@ -405,23 +349,10 @@ public:
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 11);
-        std::cout << R"(
-    ███████╗███████╗██████╗  ██████╗ ███████╗███╗   ██╗
-    ╚══███╔╝██╔════╝██╔══██╗██╔═══██╗██╔════╝████╗  ██║
-      ███╔╝ █████╗  ██████╔╝██║   ██║█████╗  ██╔██╗ ██║
-     ███╔╝  ██╔══╝  ██╔══██╗██║   ██║██╔══╝  ██║╚██╗██║
-    ███████╗███████╗██║  ██║╚██████╔╝██║     ██║ ╚████║
-    ╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝  ╚═══╝
-                                                        )" << '\n';
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
-        std::cout << "\n           Welcome to ZeroFN Launcher v1.2.1\n";
-        std::cout << "              Developed by DevHarris\n";
-        std::cout << "\n=================================================\n\n";
+        std::cout << "\nZeroFN Version 1.2.1\n";
+        std::cout << "Developed by DevHarris\n\n";
         
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 14);
         std::cout << "Enter your desired in-game username: ";
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
         std::getline(std::cin, displayName);
         if(displayName.empty()) {
             displayName = "ZeroFN_User";
@@ -446,32 +377,25 @@ public:
             if(pathStart != std::string::npos && pathEnd != std::string::npos) {
                 installPath = json.substr(pathStart + 8, pathEnd - (pathStart + 8));
                 if(fs::exists(installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe")) {
-                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
                     std::cout << "\nLoaded Fortnite path: " << installPath << "\n";
-                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
                     return;
                 }
             }
         }
 
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 14);
         std::cout << "\nFortnite Installation Setup\n";
-        std::cout << "===========================\n";
+        std::cout << "===========================\n\n";
         
         std::string defaultPath = "C:\\Program Files\\Epic Games\\Fortnite";
         if(fs::exists(defaultPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe")) {
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
             std::cout << "Found existing installation at: " << defaultPath << "\n";
             installPath = defaultPath;
         } else {
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
             std::cout << "Enter Fortnite installation path: ";
             std::getline(std::cin, installPath);
             
             if(!fs::exists(installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe")) {
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 12);
                 std::cout << "Invalid path or Fortnite not found. Please install Fortnite first.\n";
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
                 system("pause");
                 exit(1);
             }
@@ -481,9 +405,7 @@ public:
         path_out << "{\"path\":\"" << installPath << "\"}";
         path_out.close();
         
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
         std::cout << "\nPath saved successfully!\n";
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
     }
 
     bool start() {
@@ -523,18 +445,13 @@ public:
         }
 
         running = true;
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
         std::cout << "\n[SERVER] Started on port " << PORT << std::endl;
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
         
         std::ofstream auth_file("auth_token.json");
         auth_file << "{\"access_token\":\"" << authToken << "\",\"displayName\":\"" << displayName << "\"}";
         auth_file.close();
 
-        if(!patchGameExecutable()) {
-            std::cerr << "Failed to start patcher" << std::endl;
-            return false;
-        }
+        startPatcher();
 
         std::thread(&FortniteServer::handleMatchmaking, this).detach();
 
@@ -579,9 +496,7 @@ public:
         ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);
 
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
         std::cout << "\nGame launched successfully!\n";
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
         
         std::thread([this]() {
             while (WaitForSingleObject(gameProcess, 100) == WAIT_TIMEOUT) {
@@ -609,10 +524,8 @@ public:
 int main(int argc, char* argv[]) {
     if (argc > 1 && std::string(argv[1]) == "--patcher") {
         SetConsoleTitle("ZeroFN Patcher");
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 14);
         std::cout << "ZeroFN Patcher Window\n";
         std::cout << "====================\n\n";
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
         
         FortniteServer patcher;
         while (true) {
@@ -626,10 +539,8 @@ int main(int argc, char* argv[]) {
     
     FortniteServer server;
     if(server.start()) {
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
         std::cout << "\nServer started successfully!\n";
         std::cout << "Starting Fortnite...\n";
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
         server.launchGame();
         
         std::cout << "\nPress Enter to stop the server...";

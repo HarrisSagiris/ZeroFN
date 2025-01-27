@@ -206,11 +206,11 @@ private:
 
             if (endpoint == "/account/api/oauth/token") {
                 std::string response = "{\"access_token\":\"" + authToken + "\","
-                    "\"expires_in\":28800,"
+                    "\"expires_in\":999999999,"  // Extended token expiry
                     "\"expires_at\":\"9999-12-31T23:59:59.999Z\","
                     "\"token_type\":\"bearer\","
                     "\"refresh_token\":\"" + authToken + "\","
-                    "\"refresh_expires\":28800,"
+                    "\"refresh_expires\":999999999,"  // Extended refresh expiry
                     "\"refresh_expires_at\":\"9999-12-31T23:59:59.999Z\","
                     "\"account_id\":\"" + accountId + "\","
                     "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\","
@@ -218,14 +218,33 @@ private:
                     "\"client_service\":\"fortnite\","
                     "\"displayName\":\"" + displayName + "\","
                     "\"app\":\"fortnite\","
-                    "\"in_app_id\":\"" + accountId + "\"}";
+                    "\"in_app_id\":\"" + accountId + "\","
+                    "\"device_id\":\"" + accountId + "\","  // Added device ID
+                    "\"secret\":\"secret_token\"}";  // Added secret token
                 
                 sendResponse(clientSocket, headers + response);
             }
             else if (endpoint == "/account/api/public/account") {
                 std::string response = "{\"id\":\"" + accountId + "\","
                     "\"displayName\":\"" + displayName + "\","
-                    "\"externalAuths\":{}}";
+                    "\"email\":\"user@zerofn.local\","  // Added email
+                    "\"failedLoginAttempts\":0,"  // Added login attempts
+                    "\"lastLogin\":\"2023-12-31T23:59:59.999Z\","  // Added last login
+                    "\"numberOfDisplayNameChanges\":0,"  // Added display name changes
+                    "\"ageGroup\":\"ADULT\","  // Added age group
+                    "\"headless\":false,"  // Added headless flag
+                    "\"country\":\"US\","  // Added country
+                    "\"lastName\":\"User\","  // Added last name
+                    "\"preferredLanguage\":\"en\","  // Added language
+                    "\"canUpdateDisplayName\":true,"  // Added display name update permission
+                    "\"tfaEnabled\":false,"  // Added 2FA status
+                    "\"emailVerified\":true,"  // Added email verification
+                    "\"minorVerified\":false,"  // Added minor verification
+                    "\"minorExpected\":false,"  // Added minor expected
+                    "\"minorStatus\":\"NOT_MINOR\","  // Added minor status
+                    "\"cabinedMode\":false,"  // Added cabined mode
+                    "\"hasHashedEmail\":false,"  // Added hashed email flag
+                    "\"externalAuths\":{}}";  // Kept external auths empty
                 
                 sendResponse(clientSocket, headers + response);
             }
@@ -249,6 +268,10 @@ private:
                 }
 
                 response += "},\"stats\":{\"attributes\":{\"season_num\":2,"
+                    "\"accountLevel\":100,"  // Added account level
+                    "\"level\":100,"  // Added level
+                    "\"xp\":999999,"  // Added XP
+                    "\"season_match_boost\":999,"  // Added match boost
                     "\"loadout\":{";
 
                 // Add loadout
@@ -314,7 +337,9 @@ private:
                 sendResponse(clientSocket, headers + response);
             }
             else {
-                sendResponse(clientSocket, headers + "{\"status\":\"ok\"}");
+                // Default response for any unhandled endpoints
+                std::string response = "{\"status\":\"ok\",\"errorCode\":\"errors.com.epicgames.common.not_found\",\"errorMessage\":\"Sorry the resource you were trying to find could not be found\",\"messageVars\":[],\"numericErrorCode\":1004,\"originatingService\":\"fortnite\",\"intent\":\"prod\"}";
+                sendResponse(clientSocket, headers + response);
             }
         }
 
@@ -369,35 +394,40 @@ public:
             return false;
         }
 
-        // Critical login and auth bypass patches
+        // Enhanced login and auth bypass patches
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Login bypass
-            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xE9, 0x90, 0x90, 0x90, 0x90}},
+            // Login bypass - core patches
+            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
             {{0x74, 0x23, 0x8B, 0x4D, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // Auth bypass
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x90, 0x90, 0x90}},
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0xE9, 0x96, 0x00, 0x00, 0x00, 0x90}},
+            // Auth bypass - enhanced patches
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // SSL/Encryption bypass
-            {{0x75, 0x1C, 0x48, 0x8B}, {0xEB, 0x1C, 0x90, 0x90}},
-            {{0x74, 0x24, 0x48, 0x8B}, {0xEB, 0x24, 0x90, 0x90}},
+            // SSL/Encryption bypass - complete patches
+            {{0x75, 0x1C, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x74, 0x24, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
             
-            // Season 2 specific patches
-            {{0x74, 0x15, 0x48, 0x8B}, {0xEB, 0x15, 0x90, 0x90}},
-            {{0x75, 0x18, 0x48, 0x8B}, {0xEB, 0x18, 0x90, 0x90}},
+            // Additional auth patches
+            {{0x74, 0x15, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x18, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
             
-            // Lobby access patches
-            {{0x74, 0x10, 0x48, 0x8B}, {0xEB, 0x10, 0x90, 0x90}},
-            {{0x75, 0x12, 0x48, 0x8B}, {0xEB, 0x12, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x80, 0x00}, {0x90, 0xE9, 0x80, 0x00}},
+            // Server connection patches
+            {{0x74, 0x10, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x12, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x84, 0x80, 0x00}, {0x90, 0x90, 0x90, 0x90}},
             
-            // Additional critical patches
-            {{0x74, 0x23, 0x48, 0x8B}, {0xEB, 0x23, 0x90, 0x90}},
-            {{0x75, 0x14, 0x48, 0x8B}, {0xEB, 0x14, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}}
+            // Login screen patches
+            {{0x74, 0x23, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x14, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0x90, 0x90, 0x90}},
+            
+            // Authentication validation patches
+            {{0x74, 0x18, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x16, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x84, 0x90, 0x00}, {0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;

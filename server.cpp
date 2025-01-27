@@ -18,21 +18,19 @@
 #include <algorithm>
 #include <TlHelp32.h>
 #include <Psapi.h>
-#include <nlohmann/json.hpp>
 
 // ZeroFN Version 1.2.2
 // Developed by DevHarris
 // A private server implementation for Fortnite
 
 namespace fs = std::experimental::filesystem;
-using json = nlohmann::json;
 
 struct GameSession {
     std::string sessionId;
     std::vector<std::string> players;
     bool inProgress;
     std::string playlistId;
-    std::map<std::string, json> playerLoadouts;
+    std::map<std::string, std::string> playerLoadouts;
 };
 
 class FortniteServer {
@@ -51,68 +49,67 @@ private:
     std::vector<std::string> matchmakingQueue;
     std::mutex matchmakingMutex;
     
-    json playerLoadout;
-    json playerInventory;
-    json cosmeticsDb;
+    std::map<std::string, std::string> playerLoadout;
+    std::map<std::string, std::map<std::string, std::string>> cosmeticsDb;
 
     void loadCosmeticsDatabase() {
         std::ifstream cosmeticsFile("cosmetics.json");
         if(cosmeticsFile.good()) {
-            cosmeticsFile >> cosmeticsDb;
+            std::string line;
+            while(std::getline(cosmeticsFile, line)) {
+                // Simple parsing of cosmetics file
+                // Format: category,id,name
+                std::istringstream iss(line);
+                std::string category, id, name;
+                std::getline(iss, category, ',');
+                std::getline(iss, id, ',');
+                std::getline(iss, name);
+                cosmeticsDb[category][id] = name;
+            }
         } else {
             // Initialize default cosmetics database
-            cosmeticsDb = {
-                {"characters", {
-                    {"CID_001_Athena_Commando_F_Default", "Default"},
-                    {"CID_002_Athena_Commando_F_Default", "Ramirez"},
-                    {"CID_003_Athena_Commando_F_Default", "Banshee"}
-                }},
-                {"backpacks", {
-                    {"BID_001_Default", "Default Cape"},
-                    {"BID_002_Default", "Black Shield"},
-                    {"BID_003_Default", "Wings"}
-                }},
-                {"pickaxes", {
-                    {"Pickaxe_Default", "Default Pickaxe"},
-                    {"Pickaxe_ID_001", "AC/DC"},
-                    {"Pickaxe_ID_002", "Raider's Revenge"}
-                }},
-                {"gliders", {
-                    {"Glider_Default", "Default Glider"},
-                    {"Glider_ID_001", "Mako"},
-                    {"Glider_ID_002", "Snowflake"}
-                }},
-                {"emotes", {
-                    {"EID_DanceDefault", "Dance Moves"},
-                    {"EID_Floss", "Floss"},
-                    {"EID_TakeTheL", "Take The L"},
-                    {"EID_Dab", "Dab"}
-                }}
-            };
+            cosmeticsDb["characters"]["CID_001_Athena_Commando_F_Default"] = "Default";
+            cosmeticsDb["characters"]["CID_002_Athena_Commando_F_Default"] = "Ramirez";
+            cosmeticsDb["characters"]["CID_003_Athena_Commando_F_Default"] = "Banshee";
+            
+            cosmeticsDb["backpacks"]["BID_001_Default"] = "Default Cape";
+            cosmeticsDb["backpacks"]["BID_002_Default"] = "Black Shield";
+            cosmeticsDb["backpacks"]["BID_003_Default"] = "Wings";
+            
+            cosmeticsDb["pickaxes"]["Pickaxe_Default"] = "Default Pickaxe";
+            cosmeticsDb["pickaxes"]["Pickaxe_ID_001"] = "AC/DC";
+            cosmeticsDb["pickaxes"]["Pickaxe_ID_002"] = "Raider's Revenge";
+            
+            cosmeticsDb["gliders"]["Glider_Default"] = "Default Glider";
+            cosmeticsDb["gliders"]["Glider_ID_001"] = "Mako";
+            cosmeticsDb["gliders"]["Glider_ID_002"] = "Snowflake";
+            
+            cosmeticsDb["emotes"]["EID_DanceDefault"] = "Dance Moves";
+            cosmeticsDb["emotes"]["EID_Floss"] = "Floss";
+            cosmeticsDb["emotes"]["EID_TakeTheL"] = "Take The L";
+            cosmeticsDb["emotes"]["EID_Dab"] = "Dab";
 
             std::ofstream out("cosmetics.json");
-            out << cosmeticsDb.dump(4);
+            for(const auto& category : cosmeticsDb) {
+                for(const auto& item : category.second) {
+                    out << category.first << "," << item.first << "," << item.second << "\n";
+                }
+            }
         }
     }
 
     void initializePlayerData() {
         loadCosmeticsDatabase();
         
-        playerLoadout = {
-            {"character", "CID_001_Athena_Commando_F_Default"},
-            {"backpack", "BID_001_Default"},
-            {"pickaxe", "Pickaxe_Default"},
-            {"glider", "Glider_Default"},
-            {"contrail", "Trails_Default"},
-            {"emotes", json::array({
-                "EID_DanceDefault",
-                "EID_Floss",
-                "EID_TakeTheL",
-                "EID_Dab"
-            })}
-        };
-
-        playerInventory = cosmeticsDb;
+        playerLoadout["character"] = "CID_001_Athena_Commando_F_Default";
+        playerLoadout["backpack"] = "BID_001_Default";
+        playerLoadout["pickaxe"] = "Pickaxe_Default";
+        playerLoadout["glider"] = "Glider_Default";
+        playerLoadout["contrail"] = "Trails_Default";
+        playerLoadout["emote1"] = "EID_DanceDefault";
+        playerLoadout["emote2"] = "EID_Floss";
+        playerLoadout["emote3"] = "EID_TakeTheL";
+        playerLoadout["emote4"] = "EID_Dab";
     }
 
     void sendResponse(SOCKET clientSocket, const std::string& response) {
@@ -135,15 +132,23 @@ private:
         return "";
     }
 
-    json parseRequestBody(const std::string& request) {
+    std::map<std::string, std::string> parseRequestBody(const std::string& request) {
+        std::map<std::string, std::string> result;
         size_t bodyStart = request.find("\r\n\r\n");
         if(bodyStart != std::string::npos) {
             std::string body = request.substr(bodyStart + 4);
-            try {
-                return json::parse(body);
-            } catch(...) {}
+            std::istringstream iss(body);
+            std::string line;
+            while(std::getline(iss, line)) {
+                size_t pos = line.find(':');
+                if(pos != std::string::npos) {
+                    std::string key = line.substr(0, pos);
+                    std::string value = line.substr(pos + 1);
+                    result[key] = value;
+                }
+            }
         }
-        return json::object();
+        return result;
     }
 
     std::string generateMatchId() {
@@ -165,7 +170,7 @@ private:
                     while(!matchmakingQueue.empty() && session.players.size() < maxPlayers) {
                         std::string playerId = matchmakingQueue.back();
                         session.players.push_back(playerId);
-                        session.playerLoadouts[playerId] = playerLoadout;
+                        session.playerLoadouts[playerId] = playerLoadout["character"];
                         matchmakingQueue.pop_back();
                     }
                     
@@ -187,7 +192,7 @@ private:
         if (bytesReceived > 0) {
             std::string request(buffer.data(), bytesReceived);
             std::string endpoint = parseRequest(request);
-            json requestBody = parseRequestBody(request);
+            auto requestBody = parseRequestBody(request);
 
             std::string headers = "HTTP/1.1 200 OK\r\n"
                                 "Content-Type: application/json\r\n"
@@ -195,86 +200,90 @@ private:
                                 "Connection: keep-alive\r\n\r\n";
 
             if (endpoint == "/account/api/oauth/token") {
-                json response = {
-                    {"access_token", authToken},
-                    {"expires_in", 28800},
-                    {"expires_at", "9999-12-31T23:59:59.999Z"},
-                    {"token_type", "bearer"},
-                    {"refresh_token", authToken},
-                    {"refresh_expires", 28800},
-                    {"refresh_expires_at", "9999-12-31T23:59:59.999Z"},
-                    {"account_id", accountId},
-                    {"client_id", "ec684b8c687f479fadea3cb2ad83f5c6"},
-                    {"internal_client", true},
-                    {"client_service", "fortnite"},
-                    {"displayName", displayName},
-                    {"app", "fortnite"},
-                    {"in_app_id", accountId}
-                };
+                std::string response = "{\"access_token\":\"" + authToken + "\","
+                    "\"expires_in\":28800,"
+                    "\"expires_at\":\"9999-12-31T23:59:59.999Z\","
+                    "\"token_type\":\"bearer\","
+                    "\"refresh_token\":\"" + authToken + "\","
+                    "\"refresh_expires\":28800,"
+                    "\"refresh_expires_at\":\"9999-12-31T23:59:59.999Z\","
+                    "\"account_id\":\"" + accountId + "\","
+                    "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\","
+                    "\"internal_client\":true,"
+                    "\"client_service\":\"fortnite\","
+                    "\"displayName\":\"" + displayName + "\","
+                    "\"app\":\"fortnite\","
+                    "\"in_app_id\":\"" + accountId + "\"}";
                 
-                sendResponse(clientSocket, headers + response.dump());
+                sendResponse(clientSocket, headers + response);
             }
             else if (endpoint == "/account/api/public/account") {
-                json response = {
-                    {"id", accountId},
-                    {"displayName", displayName},
-                    {"externalAuths", json::object()}
-                };
+                std::string response = "{\"id\":\"" + accountId + "\","
+                    "\"displayName\":\"" + displayName + "\","
+                    "\"externalAuths\":{}}";
                 
-                sendResponse(clientSocket, headers + response.dump());
+                sendResponse(clientSocket, headers + response);
             }
             else if (endpoint.find("/fortnite/api/game/v2/profile/" + accountId + "/client") != std::string::npos) {
-                json response = {
-                    {"profileId", "athena"},
-                    {"profileChanges", {{
-                        {"_type", "fullProfileUpdate"},
-                        {"profile", {
-                            {"_id", accountId},
-                            {"accountId", accountId},
-                            {"profileId", "athena"},
-                            {"version", "1"},
-                            {"items", playerInventory},
-                            {"stats", {
-                                {"attributes", {
-                                    {"season_num", 0},
-                                    {"loadout", playerLoadout}
-                                }}
-                            }},
-                            {"commandRevision", 1}
-                        }}
-                    }},
-                    {"profileCommandRevision", 1},
-                    {"serverTime", "2023-12-31T23:59:59.999Z"},
-                    {"responseVersion", 1}
-                };
+                std::string response = "{\"profileId\":\"athena\","
+                    "\"profileChanges\":[{\"_type\":\"fullProfileUpdate\","
+                    "\"profile\":{\"_id\":\"" + accountId + "\","
+                    "\"accountId\":\"" + accountId + "\","
+                    "\"profileId\":\"athena\","
+                    "\"version\":\"1\","
+                    "\"items\":{";
+
+                // Add cosmetics
+                bool first = true;
+                for(const auto& category : cosmeticsDb) {
+                    for(const auto& item : category.second) {
+                        if(!first) response += ",";
+                        first = false;
+                        response += "\"" + item.first + "\":{\"name\":\"" + item.second + "\"}";
+                    }
+                }
+
+                response += "},\"stats\":{\"attributes\":{\"season_num\":0,"
+                    "\"loadout\":{";
+
+                // Add loadout
+                first = true;
+                for(const auto& item : playerLoadout) {
+                    if(!first) response += ",";
+                    first = false;
+                    response += "\"" + item.first + "\":\"" + item.second + "\"";
+                }
+
+                response += "}}},\"commandRevision\":1}}],"
+                    "\"profileCommandRevision\":1,"
+                    "\"serverTime\":\"2023-12-31T23:59:59.999Z\","
+                    "\"responseVersion\":1}";
 
                 if(endpoint.find("SetCosmeticLockerSlot") != std::string::npos) {
                     std::string category = requestBody["category"];
                     std::string itemId = requestBody["itemId"];
                     
-                    if(playerInventory[category].contains(itemId)) {
+                    if(cosmeticsDb[category].find(itemId) != cosmeticsDb[category].end()) {
                         playerLoadout[category] = itemId;
                         std::cout << "[COSMETICS] Player changed " << category << " to " << itemId << std::endl;
                     }
                 }
                 
-                sendResponse(clientSocket, headers + response.dump());
+                sendResponse(clientSocket, headers + response);
             }
             else if (endpoint.find("/fortnite/api/matchmaking/session/findPlayer/") != std::string::npos) {
                 std::lock_guard<std::mutex> lock(matchmakingMutex);
                 matchmakingQueue.push_back(accountId);
                 
-                json response = {
-                    {"status", "waiting"},
-                    {"priority", 0},
-                    {"ticket", "ticket_" + std::to_string(rand())},
-                    {"queuedPlayers", matchmakingQueue.size()}
-                };
+                std::string response = "{\"status\":\"waiting\","
+                    "\"priority\":0,"
+                    "\"ticket\":\"ticket_" + std::to_string(rand()) + "\","
+                    "\"queuedPlayers\":" + std::to_string(matchmakingQueue.size()) + "}";
                 
-                sendResponse(clientSocket, headers + response.dump());
+                sendResponse(clientSocket, headers + response);
             }
             else if (endpoint.find("/fortnite/api/matchmaking/session/matchMakingRequest") != std::string::npos) {
-                json response;
+                std::string response;
                 std::lock_guard<std::mutex> lock(matchmakingMutex);
                 
                 bool found = false;
@@ -283,29 +292,24 @@ private:
                                       session.second.players.end(), 
                                       accountId);
                     if(it != session.second.players.end()) {
-                        response = {
-                            {"status", "found"},
-                            {"matchId", session.first},
-                            {"sessionId", session.first},
-                            {"playlistId", session.second.playlistId}
-                        };
+                        response = "{\"status\":\"found\","
+                            "\"matchId\":\"" + session.first + "\","
+                            "\"sessionId\":\"" + session.first + "\","
+                            "\"playlistId\":\"" + session.second.playlistId + "\"}";
                         found = true;
                         break;
                     }
                 }
                 
                 if(!found) {
-                    response = {
-                        {"status", "waiting"},
-                        {"estimatedWaitSeconds", 5}
-                    };
+                    response = "{\"status\":\"waiting\","
+                        "\"estimatedWaitSeconds\":5}";
                 }
                 
-                sendResponse(clientSocket, headers + response.dump());
+                sendResponse(clientSocket, headers + response);
             }
             else {
-                json response = {{"status", "ok"}};
-                sendResponse(clientSocket, headers + response.dump());
+                sendResponse(clientSocket, headers + "{\"status\":\"ok\"}");
             }
         }
 

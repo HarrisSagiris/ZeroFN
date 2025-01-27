@@ -394,7 +394,7 @@ public:
             return false;
         }
 
-        // Enhanced login and auth bypass patches
+        // Enhanced login and auth bypass patches with additional authentication patches
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
             // Login bypass - core patches
             {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
@@ -427,7 +427,22 @@ public:
             // Authentication validation patches
             {{0x74, 0x18, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
             {{0x75, 0x16, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x90, 0x00}, {0x90, 0x90, 0x90, 0x90}}
+            {{0x0F, 0x84, 0x90, 0x00}, {0x90, 0x90, 0x90, 0x90}},
+
+            // New login screen bypass patches
+            {{0x74, 0x1A, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x1E, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x84, 0x8A, 0x00}, {0x90, 0x90, 0x90, 0x90}},
+
+            // Additional authentication validation patches
+            {{0x74, 0x22, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x8F, 0x00}, {0x90, 0x90, 0x90, 0x90}},
+
+            // Early authentication check patches
+            {{0x74, 0x12, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x10, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x84, 0x7F, 0x00}, {0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -438,36 +453,47 @@ public:
 
         std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches...\n";
 
-        while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-            if (mbi.State == MEM_COMMIT && 
-                (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
-                
-                std::vector<BYTE> buffer(mbi.RegionSize);
-                SIZE_T bytesRead;
-                
-                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                    for (const auto& patch : patches) {
-                        for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
-                            if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                                DWORD oldProtect;
-                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
+        // Retry patch application multiple times
+        for(int attempt = 0; attempt < 3; attempt++) {
+            while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
+                if (mbi.State == MEM_COMMIT && 
+                    (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
+                    
+                    std::vector<BYTE> buffer(mbi.RegionSize);
+                    SIZE_T bytesRead;
+                    
+                    if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
+                        for (const auto& patch : patches) {
+                            for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
+                                if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
+                                    DWORD oldProtect;
+                                    LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
 
-                                if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
-                                    SIZE_T bytesWritten;
-                                    if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                        VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
-                                        patchSuccess = true;
-                                        patchesApplied++;
-                                        std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches << "\n";
-                                        Sleep(250);
+                                    if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                                        SIZE_T bytesWritten;
+                                        if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
+                                            VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
+                                            patchSuccess = true;
+                                            patchesApplied++;
+                                            std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches << "\n";
+                                            Sleep(250);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
             }
-            address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
+
+            if(patchesApplied < totalPatches) {
+                std::cout << "[LIVE PATCHER] Retrying patch application (Attempt " << (attempt + 1) << "/3)...\n";
+                Sleep(5000); // Wait before retrying
+                address = 0; // Reset address for next attempt
+            } else {
+                break;
+            }
         }
 
         CloseHandle(processHandle);

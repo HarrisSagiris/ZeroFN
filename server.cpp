@@ -361,7 +361,7 @@ public:
 
         std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
         std::cout << "[LIVE PATCHER] Waiting for process initialization...\n";
-        Sleep(5000); // Wait for process to fully initialize
+        Sleep(10000); // Increased wait time for initialization
 
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
@@ -390,7 +390,12 @@ public:
 
             // Season 2 specific patches
             {{0x0F, 0x84, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
-            {{0x0F, 0x85, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}}
+            {{0x0F, 0x85, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
+            
+            // Additional crash prevention patches
+            {{0x74, 0x10, 0x48, 0x8B}, {0xEB, 0x10, 0x90, 0x90}},
+            {{0x75, 0x12, 0x48, 0x8B}, {0xEB, 0x12, 0x90, 0x90}},
+            {{0x0F, 0x84, 0x80, 0x00}, {0x90, 0xE9, 0x80, 0x00}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -422,7 +427,7 @@ public:
                                         patchSuccess = true;
                                         patchesApplied++;
                                         std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches << "\n";
-                                        Sleep(100); // Small delay between patches
+                                        Sleep(250); // Increased delay between patches
                                     }
                                 }
                             }
@@ -452,7 +457,7 @@ private:
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(10000); // Increased interval between patch attempts
+                Sleep(15000); // Increased interval between patch attempts
             }
         }).detach();
     }
@@ -463,7 +468,7 @@ public:
         
         system("cls");
         std::cout << "\nZeroFN Version 1.2.4 - Season 2 Chapter 1\n";
-        std::cout << "Developed by DevHarris\n\n";
+        std::cout << "Developed by @Devharris\n\n";
         
         std::cout << "Enter your desired in-game username: ";
         std::getline(std::cin, displayName);

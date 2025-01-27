@@ -18,22 +18,13 @@
 #include <algorithm>
 #include <TlHelp32.h>
 #include <Psapi.h>
-#include <commctrl.h>
-#pragma comment(lib, "comctl32.lib")
 
 // ZeroFN Version 1.2.4 
 // Developed by DevHarris
 // A private server implementation for Fortnite Season 2 Chapter 1
-// Added improved auth bypass and crash prevention with GUI
+// Added improved auth bypass and crash prevention
 
 namespace fs = std::experimental::filesystem;
-
-// GUI Window handles
-HWND mainWindow;
-HWND progressBar;
-HWND statusText;
-HWND usernameInput;
-HWND startButton;
 
 struct GameSession {
     std::string sessionId;
@@ -61,16 +52,6 @@ private:
     
     std::map<std::string, std::string> playerLoadout;
     std::map<std::string, std::map<std::string, std::string>> cosmeticsDb;
-
-    void updateStatus(const char* status) {
-        SetWindowText(statusText, status);
-        UpdateWindow(statusText);
-    }
-
-    void updateProgress(int value) {
-        SendMessage(progressBar, PBM_SETPOS, value, 0);
-        UpdateWindow(progressBar);
-    }
 
     void loadCosmeticsDatabase() {
         std::ifstream cosmeticsFile("cosmetics.json");
@@ -200,7 +181,8 @@ private:
                     
                     activeSessions[session.sessionId] = session;
                     
-                    updateStatus("[MATCHMAKING] Created session");
+                    std::cout << "[MATCHMAKING] Created session " << session.sessionId 
+                             << " with " << session.players.size() << " players" << std::endl;
                 }
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -311,7 +293,7 @@ private:
                     
                     if(cosmeticsDb[category].find(itemId) != cosmeticsDb[category].end()) {
                         playerLoadout[category] = itemId;
-                        updateStatus("[COSMETICS] Changed loadout item");
+                        std::cout << "[COSMETICS] Player changed " << category << " to " << itemId << std::endl;
                     }
                 }
                 
@@ -366,8 +348,7 @@ private:
 
 public:
     bool LivePatchFortnite() {
-        updateStatus("[LIVE PATCHER] Starting enhanced patching process...");
-        updateProgress(0);
+        std::cout << "\n[LIVE PATCHER] Starting enhanced patching process...\n";
 
         // Wait for Fortnite process with improved detection
         DWORD processId = 0;
@@ -394,22 +375,21 @@ public:
             if (processId == 0) {
                 Sleep(100); // Reduced wait time
                 retryCount++;
-                updateProgress((retryCount * 100) / MAX_RETRIES);
+                std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
             }
         }
 
         if (processId == 0) {
-            updateStatus("[LIVE PATCHER] Failed to find Fortnite process");
+            std::cout << "[LIVE PATCHER] Failed to find Fortnite process\n";
             return false;
         }
 
-        updateStatus("[LIVE PATCHER] Found Fortnite process");
-        updateProgress(25);
+        std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
 
-        // Immediately open process - no delay
+        // Open process immediately - no delay
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
-            updateStatus("[LIVE PATCHER] Failed to open process");
+            std::cout << "[LIVE PATCHER] Failed to open process\n";
             return false;
         }
 
@@ -461,7 +441,11 @@ public:
             // Early authentication check patches
             {{0x74, 0x12, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
             {{0x75, 0x10, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x7F, 0x00}, {0x90, 0x90, 0x90, 0x90}}
+            {{0x0F, 0x84, 0x7F, 0x00}, {0x90, 0x90, 0x90, 0x90}},
+
+            // Additional login check patches
+            {{0x74, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x1F, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -470,68 +454,56 @@ public:
         int patchesApplied = 0;
         int totalPatches = patches.size();
 
-        updateStatus("[LIVE PATCHER] Applying critical patches...");
-        updateProgress(50);
+        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches...\n";
 
-        // Retry patch application multiple times with reduced delays
-        for(int attempt = 0; attempt < 3; attempt++) {
-            while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-                if (mbi.State == MEM_COMMIT && 
-                    (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
-                    
-                    // Set entire region to PAGE_EXECUTE_READWRITE
-                    DWORD oldProtect;
-                    VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
-                    
-                    std::vector<BYTE> buffer(mbi.RegionSize);
-                    SIZE_T bytesRead;
-                    
-                    if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                        for (const auto& patch : patches) {
-                            for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
-                                if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                                    LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
-                                    SIZE_T bytesWritten;
-                                    if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                        patchSuccess = true;
-                                        patchesApplied++;
-                                        updateProgress(50 + (patchesApplied * 50) / totalPatches);
-                                    }
+        // Set entire process memory to PAGE_EXECUTE_READWRITE for faster patching
+        while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
+            if (mbi.State == MEM_COMMIT && 
+                (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
+                DWORD oldProtect;
+                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+                
+                std::vector<BYTE> buffer(mbi.RegionSize);
+                SIZE_T bytesRead;
+                
+                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
+                    for (const auto& patch : patches) {
+                        for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
+                            if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
+                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
+                                SIZE_T bytesWritten;
+                                if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
+                                    patchSuccess = true;
+                                    patchesApplied++;
+                                    std::cout << "[LIVE PATCHER] Applied patch " << patchesApplied << "/" << totalPatches << "\n";
                                 }
                             }
                         }
                     }
-                    
-                    // Restore original protection
-                    VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
                 }
-                address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
+                
+                // Restore original protection
+                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
             }
-
-            if(patchesApplied < totalPatches) {
-                updateStatus("[LIVE PATCHER] Retrying patch application...");
-                Sleep(1000); // Reduced retry delay
-                address = 0;
-            } else {
-                break;
-            }
+            address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
         CloseHandle(processHandle);
         
         if (patchSuccess) {
-            updateStatus("[LIVE PATCHER] Successfully applied patches - Game is ready!");
-            updateProgress(100);
+            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
+            std::cout << "[LIVE PATCHER] Login bypass and Season 2 patches are active\n";
+            std::cout << "[LIVE PATCHER] Game is ready - you can now access the lobby!\n";
             return true;
         } else {
-            updateStatus("[LIVE PATCHER] Failed to apply patches");
+            std::cout << "[LIVE PATCHER] Failed to apply patches - please verify game files\n";
             return false;
         }
     }
 
 private:
     void startPatcher() {
-        updateStatus("[PATCHER] Starting enhanced patch monitoring...");
+        std::cout << "[PATCHER] Starting enhanced patch monitoring...\n";
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
@@ -544,48 +516,15 @@ public:
     FortniteServer() : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL), patcherProcess(NULL) {
         srand(static_cast<unsigned>(time(0)));
         
-        // Initialize GUI components
-        InitCommonControls();
+        system("cls");
+        std::cout << "\nZeroFN Version 1.2.4 - Season 2 Chapter 1\n";
+        std::cout << "Developed by @Devharris\n\n";
         
-        WNDCLASSEX wc = {0};
-        wc.cbSize = sizeof(WNDCLASSEX);
-        wc.lpfnWndProc = DefWindowProc;
-        wc.hInstance = GetModuleHandle(NULL);
-        wc.lpszClassName = "ZeroFNClass";
-        RegisterClassEx(&wc);
-        
-        mainWindow = CreateWindowEx(0, "ZeroFNClass", "ZeroFN Launcher",
-            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-            CW_USEDEFAULT, CW_USEDEFAULT, 400, 300,
-            NULL, NULL, GetModuleHandle(NULL), NULL);
-            
-        progressBar = CreateWindowEx(0, PROGRESS_CLASS, NULL,
-            WS_CHILD | WS_VISIBLE,
-            20, 200, 360, 20,
-            mainWindow, NULL, GetModuleHandle(NULL), NULL);
-            
-        statusText = CreateWindowEx(0, "STATIC", "",
-            WS_CHILD | WS_VISIBLE,
-            20, 170, 360, 20,
-            mainWindow, NULL, GetModuleHandle(NULL), NULL);
-            
-        usernameInput = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", "",
-            WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-            20, 50, 360, 25,
-            mainWindow, NULL, GetModuleHandle(NULL), NULL);
-            
-        startButton = CreateWindowEx(0, "BUTTON", "Start Game",
-            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            150, 100, 100, 30,
-            mainWindow, NULL, GetModuleHandle(NULL), NULL);
-            
-        ShowWindow(mainWindow, SW_SHOW);
-        UpdateWindow(mainWindow);
-        
-        // Get username from input
-        char username[256];
-        GetWindowText(usernameInput, username, 256);
-        displayName = username[0] ? username : "ZeroFN_User";
+        std::cout << "Enter your desired in-game username: ";
+        std::getline(std::cin, displayName);
+        if(displayName.empty()) {
+            displayName = "ZeroFN_User";
+        }
         
         accountId = "zerofn_" + std::to_string(rand());
         authToken = "zerofn_token_" + std::to_string(rand());

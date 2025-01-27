@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <cstdlib>
@@ -216,8 +215,6 @@ public:
         if(!fs::exists(gamePath) || !fs::exists(serverPath)) {
             throw std::runtime_error("Invalid paths in config.json");
         }
-
-        curl_global_init(CURL_GLOBAL_ALL);
         
         loadCosmeticsDatabase();
         
@@ -228,7 +225,6 @@ public:
     }
 
     ~HybridLauncher() {
-        curl_global_cleanup();
         if(gameProcess) {
             CloseHandle(gameProcess);
         }

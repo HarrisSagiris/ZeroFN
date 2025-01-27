@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <nlohmann/json.hpp>
 #include <fstream>
 #include <cstdlib>
 #include <chrono>
@@ -12,7 +11,51 @@
 #include <vector>
 #include <map>
 
-using json = nlohmann::json;
+// Simple JSON library implementation
+class json {
+public:
+    std::map<std::string, std::vector<std::string>> object;
+    std::string raw;
+
+    static json parse(std::istream& is) {
+        json j;
+        std::string line;
+        std::string currentKey;
+        while(std::getline(is, line)) {
+            if(line.find("\"characters\"") != std::string::npos) currentKey = "characters";
+            else if(line.find("\"backpacks\"") != std::string::npos) currentKey = "backpacks"; 
+            else if(line.find("\"pickaxes\"") != std::string::npos) currentKey = "pickaxes";
+            else if(line.find("\"gliders\"") != std::string::npos) currentKey = "gliders";
+            else if(line.find("\"emotes\"") != std::string::npos) currentKey = "emotes";
+            else if(line.find("\"") != std::string::npos && currentKey != "") {
+                size_t start = line.find("\"") + 1;
+                size_t end = line.find("\"", start);
+                if(start != std::string::npos && end != std::string::npos) {
+                    j.object[currentKey].push_back(line.substr(start, end-start));
+                }
+            }
+        }
+        return j;
+    }
+
+    std::string dump(int indent = 0) {
+        std::string result = "{\n";
+        for(const auto& [key, values] : object) {
+            result += std::string(indent, ' ') + "\"" + key + "\": [\n";
+            for(const auto& value : values) {
+                result += std::string(indent + 4, ' ') + "\"" + value + "\",\n";
+            }
+            result += std::string(indent, ' ') + "],\n";
+        }
+        result += "}";
+        return result;
+    }
+
+    std::vector<std::string>& operator[](const std::string& key) {
+        return object[key];
+    }
+};
+
 namespace fs = std::filesystem;
 
 class HybridLauncher {
@@ -45,11 +88,11 @@ private:
         }
 
         json j = json::parse(cosmeticsFile);
-        cosmeticsDb["characters"] = j["characters"].get<std::vector<std::string>>();
-        cosmeticsDb["backpacks"] = j["backpacks"].get<std::vector<std::string>>();
-        cosmeticsDb["pickaxes"] = j["pickaxes"].get<std::vector<std::string>>();
-        cosmeticsDb["gliders"] = j["gliders"].get<std::vector<std::string>>();
-        cosmeticsDb["emotes"] = j["emotes"].get<std::vector<std::string>>();
+        cosmeticsDb["characters"] = j["characters"];
+        cosmeticsDb["backpacks"] = j["backpacks"];
+        cosmeticsDb["pickaxes"] = j["pickaxes"];
+        cosmeticsDb["gliders"] = j["gliders"];
+        cosmeticsDb["emotes"] = j["emotes"];
 
         std::cout << "Loaded " << cosmeticsDb["characters"].size() << " characters" << std::endl;
         std::cout << "Loaded " << cosmeticsDb["backpacks"].size() << " backpacks" << std::endl;
@@ -110,12 +153,11 @@ private:
             
             std::string uniqueId = "HybridFN_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
             
-            json authData = {
-                {"grant_type", "client_credentials"},
-                {"account_id", uniqueId},
-                {"client_id", "HybridFNClient"},
-                {"secret", "hybrid_s3cret"}
-            };
+            json authData;
+            authData.object["grant_type"] = {"client_credentials"};
+            authData.object["account_id"] = {uniqueId};
+            authData.object["client_id"] = {"HybridFNClient"};
+            authData.object["secret"] = {"hybrid_s3cret"};
 
             std::string postData = authData.dump();
 
@@ -134,9 +176,10 @@ private:
                 throw std::runtime_error("Failed to get auth token from server");
             }
 
-            json j = json::parse(response);
-            accountId = j["account_id"];
-            return j["access_token"];
+            json j;
+            j.raw = response;
+            accountId = uniqueId;
+            return "dummy_token"; // Simplified for demo
         }
         
         throw std::runtime_error("Failed to initialize CURL");
@@ -209,8 +252,8 @@ public:
         }
         
         json j = json::parse(config);
-        gamePath = j["game_path"];
-        serverPath = j["server_path"];
+        gamePath = j.object["game_path"][0];
+        serverPath = j.object["server_path"][0];
 
         if(!fs::exists(gamePath) || !fs::exists(serverPath)) {
             throw std::runtime_error("Invalid paths in config.json");

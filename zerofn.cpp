@@ -375,7 +375,7 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(250); // Increased delay between retries
+                Sleep(500); // Increased delay between retries
                 retryCount++;
                 std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
             }
@@ -387,6 +387,7 @@ public:
         }
 
         std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
+        Sleep(2000); // Wait for process to fully initialize
 
         // Enhanced privilege elevation with error handling
         HANDLE tokenHandle;
@@ -415,11 +416,12 @@ public:
         }
 
         CloseHandle(tokenHandle);
+        Sleep(1000); // Wait after privilege adjustment
 
         // Open process with enhanced error handling and retry mechanism
         HANDLE processHandle = NULL;
         int openAttempts = 0;
-        const int MAX_OPEN_ATTEMPTS = 3;
+        const int MAX_OPEN_ATTEMPTS = 5;
 
         while (!processHandle && openAttempts < MAX_OPEN_ATTEMPTS) {
             processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
@@ -438,31 +440,25 @@ public:
             return false;
         }
 
-        // Use PAGE_EXECUTE_WRITECOPY for safer memory modifications
-        DWORD oldProtect;
-        VirtualProtectEx(processHandle, NULL, 0xFFFFFFFF, PAGE_EXECUTE_WRITECOPY, &oldProtect);
-        
-        // Disable memory protections more carefully
-        PROCESS_MITIGATION_DYNAMIC_CODE_POLICY dcp = { 0 };
-        SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &dcp, sizeof(dcp));
+        Sleep(1000); // Wait after process handle obtained
 
         // Updated Season 2 patches with more specific patterns and verification
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core login bypass
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C, 0x24, 0x30}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D, 0x45, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Core login bypass (Split into smaller chunks)
+            {{0x74, 0x20}, {0x90, 0x90}},
+            {{0x48, 0x8B}, {0x90, 0x90}},
             
-            // Authentication bypass
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x95, 0x00, 0x00, 0x00, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Authentication bypass (Split into smaller chunks)
+            {{0x0F, 0x84}, {0x90, 0x90}},
+            {{0x85, 0x00}, {0x90, 0x90}},
             
-            // Server validation
-            {{0x74, 0x23, 0x48, 0x8B, 0x4D, 0xE8, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x1D, 0x48, 0x8B, 0x4D, 0xF0, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Server validation (Smaller chunks)
+            {{0x74, 0x23}, {0x90, 0x90}},
+            {{0x75, 0x1D}, {0x90, 0x90}},
             
-            // SSL pinning
-            {{0x0F, 0x84, 0x7F, 0x00, 0x00, 0x00, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x8F, 0x00, 0x00, 0x00, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}}
+            // SSL pinning (Reduced size for stability)
+            {{0x0F, 0x84}, {0x90, 0x90}},
+            {{0x0F, 0x85}, {0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -470,9 +466,10 @@ public:
         bool patchSuccess = false;
         int patchesApplied = 0;
         int totalPatches = patches.size();
-        std::vector<LPVOID> appliedPatches; // Track patch locations for verification
+        std::vector<LPVOID> appliedPatches;
 
-        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches...\n";
+        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches with crash prevention...\n";
+        Sleep(2000); // Wait before starting patches
 
         // Enhanced memory scanning and patching with verification
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
@@ -480,8 +477,7 @@ public:
                 (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
                 
                 DWORD oldProtect;
-                if (!VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_WRITECOPY, &oldProtect)) {
-                    std::cout << "[LIVE PATCHER] Failed to modify memory protection at " << mbi.BaseAddress << "\n";
+                if (!VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect)) {
                     address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
                     continue;
                 }
@@ -495,8 +491,7 @@ public:
                             if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                 
-                                // Add delay between patches
-                                Sleep(50);
+                                Sleep(500); // Longer delay between patches
                                 
                                 SIZE_T bytesWritten;
                                 int writeAttempts = 0;
@@ -504,7 +499,8 @@ public:
                                 
                                 while (writeAttempts < 3 && !writeSuccess) {
                                     if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                        // Verify the patch
+                                        Sleep(250); // Wait before verification
+                                        
                                         std::vector<BYTE> verifyBuffer(patch.second.size());
                                         SIZE_T verifyBytesRead;
                                         
@@ -521,12 +517,13 @@ public:
                                                     << " at " << std::hex << patchAddress << std::dec << "\n";
                                             
                                             FlushInstructionCache(processHandle, patchAddress, patch.second.size());
+                                            Sleep(500); // Wait after successful patch
                                         }
                                     }
                                     
                                     if (!writeSuccess) {
                                         writeAttempts++;
-                                        Sleep(100);
+                                        Sleep(500); // Longer delay between retry attempts
                                     }
                                 }
                                 
@@ -544,6 +541,7 @@ public:
         }
 
         CloseHandle(processHandle);
+        Sleep(1000); // Final wait before completing
 
         if (patchesApplied > 0) {
             std::cout << "[LIVE PATCHER] Successfully applied and verified " << patchesApplied << " patches\n";
@@ -562,7 +560,7 @@ private:
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(10000); // Increased interval to reduce CPU usage and prevent crashes
+                Sleep(30000); // Increased interval to reduce CPU usage and prevent crashes
             }
         }).detach();
     }

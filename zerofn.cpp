@@ -1,3 +1,5 @@
+#define _WIN32_WINNT 0x0602 // Target Windows 8 or later
+
 #include <iostream>
 #include <string>
 #include <thread>
@@ -54,7 +56,7 @@ private:
     std::map<std::string, std::string> playerLoadout;
     std::map<std::string, std::map<std::string, std::string>> cosmeticsDb;
 
-    void loadCosmeticsDatabase() {
+void loadCosmeticsDatabase() {
         std::ifstream cosmeticsFile("cosmetics.json");
         if(cosmeticsFile.good()) {
             std::string line;

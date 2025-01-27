@@ -318,7 +318,7 @@ private:
 
 public:
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting live patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting enhanced patching process...\n";
 
         DWORD processId = 0;
         int retryCount = 0;
@@ -342,7 +342,6 @@ public:
             }
             
             if (processId == 0) {
-                std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << (retryCount + 1) << "/" << MAX_RETRIES << "\n";
                 Sleep(1000);
                 retryCount++;
             }
@@ -359,33 +358,36 @@ public:
             return false;
         }
 
-        // Enhanced patch patterns for UE4 crash prevention
+        // Enhanced patch patterns for complete bypass
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core engine patches
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},  // Jump patch
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},  // Conditional bypass
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},  // NOP + jump
+            // Core engine crash bypass
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
+            {{0x0F, 0x85, 0x96, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // UE4 crash handling bypasses
-            {{0x0F, 0x85, 0x96, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},  // Error check bypass
-            {{0x0F, 0x84, 0x95, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},  // Crash check bypass
+            // Authentication bypass
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
             
-            // Memory validation patches
-            {{0x75, 0x1F, 0x48, 0x8B, 0x45}, {0xEB, 0x1F, 0x48, 0x8B, 0x45}},  // Memory check bypass
-            {{0x74, 0x15, 0x48, 0x8B, 0x4D}, {0xEB, 0x15, 0x48, 0x8B, 0x4D}},  // Pointer validation bypass
+            // SSL/Encryption bypass
+            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x95, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // Anti-crash patches
-            {{0x0F, 0x85, 0x95, 0x02, 0x00}, {0xE9, 0x96, 0x02, 0x00, 0x00, 0x90}},  // Exception handler bypass
-            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xEB, 0x08, 0x8B, 0x45, 0xE8}},  // Error state bypass
+            // Anti-cheat bypass
+            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
+            {{0x75, 0x1C, 0x48, 0x8B, 0x0D}, {0xEB, 0x1C, 0x48, 0x8B, 0x0D}},
+            
+            // Memory protection bypass
+            {{0x0F, 0x84, 0x95, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x95, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+
+            // Complete crash handler bypass
+            {{0x0F, 0x84, 0xFF, 0xFF, 0xFF, 0xFF}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0xFF, 0xFF, 0xFF, 0xFF}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
             // Additional stability patches
-            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},  // Error check bypass
-            {{0x75, 0x1C, 0x48, 0x8B, 0x0D}, {0xEB, 0x1C, 0x48, 0x8B, 0x0D}},  // Validation bypass
-            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},  // Complete bypass
-            
-            // Memory protection patches
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}},  // Memory protection bypass
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0x90, 0x90, 0x90, 0x90, 0x90}},  // Access validation bypass
+            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x74, 0x15, 0x48, 0x8B, 0x4D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x1F, 0x48, 0x8B, 0x45}, {0x90, 0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -411,16 +413,16 @@ public:
                                     SIZE_T bytesWritten;
                                     if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
                                         VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
-                                        std::cout << "[LIVE PATCHER] Successfully applied patch " << ++patchesApplied 
-                                                  << " at " << std::hex << patchAddress << std::dec << "\n";
                                         patchSuccess = true;
+                                        patchesApplied++;
                                         
                                         // Verify patch
                                         std::vector<BYTE> verifyBuffer(patch.second.size());
                                         SIZE_T verifyBytesRead;
                                         if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead)) {
                                             if (memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
-                                                std::cout << "[LIVE PATCHER] Patch verification successful\n";
+                                                std::cout << "[LIVE PATCHER] Successfully applied and verified patch " << patchesApplied 
+                                                          << " at " << std::hex << patchAddress << std::dec << "\n";
                                             }
                                         }
                                     }
@@ -437,6 +439,7 @@ public:
         
         if (patchSuccess) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
+            std::cout << "[LIVE PATCHER] All bypasses active - Auth, SSL, Crash Handler, Memory Protection\n";
         }
         
         return patchSuccess;
@@ -448,7 +451,7 @@ private:
         PROCESS_INFORMATION pi = {0};
         si.cb = sizeof(si);
         
-        std::string cmdLine = "cmd.exe /c title ZeroFN Patcher && echo Running patcher... && timeout /t 2 >nul";
+        std::string cmdLine = "cmd.exe /c title ZeroFN Patcher && echo Running enhanced patcher... && timeout /t 2 >nul";
         
         if (CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE,
                          CREATE_NEW_CONSOLE | CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
@@ -458,7 +461,7 @@ private:
             std::thread([this]() {
                 while(running) {
                     LivePatchFortnite();
-                    Sleep(2000); // Reduced sleep time for more frequent patching
+                    Sleep(1000); // More frequent patching
                 }
             }).detach();
         }

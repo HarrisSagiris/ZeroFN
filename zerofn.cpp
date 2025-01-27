@@ -21,6 +21,7 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 #include <processthreadsapi.h>
+#include <winternl.h>
 
 // ZeroFN Version 1.2.4 
 // Developed by DevHarris
@@ -389,32 +390,51 @@ public:
 
         std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
 
-        // Open process with debug privileges
+        // Enhanced privilege elevation
         HANDLE tokenHandle;
         TOKEN_PRIVILEGES tokenPrivileges;
         LUID luid;
 
-        if(OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tokenHandle)) {
-            if(LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
-                tokenPrivileges.PrivilegeCount = 1;
-                tokenPrivileges.Privileges[0].Luid = luid;
-                tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-                AdjustTokenPrivileges(tokenHandle, FALSE, &tokenPrivileges, sizeof(TOKEN_PRIVILEGES), NULL, NULL);
-            }
-            CloseHandle(tokenHandle);
-        }
-
-        HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-        if (!processHandle) {
-            std::cout << "[LIVE PATCHER] Failed to open process with error: " << GetLastError() << "\n";
+        if(!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tokenHandle)) {
+            std::cout << "[LIVE PATCHER] Failed to open process token. Error: " << GetLastError() << "\n";
             return false;
         }
 
-        // Force disable memory protection
-        DWORD oldProtect;
-        if (!VirtualProtectEx(processHandle, NULL, 0xFFFFFFFF, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-            SetProcessMitigationPolicy(ProcessDynamicCodePolicy, NULL, sizeof(PROCESS_MITIGATION_DYNAMIC_CODE_POLICY));
+        if(!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
+            std::cout << "[LIVE PATCHER] Failed to lookup privilege value. Error: " << GetLastError() << "\n";
+            CloseHandle(tokenHandle);
+            return false;
         }
+
+        tokenPrivileges.PrivilegeCount = 1;
+        tokenPrivileges.Privileges[0].Luid = luid;
+        tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+        if(!AdjustTokenPrivileges(tokenHandle, FALSE, &tokenPrivileges, sizeof(TOKEN_PRIVILEGES), NULL, NULL)) {
+            std::cout << "[LIVE PATCHER] Failed to adjust token privileges. Error: " << GetLastError() << "\n";
+            CloseHandle(tokenHandle);
+            return false;
+        }
+
+        CloseHandle(tokenHandle);
+
+        // Open process with enhanced security bypass
+        HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+        if (!processHandle) {
+            // Try alternative method if first attempt fails
+            processHandle = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION, FALSE, processId);
+            if (!processHandle) {
+                std::cout << "[LIVE PATCHER] Failed to open process. Error: " << GetLastError() << "\n";
+                return false;
+            }
+        }
+
+        // Disable memory protection and security features
+        DWORD oldProtect;
+        VirtualProtectEx(processHandle, NULL, 0xFFFFFFFF, PAGE_EXECUTE_READWRITE, &oldProtect);
+        
+        PROCESS_MITIGATION_DYNAMIC_CODE_POLICY dcp = { 0 };
+        SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &dcp, sizeof(dcp));
 
         // Updated Season 2 patches with more specific patterns
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
@@ -443,13 +463,17 @@ public:
 
         std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches...\n";
 
-        // Scan and patch memory with improved error handling
+        // Enhanced memory scanning and patching
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
-                (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
+                (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
                 
-                DWORD oldProtect;
-                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+                // Force memory permissions
+                if (!VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                    std::cout << "[LIVE PATCHER] Failed to modify memory protection at " << mbi.BaseAddress << "\n";
+                    address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
+                    continue;
+                }
 
                 std::vector<BYTE> buffer(mbi.RegionSize);
                 SIZE_T bytesRead;
@@ -461,14 +485,21 @@ public:
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                 SIZE_T bytesWritten;
                                 
-                                if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                    if (bytesWritten == patch.second.size()) {
-                                        patchSuccess = true;
-                                        patchesApplied++;
-                                        std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches 
-                                                << " at " << std::hex << patchAddress << std::dec << "\n";
-                                        FlushInstructionCache(processHandle, patchAddress, patch.second.size());
+                                // Enhanced write with retry mechanism
+                                int writeAttempts = 0;
+                                while (writeAttempts < 3) {
+                                    if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
+                                        if (bytesWritten == patch.second.size()) {
+                                            patchSuccess = true;
+                                            patchesApplied++;
+                                            std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches 
+                                                    << " at " << std::hex << patchAddress << std::dec << "\n";
+                                            FlushInstructionCache(processHandle, patchAddress, patch.second.size());
+                                            break;
+                                        }
                                     }
+                                    writeAttempts++;
+                                    Sleep(100);
                                 }
                             }
                         }

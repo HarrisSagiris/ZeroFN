@@ -386,66 +386,44 @@ public:
 
         std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
 
-        // Open process immediately - no delay
+        // Open process with debug privileges
+        HANDLE tokenHandle;
+        TOKEN_PRIVILEGES tokenPrivileges;
+        LUID luid;
+
+        if(OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tokenHandle)) {
+            if(LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
+                tokenPrivileges.PrivilegeCount = 1;
+                tokenPrivileges.Privileges[0].Luid = luid;
+                tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+                AdjustTokenPrivileges(tokenHandle, FALSE, &tokenPrivileges, sizeof(TOKEN_PRIVILEGES), NULL, NULL);
+            }
+            CloseHandle(tokenHandle);
+        }
+
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
-            std::cout << "[LIVE PATCHER] Failed to open process\n";
+            std::cout << "[LIVE PATCHER] Failed to open process with error: " << GetLastError() << "\n";
             return false;
         }
 
-        // Enhanced login and auth bypass patches with additional authentication patches
+        // Updated Season 2 patches with more specific patterns
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Login bypass - core patches
-            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x74, 0x23, 0x8B, 0x4D, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Core login bypass
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C, 0x24, 0x30}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D, 0x45, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // Auth bypass - enhanced patches
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Authentication bypass
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x95, 0x00, 0x00, 0x00, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // SSL/Encryption bypass - complete patches
-            {{0x75, 0x1C, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x74, 0x24, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            // Server validation
+            {{0x74, 0x23, 0x48, 0x8B, 0x4D, 0xE8, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x1D, 0x48, 0x8B, 0x4D, 0xF0, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // Additional auth patches
-            {{0x74, 0x15, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x18, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            
-            // Server connection patches
-            {{0x74, 0x10, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x12, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x80, 0x00}, {0x90, 0x90, 0x90, 0x90}},
-            
-            // Login screen patches
-            {{0x74, 0x23, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x14, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0x90, 0x90, 0x90}},
-            
-            // Authentication validation patches
-            {{0x74, 0x18, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x16, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x90, 0x00}, {0x90, 0x90, 0x90, 0x90}},
-
-            // New login screen bypass patches
-            {{0x74, 0x1A, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x1E, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x8A, 0x00}, {0x90, 0x90, 0x90, 0x90}},
-
-            // Additional authentication validation patches
-            {{0x74, 0x22, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x8F, 0x00}, {0x90, 0x90, 0x90, 0x90}},
-
-            // Early authentication check patches
-            {{0x74, 0x12, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x10, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x7F, 0x00}, {0x90, 0x90, 0x90, 0x90}},
-
-            // Additional login check patches
-            {{0x74, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x1F, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}}
+            // SSL pinning
+            {{0x0F, 0x84, 0x7F, 0x00, 0x00, 0x00, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x8F, 0x00, 0x00, 0x00, 0x48}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -456,13 +434,18 @@ public:
 
         std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches...\n";
 
-        // Set entire process memory to PAGE_EXECUTE_READWRITE for faster patching
+        // Scan and patch memory with improved error handling
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
                 (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
-                DWORD oldProtect;
-                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
                 
+                DWORD oldProtect;
+                if (!VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                    std::cout << "[LIVE PATCHER] Failed to modify memory protection at " << mbi.BaseAddress << "\n";
+                    address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
+                    continue;
+                }
+
                 std::vector<BYTE> buffer(mbi.RegionSize);
                 SIZE_T bytesRead;
                 
@@ -472,29 +455,37 @@ public:
                             if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                 SIZE_T bytesWritten;
+                                
                                 if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                    patchSuccess = true;
-                                    patchesApplied++;
-                                    std::cout << "[LIVE PATCHER] Applied patch " << patchesApplied << "/" << totalPatches << "\n";
+                                    if (bytesWritten == patch.second.size()) {
+                                        patchSuccess = true;
+                                        patchesApplied++;
+                                        std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches 
+                                                << " at " << std::hex << patchAddress << std::dec << "\n";
+                                        FlushInstructionCache(processHandle, patchAddress, patch.second.size());
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                
-                // Restore original protection
+
                 VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
             }
             address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
         CloseHandle(processHandle);
-        
-        // Always return true since we don't need verification
-        std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
-        std::cout << "[LIVE PATCHER] Login bypass and Season 2 patches are active\n";
-        std::cout << "[LIVE PATCHER] Game is ready - you can now access the lobby!\n";
-        return true;
+
+        if (patchesApplied > 0) {
+            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
+            std::cout << "[LIVE PATCHER] Login bypass and Season 2 patches are active\n";
+            std::cout << "[LIVE PATCHER] Game is ready - you can now access the lobby!\n";
+            return true;
+        } else {
+            std::cout << "[LIVE PATCHER] Failed to apply any patches. Please run as Administrator.\n";
+            return false;
+        }
     }
 
 private:
@@ -503,7 +494,7 @@ private:
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(1000); // Reduced monitoring interval
+                Sleep(5000); // Increased interval to reduce CPU usage
             }
         }).detach();
     }

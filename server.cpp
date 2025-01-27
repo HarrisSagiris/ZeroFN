@@ -19,7 +19,7 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 
-// ZeroFN Version 1.2.2
+// ZeroFN Version 1.2.3
 // Developed by DevHarris
 // A private server implementation for Fortnite
 
@@ -359,26 +359,37 @@ public:
             return false;
         }
 
+        // Updated patches to bypass UE4 crash handling and verification
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
-            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
-            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xEB, 0x08, 0x8B, 0x45, 0xE8}},
-            // Additional crash prevention patches
-            {{0x75, 0x1F, 0x48, 0x8B, 0x45}, {0xEB, 0x1F, 0x48, 0x8B, 0x45}},
-            {{0x74, 0x15, 0x48, 0x8B, 0x4D}, {0xEB, 0x15, 0x48, 0x8B, 0x4D}},
-            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0xE9, 0x96, 0x00, 0x00, 0x00}},
-            // UE4 crash bypass patches
-            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}}, // Bypass crash check
-            {{0x0F, 0x85, 0x96, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}}, // Bypass error handling
-            {{0x75, 0x1C, 0x48, 0x8B, 0x0D}, {0xEB, 0x1C, 0x48, 0x8B, 0x0D}}, // Skip crash reporter
-            {{0x74, 0x25, 0x48, 0x8B, 0x4D}, {0xEB, 0x25, 0x48, 0x8B, 0x4D}} // Bypass crash dialog
+            // Core engine patches
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}}, // Jump bypass
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}}, // Condition bypass
+            
+            // UE4 crash handling bypasses
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}}, // NOP crash check
+            {{0x0F, 0x85, 0x96, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}}, // NOP error handler
+            
+            // Engine verification bypasses
+            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0x90, 0x90, 0x48, 0x8B, 0x4C}}, // NOP verification
+            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0x90, 0x90, 0x8B, 0x45, 0xE8}}, // NOP check
+            
+            // Additional crash prevention
+            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0xE9, 0x96, 0x02, 0x00, 0x00, 0x90}}, // JMP over crash
+            {{0x0F, 0x85, 0x96, 0x02, 0x00, 0x00}, {0xE9, 0x97, 0x02, 0x00, 0x00, 0x90}}, // JMP over error
+            
+            // UE4 exception handler patches
+            {{0x48, 0x89, 0x5C, 0x24, 0x08}, {0x90, 0x90, 0x90, 0x90, 0x90}}, // Disable exception setup
+            {{0x48, 0x8B, 0x5C, 0x24, 0x08}, {0x90, 0x90, 0x90, 0x90, 0x90}}, // Disable exception cleanup
+            
+            // Memory validation bypasses
+            {{0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90}}, // NOP memory check
+            {{0x48, 0x8B, 0x05}, {0x90, 0x90, 0x90}}, // NOP pointer validation
         };
 
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
         bool patchSuccess = false;
+        DWORD oldProtect;
 
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
@@ -392,15 +403,19 @@ public:
                         for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
                             if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
-                                SIZE_T bytesWritten;
-                                DWORD oldProtect;
-
+                                
+                                // Make memory writable
                                 if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                                    SIZE_T bytesWritten;
                                     if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
+                                        // Restore original protection
                                         VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
                                         std::cout << "[LIVE PATCHER] Successfully applied patch at " 
                                                   << std::hex << patchAddress << std::dec << "\n";
                                         patchSuccess = true;
+                                        
+                                        // Flush instruction cache to ensure patch takes effect
+                                        FlushInstructionCache(processHandle, patchAddress, patch.second.size());
                                     }
                                 }
                             }
@@ -417,24 +432,15 @@ public:
 
 private:
     void startPatcher() {
-        STARTUPINFO si = {0};
-        PROCESS_INFORMATION pi = {0};
-        si.cb = sizeof(si);
-        
-        std::string cmdLine = "cmd.exe /c title ZeroFN Patcher && echo Running patcher... && timeout /t 2 >nul";
-        
-        if (CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE,
-                         CREATE_NEW_CONSOLE | CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-            patcherProcess = pi.hProcess;
-            CloseHandle(pi.hThread);
-
-            std::thread([this]() {
-                while(running) {
+        // Run patcher in the same process group as Fortnite
+        std::thread([this]() {
+            while(running) {
+                if(gameProcess != NULL) {
                     LivePatchFortnite();
-                    Sleep(5000);
                 }
-            }).detach();
-        }
+                Sleep(1000); // Check every second
+            }
+        }).detach();
     }
 
 public:
@@ -442,7 +448,7 @@ public:
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");
-        std::cout << "\nZeroFN Version 1.2.2\n";
+        std::cout << "\nZeroFN Version 1.2.3\n";
         std::cout << "Developed by DevHarris\n\n";
         
         std::cout << "Enter your desired in-game username: ";
@@ -605,11 +611,6 @@ public:
         if(gameProcess != NULL) {
             TerminateProcess(gameProcess, 0);
             CloseHandle(gameProcess);
-        }
-        
-        if(patcherProcess != NULL) {
-            TerminateProcess(patcherProcess, 0);
-            CloseHandle(patcherProcess);
         }
         
         running = false;

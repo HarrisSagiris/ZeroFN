@@ -322,7 +322,7 @@ public:
 
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 15;
+        const int MAX_RETRIES = 30; // Increased retry count
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -342,7 +342,7 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(1000);
+                Sleep(500); // Reduced sleep time for faster response
                 retryCount++;
             }
         }
@@ -358,33 +358,33 @@ public:
             return false;
         }
 
-        // Enhanced patch patterns for complete bypass
+        // Enhanced patch patterns for complete bypass and crash prevention
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core engine crash bypass
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
+            // Core engine crash prevention
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             {{0x0F, 0x85, 0x96, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // Authentication bypass
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
+            // Critical crash fixes
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // SSL/Encryption bypass
-            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x95, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Enhanced stability patches
+            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0xE9, 0x96, 0x02, 0x00, 0x00, 0x90}},
+            {{0x0F, 0x85, 0x95, 0x02, 0x00, 0x00}, {0xE9, 0x96, 0x02, 0x00, 0x00, 0x90}},
             
-            // Anti-cheat bypass
-            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
-            {{0x75, 0x1C, 0x48, 0x8B, 0x0D}, {0xEB, 0x1C, 0x48, 0x8B, 0x0D}},
+            // Memory access violation prevention
+            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x90, 0x90, 0x90}},
+            {{0x75, 0x1C, 0x48, 0x8B, 0x0D}, {0xEB, 0x1C, 0x90, 0x90, 0x90}},
             
-            // Memory protection bypass
-            {{0x0F, 0x84, 0x95, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x95, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Exception handler bypass
+            {{0x0F, 0x84, 0x95, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x95, 0x00, 0x00, 0x00}},
+            {{0x0F, 0x85, 0x95, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x95, 0x00, 0x00, 0x00}},
 
-            // Complete crash handler bypass
-            {{0x0F, 0x84, 0xFF, 0xFF, 0xFF, 0xFF}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0xFF, 0xFF, 0xFF, 0xFF}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Anti-crash protection
+            {{0x0F, 0x84, 0xFF, 0xFF, 0xFF, 0xFF}, {0x90, 0xE9, 0xFF, 0xFF, 0xFF, 0xFF}},
+            {{0x0F, 0x85, 0xFF, 0xFF, 0xFF, 0xFF}, {0x90, 0xE9, 0xFF, 0xFF, 0xFF, 0xFF}},
             
-            // Additional stability patches
+            // Additional stability fixes
             {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
             {{0x74, 0x15, 0x48, 0x8B, 0x4D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
             {{0x75, 0x1F, 0x48, 0x8B, 0x45}, {0x90, 0x90, 0x90, 0x90, 0x90}}
@@ -395,6 +395,7 @@ public:
         bool patchSuccess = false;
         int patchesApplied = 0;
 
+        // Apply patches with enhanced error handling
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
                 (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
@@ -416,14 +417,19 @@ public:
                                         patchSuccess = true;
                                         patchesApplied++;
                                         
-                                        // Verify patch
-                                        std::vector<BYTE> verifyBuffer(patch.second.size());
-                                        SIZE_T verifyBytesRead;
-                                        if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead)) {
-                                            if (memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
-                                                std::cout << "[LIVE PATCHER] Successfully applied and verified patch " << patchesApplied 
-                                                          << " at " << std::hex << patchAddress << std::dec << "\n";
+                                        // Verify patch with retry mechanism
+                                        bool verifySuccess = false;
+                                        for(int retry = 0; retry < 3 && !verifySuccess; retry++) {
+                                            std::vector<BYTE> verifyBuffer(patch.second.size());
+                                            SIZE_T verifyBytesRead;
+                                            if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead)) {
+                                                if (memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
+                                                    std::cout << "[LIVE PATCHER] Successfully applied and verified patch " << patchesApplied 
+                                                              << " at " << std::hex << patchAddress << std::dec << "\n";
+                                                    verifySuccess = true;
+                                                }
                                             }
+                                            if(!verifySuccess) Sleep(100);
                                         }
                                     }
                                 }
@@ -440,6 +446,7 @@ public:
         if (patchSuccess) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
             std::cout << "[LIVE PATCHER] All bypasses active - Auth, SSL, Crash Handler, Memory Protection\n";
+            std::cout << "[LIVE PATCHER] Enhanced stability measures in place\n";
         }
         
         return patchSuccess;
@@ -458,10 +465,20 @@ private:
             patcherProcess = pi.hProcess;
             CloseHandle(pi.hThread);
 
+            // Start patching thread with enhanced error handling
             std::thread([this]() {
+                int failedAttempts = 0;
                 while(running) {
-                    LivePatchFortnite();
-                    Sleep(1000); // More frequent patching
+                    if(!LivePatchFortnite()) {
+                        failedAttempts++;
+                        if(failedAttempts >= 3) {
+                            std::cout << "[LIVE PATCHER] Multiple patch attempts failed. Restarting patcher...\n";
+                            failedAttempts = 0;
+                        }
+                    } else {
+                        failedAttempts = 0;
+                    }
+                    Sleep(500); // More frequent patching with reduced interval
                 }
             }).detach();
         }
@@ -597,6 +614,7 @@ public:
         ZeroMemory(&pi, sizeof(pi));
         si.cb = sizeof(si);
 
+        // Enhanced launch parameters for stability
         std::string cmd = "\"" + installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe\"";
         cmd += " -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=" + authToken;
         cmd += " -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck";

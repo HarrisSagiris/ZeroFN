@@ -322,7 +322,7 @@ public:
 
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 30; // Increased retry count
+        const int MAX_RETRIES = 30;
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -342,7 +342,7 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(500); // Reduced sleep time for faster response
+                Sleep(100);
                 retryCount++;
             }
         }
@@ -358,36 +358,19 @@ public:
             return false;
         }
 
-        // Enhanced patch patterns for complete bypass and crash prevention
+        // Stealth patches with minimal memory footprint
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core engine crash prevention
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x0F, 0x85, 0x96, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Core engine patches
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x90, 0x90, 0x90}},
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x90, 0x90, 0x90}},
             
-            // Critical crash fixes
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            
-            // Enhanced stability patches
-            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0xE9, 0x96, 0x02, 0x00, 0x00, 0x90}},
-            {{0x0F, 0x85, 0x95, 0x02, 0x00, 0x00}, {0xE9, 0x96, 0x02, 0x00, 0x00, 0x90}},
-            
-            // Memory access violation prevention
-            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x90, 0x90, 0x90}},
-            {{0x75, 0x1C, 0x48, 0x8B, 0x0D}, {0xEB, 0x1C, 0x90, 0x90, 0x90}},
-            
-            // Exception handler bypass
-            {{0x0F, 0x84, 0x95, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x95, 0x00, 0x00, 0x00}},
-            {{0x0F, 0x85, 0x95, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x95, 0x00, 0x00, 0x00}},
+            // Stability patches
+            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
+            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
 
-            // Anti-crash protection
-            {{0x0F, 0x84, 0xFF, 0xFF, 0xFF, 0xFF}, {0x90, 0xE9, 0xFF, 0xFF, 0xFF, 0xFF}},
-            {{0x0F, 0x85, 0xFF, 0xFF, 0xFF, 0xFF}, {0x90, 0xE9, 0xFF, 0xFF, 0xFF, 0xFF}},
-            
-            // Additional stability fixes
-            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x74, 0x15, 0x48, 0x8B, 0x4D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            {{0x75, 0x1F, 0x48, 0x8B, 0x45}, {0x90, 0x90, 0x90, 0x90, 0x90}}
+            // Essential bypasses
+            {{0x74, 0x23, 0x48, 0x8B}, {0xEB, 0x23, 0x90, 0x90}},
+            {{0x75, 0x1C, 0x48, 0x8B}, {0xEB, 0x1C, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -395,11 +378,8 @@ public:
         bool patchSuccess = false;
         int patchesApplied = 0;
 
-        // Apply patches with enhanced error handling
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-            if (mbi.State == MEM_COMMIT && 
-                (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
-                
+            if (mbi.State == MEM_COMMIT && mbi.Protect == PAGE_EXECUTE_READ) {
                 std::vector<BYTE> buffer(mbi.RegionSize);
                 SIZE_T bytesRead;
                 
@@ -407,8 +387,8 @@ public:
                     for (const auto& patch : patches) {
                         for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
                             if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                 DWORD oldProtect;
+                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
 
                                 if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
                                     SIZE_T bytesWritten;
@@ -416,21 +396,6 @@ public:
                                         VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
                                         patchSuccess = true;
                                         patchesApplied++;
-                                        
-                                        // Verify patch with retry mechanism
-                                        bool verifySuccess = false;
-                                        for(int retry = 0; retry < 3 && !verifySuccess; retry++) {
-                                            std::vector<BYTE> verifyBuffer(patch.second.size());
-                                            SIZE_T verifyBytesRead;
-                                            if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead)) {
-                                                if (memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
-                                                    std::cout << "[LIVE PATCHER] Successfully applied and verified patch " << patchesApplied 
-                                                              << " at " << std::hex << patchAddress << std::dec << "\n";
-                                                    verifySuccess = true;
-                                                }
-                                            }
-                                            if(!verifySuccess) Sleep(100);
-                                        }
                                     }
                                 }
                             }
@@ -445,8 +410,7 @@ public:
         
         if (patchSuccess) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] All bypasses active - Auth, SSL, Crash Handler, Memory Protection\n";
-            std::cout << "[LIVE PATCHER] Enhanced stability measures in place\n";
+            std::cout << "[LIVE PATCHER] All bypasses active\n";
         }
         
         return patchSuccess;
@@ -454,34 +418,8 @@ public:
 
 private:
     void startPatcher() {
-        STARTUPINFO si = {0};
-        PROCESS_INFORMATION pi = {0};
-        si.cb = sizeof(si);
-        
-        std::string cmdLine = "cmd.exe /c title ZeroFN Patcher && echo Running enhanced patcher... && timeout /t 2 >nul";
-        
-        if (CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE,
-                         CREATE_NEW_CONSOLE | CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-            patcherProcess = pi.hProcess;
-            CloseHandle(pi.hThread);
-
-            // Start patching thread with enhanced error handling
-            std::thread([this]() {
-                int failedAttempts = 0;
-                while(running) {
-                    if(!LivePatchFortnite()) {
-                        failedAttempts++;
-                        if(failedAttempts >= 3) {
-                            std::cout << "[LIVE PATCHER] Multiple patch attempts failed. Restarting patcher...\n";
-                            failedAttempts = 0;
-                        }
-                    } else {
-                        failedAttempts = 0;
-                    }
-                    Sleep(500); // More frequent patching with reduced interval
-                }
-            }).detach();
-        }
+        // No longer starting a continuous patcher thread
+        // Patches will be applied once before game launch
     }
 
 public:
@@ -591,8 +529,6 @@ public:
         auth_file << "{\"access_token\":\"" << authToken << "\",\"displayName\":\"" << displayName << "\"}";
         auth_file.close();
 
-        startPatcher();
-
         std::thread(&FortniteServer::handleMatchmaking, this).detach();
 
         std::thread([this]() {
@@ -622,13 +558,13 @@ public:
         cmd += " -NOTEXTURESTREAMING -USEALLAVAILABLECORES -PREFERREDPROCESSOR=0";
         cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION";
         cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT";
-        cmd += " -NOCRASHREPORT -NOCRASHREPORTCLIENT"; // Disable crash reporting
-        cmd += " -HEAPSIZE=2048"; // Increase heap size
-        cmd += " -NOTEXTURESTREAMING"; // Disable texture streaming
-        cmd += " -USEALLAVAILABLECORES"; // Use all CPU cores
-        cmd += " -NOSOUND"; // Disable sound for stability
-        cmd += " -LANPLAY"; // Force LAN mode
-        cmd += " -NOSTEAM"; // Disable Steam integration
+        cmd += " -NOCRASHREPORT -NOCRASHREPORTCLIENT";
+        cmd += " -HEAPSIZE=2048";
+        cmd += " -NOTEXTURESTREAMING";
+        cmd += " -USEALLAVAILABLECORES";
+        cmd += " -NOSOUND";
+        cmd += " -LANPLAY";
+        cmd += " -NOSTEAM";
 
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
@@ -640,6 +576,16 @@ public:
         }
 
         gameProcess = pi.hProcess;
+
+        // Apply patches before resuming the process
+        std::cout << "[LIVE PATCHER] Applying patches before game start...\n";
+        if (!LivePatchFortnite()) {
+            std::cerr << "Failed to apply patches\n";
+            TerminateProcess(gameProcess, 0);
+            CloseHandle(gameProcess);
+            return;
+        }
+
         SetPriorityClass(gameProcess, HIGH_PRIORITY_CLASS);
         ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);

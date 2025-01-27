@@ -21,7 +21,7 @@
 
 // ZeroFN Version 1.2.3
 // Developed by DevHarris
-// A private server implementation for Fortnite
+// A private server implementation for Fortnite Season 2 Chapter 1
 
 namespace fs = std::experimental::filesystem;
 
@@ -67,14 +67,16 @@ private:
                 cosmeticsDb[category][id] = name;
             }
         } else {
-            // Initialize default cosmetics database
+            // Initialize Season 2 Chapter 1 cosmetics database
             cosmeticsDb["characters"]["CID_001_Athena_Commando_F_Default"] = "Default";
             cosmeticsDb["characters"]["CID_002_Athena_Commando_F_Default"] = "Ramirez";
             cosmeticsDb["characters"]["CID_003_Athena_Commando_F_Default"] = "Banshee";
+            cosmeticsDb["characters"]["CID_004_Athena_Commando_F_Default"] = "Black Knight";
+            cosmeticsDb["characters"]["CID_005_Athena_Commando_F_Default"] = "Blue Squire";
             
-            cosmeticsDb["backpacks"]["BID_001_Default"] = "Default Cape";
-            cosmeticsDb["backpacks"]["BID_002_Default"] = "Black Shield";
-            cosmeticsDb["backpacks"]["BID_003_Default"] = "Wings";
+            cosmeticsDb["backpacks"]["BID_001_BlackKnight"] = "Black Shield";
+            cosmeticsDb["backpacks"]["BID_002_BlueSquire"] = "Blue Shield";
+            cosmeticsDb["backpacks"]["BID_003_RedKnight"] = "Red Shield";
             
             cosmeticsDb["pickaxes"]["Pickaxe_Default"] = "Default Pickaxe";
             cosmeticsDb["pickaxes"]["Pickaxe_ID_001"] = "AC/DC";
@@ -88,6 +90,8 @@ private:
             cosmeticsDb["emotes"]["EID_Floss"] = "Floss";
             cosmeticsDb["emotes"]["EID_TakeTheL"] = "Take The L";
             cosmeticsDb["emotes"]["EID_Dab"] = "Dab";
+            cosmeticsDb["emotes"]["EID_Wave"] = "Wave";
+            cosmeticsDb["emotes"]["EID_RideThePony"] = "Ride The Pony";
 
             std::ofstream out("cosmetics.json");
             for(const auto& category : cosmeticsDb) {
@@ -101,15 +105,15 @@ private:
     void initializePlayerData() {
         loadCosmeticsDatabase();
         
-        playerLoadout["character"] = "CID_001_Athena_Commando_F_Default";
-        playerLoadout["backpack"] = "BID_001_Default";
-        playerLoadout["pickaxe"] = "Pickaxe_Default";
-        playerLoadout["glider"] = "Glider_Default";
+        playerLoadout["character"] = "CID_004_Athena_Commando_F_Default"; // Black Knight
+        playerLoadout["backpack"] = "BID_001_BlackKnight"; // Black Shield
+        playerLoadout["pickaxe"] = "Pickaxe_ID_001"; // AC/DC
+        playerLoadout["glider"] = "Glider_ID_002"; // Snowflake
         playerLoadout["contrail"] = "Trails_Default";
-        playerLoadout["emote1"] = "EID_DanceDefault";
-        playerLoadout["emote2"] = "EID_Floss";
-        playerLoadout["emote3"] = "EID_TakeTheL";
-        playerLoadout["emote4"] = "EID_Dab";
+        playerLoadout["emote1"] = "EID_Floss";
+        playerLoadout["emote2"] = "EID_TakeTheL";
+        playerLoadout["emote3"] = "EID_RideThePony";
+        playerLoadout["emote4"] = "EID_Wave";
     }
 
     void sendResponse(SOCKET clientSocket, const std::string& response) {
@@ -243,7 +247,7 @@ private:
                     }
                 }
 
-                response += "},\"stats\":{\"attributes\":{\"season_num\":0,"
+                response += "},\"stats\":{\"attributes\":{\"season_num\":2,"
                     "\"loadout\":{";
 
                 // Add loadout
@@ -322,7 +326,7 @@ public:
 
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 60; // Increased retry count
+        const int MAX_RETRIES = 60;
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -342,7 +346,7 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(500); // Increased sleep time
+                Sleep(500);
                 retryCount++;
                 std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
             }
@@ -361,7 +365,7 @@ public:
             return false;
         }
 
-        // Comprehensive patch set
+        // Season 2 Chapter 1 specific patches
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
             // Core network patches
             {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x90, 0x90, 0x90}},
@@ -383,7 +387,7 @@ public:
             {{0x74, 0x24, 0x48, 0x8B}, {0xEB, 0x24, 0x90, 0x90}},
             {{0x75, 0x1E, 0x48, 0x8B}, {0xEB, 0x1E, 0x90, 0x90}},
 
-            // Additional stability patches
+            // Season 2 specific patches
             {{0x0F, 0x84, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
             {{0x0F, 0x85, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}}
         };
@@ -431,7 +435,7 @@ public:
         
         if (patchSuccess) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] All bypasses and patches are active\n";
+            std::cout << "[LIVE PATCHER] All Season 2 bypasses and patches are active\n";
             std::cout << "[LIVE PATCHER] Game is ready to play!\n";
             return true;
         } else {
@@ -446,7 +450,7 @@ private:
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(5000); // Check every 5 seconds
+                Sleep(5000);
             }
         }).detach();
     }
@@ -456,7 +460,7 @@ public:
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");
-        std::cout << "\nZeroFN Version 1.2.3\n";
+        std::cout << "\nZeroFN Version 1.2.3 - Season 2 Chapter 1\n";
         std::cout << "Developed by DevHarris\n\n";
         
         std::cout << "Enter your desired in-game username: ";
@@ -559,7 +563,7 @@ public:
         auth_file.close();
 
         std::thread(&FortniteServer::handleMatchmaking, this).detach();
-        startPatcher(); // Start the continuous patcher
+        startPatcher();
 
         std::thread([this]() {
             while (running) {
@@ -580,7 +584,7 @@ public:
         ZeroMemory(&pi, sizeof(pi));
         si.cb = sizeof(si);
 
-        // Enhanced launch parameters for stability
+        // Season 2 specific launch parameters
         std::string cmd = "\"" + installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe\"";
         cmd += " -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=" + authToken;
         cmd += " -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck";
@@ -588,6 +592,7 @@ public:
         cmd += " -NOTEXTURESTREAMING -USEALLAVAILABLECORES -PREFERREDPROCESSOR=0";
         cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION";
         cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT";
+        cmd += " -SEASON=2 -FORCESEASONCLIENT=2";
         cmd += " -NOCRASHREPORT -NOCRASHREPORTCLIENT";
         cmd += " -HEAPSIZE=2048";
         cmd += " -NOTEXTURESTREAMING";
@@ -598,7 +603,7 @@ public:
 
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
-        std::cout << "[LAUNCHER] Starting Fortnite...\n";
+        std::cout << "[LAUNCHER] Starting Fortnite Season 2...\n";
 
         if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
                          CREATE_SUSPENDED | NORMAL_PRIORITY_CLASS,
@@ -609,10 +614,9 @@ public:
 
         gameProcess = pi.hProcess;
 
-        // Apply initial patches before resuming
-        std::cout << "[LAUNCHER] Applying initial patches...\n";
+        std::cout << "[LAUNCHER] Applying Season 2 patches...\n";
         if (!LivePatchFortnite()) {
-            std::cerr << "Failed to apply initial patches\n";
+            std::cerr << "Failed to apply Season 2 patches\n";
             TerminateProcess(gameProcess, 0);
             CloseHandle(gameProcess);
             return;
@@ -622,13 +626,11 @@ public:
         ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);
 
-        std::cout << "\n[LAUNCHER] Game launched successfully!\n";
+        std::cout << "\n[LAUNCHER] Season 2 launched successfully!\n";
         std::cout << "[LAUNCHER] Waiting for game to initialize...\n";
         
-        // Wait for game to fully initialize
         Sleep(5000);
         
-        // Start monitoring thread
         std::thread([this]() {
             while (WaitForSingleObject(gameProcess, 100) == WAIT_TIMEOUT) {
                 Sleep(1000);

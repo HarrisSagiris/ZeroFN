@@ -328,7 +328,7 @@ public:
         // Wait for Fortnite process with improved detection
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 120; // Increased retry count
+        const int MAX_RETRIES = 120;
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -348,7 +348,7 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(1000); // Increased sleep time
+                Sleep(1000);
                 retryCount++;
                 std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
             }
@@ -361,7 +361,7 @@ public:
 
         std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
         std::cout << "[LIVE PATCHER] Waiting for process initialization...\n";
-        Sleep(10000); // Increased wait time for initialization
+        Sleep(10000);
 
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
@@ -369,33 +369,35 @@ public:
             return false;
         }
 
-        // Enhanced Season 2 patches with improved reliability
+        // Critical login and auth bypass patches
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Auth bypass patches (applied first)
-            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
-            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
-            {{0x74, 0x23, 0x48, 0x8B}, {0xEB, 0x23, 0x90, 0x90}},
+            // Login bypass
+            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xE9, 0x90, 0x90, 0x90, 0x90}},
+            {{0x74, 0x23, 0x8B, 0x4D, 0xE8}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
             
-            // Network patches
+            // Auth bypass
             {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x90, 0x90, 0x90}},
             {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x90, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0xE9, 0x96, 0x00, 0x00, 0x00, 0x90}},
             
-            // SSL/Encryption patches
+            // SSL/Encryption bypass
             {{0x75, 0x1C, 0x48, 0x8B}, {0xEB, 0x1C, 0x90, 0x90}},
             {{0x74, 0x24, 0x48, 0x8B}, {0xEB, 0x24, 0x90, 0x90}},
-
-            // Anti-cheat patches
+            
+            // Season 2 specific patches
             {{0x74, 0x15, 0x48, 0x8B}, {0xEB, 0x15, 0x90, 0x90}},
             {{0x75, 0x18, 0x48, 0x8B}, {0xEB, 0x18, 0x90, 0x90}},
-
-            // Season 2 specific patches
-            {{0x0F, 0x84, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
-            {{0x0F, 0x85, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
             
-            // Additional crash prevention patches
+            // Lobby access patches
             {{0x74, 0x10, 0x48, 0x8B}, {0xEB, 0x10, 0x90, 0x90}},
             {{0x75, 0x12, 0x48, 0x8B}, {0xEB, 0x12, 0x90, 0x90}},
-            {{0x0F, 0x84, 0x80, 0x00}, {0x90, 0xE9, 0x80, 0x00}}
+            {{0x0F, 0x84, 0x80, 0x00}, {0x90, 0xE9, 0x80, 0x00}},
+            
+            // Additional critical patches
+            {{0x74, 0x23, 0x48, 0x8B}, {0xEB, 0x23, 0x90, 0x90}},
+            {{0x75, 0x14, 0x48, 0x8B}, {0xEB, 0x14, 0x90, 0x90}},
+            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -404,7 +406,7 @@ public:
         int patchesApplied = 0;
         int totalPatches = patches.size();
 
-        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " patches carefully...\n";
+        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches...\n";
 
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
@@ -427,7 +429,7 @@ public:
                                         patchSuccess = true;
                                         patchesApplied++;
                                         std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches << "\n";
-                                        Sleep(250); // Increased delay between patches
+                                        Sleep(250);
                                     }
                                 }
                             }
@@ -442,8 +444,8 @@ public:
         
         if (patchSuccess) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] Auth bypass and Season 2 patches are active\n";
-            std::cout << "[LIVE PATCHER] Game is ready to play!\n";
+            std::cout << "[LIVE PATCHER] Login bypass and Season 2 patches are active\n";
+            std::cout << "[LIVE PATCHER] Game is ready - you can now access the lobby!\n";
             return true;
         } else {
             std::cout << "[LIVE PATCHER] Failed to apply patches - please verify game files\n";
@@ -457,7 +459,7 @@ private:
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(15000); // Increased interval between patch attempts
+                Sleep(15000);
             }
         }).detach();
     }

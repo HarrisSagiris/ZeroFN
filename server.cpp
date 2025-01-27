@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <TlHelp32.h>
 #include <Psapi.h>
+#include <nlohmann/json.hpp>
 
 // ZeroFN Version 1.2.2
 // Developed by DevHarris

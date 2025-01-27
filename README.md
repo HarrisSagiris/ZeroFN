@@ -7,21 +7,19 @@ ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for 
 ## Features
 
 1. **Main Menu Navigation**
-   - Specify FortniteOG Path
-   - Install Fortnite OG builds
-   - Login with Epic Games Account
-   - Join the ZeroFN Discord community
+   - Specify username for playing
+   - Specify the path of the installed og version 
 
 2. **Fortnite OG Installation**
    - Select and download Fortnite OG files for specific seasons (e.g., Season 1, Season 2)—currently, only Season 2 is available.
-   - Extract and verify installation directories to ensure all necessary files are present.
+   - Extracts and verifies installation directories to ensure all necessary files are present.
 
-3. **Epic Games Login**
-   - Login to your Fortnite account via Epic Games (using a proxy for authentication back to the server).
+3. **Authentication**
+   - Directly patching game files to bypass all authentication attempts
 
 4. **Game and Server Management**
    - Launch the ZeroFN server and Fortnite game client with necessary arguments.
-   - Options to start the server, launch the game, or do both simultaneously.
+   - Launcher will create a new cmd window starting to patch the game while the game loads.
 
 5. **Discord Community**
    - Direct access to the ZeroFN Discord community for updates and support.
@@ -34,8 +32,8 @@ ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for 
    - Windows operating system
    - Stable internet connection
 
-2. **Installed Tools**:
-   - Python (required for the server)
+2. **Installed 
+   - No tools are required !! its an exe...
 
 ---
 
@@ -55,9 +53,9 @@ ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for 
      ```
 
 3. **Run the Script**:
-   - Execute the batch script by running:
+   - Execute the script by running:
      ```bash
-     ZeroFN.bat
+     ZeroFN.exe
      ```
 
 ---
@@ -65,7 +63,7 @@ ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for 
 ## Usage Instructions
 
 1. **Launching the Script**:
-   - Double-click `ZeroFN.bat` to launch the script.
+   - Double-click `ZeroFN.exe` to launch the script.
 
 2. **Follow the Main Menu Prompts**:
    - **Option 1**: Specify the FortniteOG installation path if you have already downloaded the files.
@@ -75,8 +73,7 @@ ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for 
 
 ### Starting the Server and Game
 
-- After completing the installation, use the options in the secondary menu to start the ZeroFN server, launch the game, or do both simultaneously.
-
+- Open the script, specify ur username and you are set ! it will run automatically
 ---
 
 ## Important Notes
@@ -85,11 +82,8 @@ ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for 
    - Ensure your internet connection is stable for downloading large Fortnite OG files.
    - Verify that your installation directory is correct to avoid issues.
 
-2. **Server Requirements**:
-   - Python must be installed and added to your system's PATH to start the ZeroFN server.
-
-3. **Login Simulation**:
-   - The script simulates a login state for Fortnite OG builds and does not connect to the official Epic Games servers.
+2. **Auth bypass**:
+   - The script performs a login bypass state for Fortnite OG builds and does not connect to the official Epic Games servers.
 
 ---
 

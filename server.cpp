@@ -18,18 +18,21 @@
 #include <algorithm>
 #include <TlHelp32.h>
 #include <Psapi.h>
+#include <nlohmann/json.hpp>
 
-// ZeroFN Version 1.2.1
+// ZeroFN Version 1.2.2
 // Developed by DevHarris
 // A private server implementation for Fortnite
 
 namespace fs = std::experimental::filesystem;
+using json = nlohmann::json;
 
 struct GameSession {
     std::string sessionId;
     std::vector<std::string> players;
     bool inProgress;
     std::string playlistId;
+    std::map<std::string, json> playerLoadouts;
 };
 
 class FortniteServer {
@@ -42,31 +45,74 @@ private:
     std::string accountId;
     std::string installPath;
     HANDLE gameProcess;
+    HANDLE patcherProcess;
     
     std::map<std::string, GameSession> activeSessions;
     std::vector<std::string> matchmakingQueue;
     std::mutex matchmakingMutex;
     
-    std::map<std::string, std::string> playerLoadout;
-    std::map<std::string, std::vector<std::string>> playerInventory;
+    json playerLoadout;
+    json playerInventory;
+    json cosmeticsDb;
+
+    void loadCosmeticsDatabase() {
+        std::ifstream cosmeticsFile("cosmetics.json");
+        if(cosmeticsFile.good()) {
+            cosmeticsFile >> cosmeticsDb;
+        } else {
+            // Initialize default cosmetics database
+            cosmeticsDb = {
+                {"characters", {
+                    {"CID_001_Athena_Commando_F_Default", "Default"},
+                    {"CID_002_Athena_Commando_F_Default", "Ramirez"},
+                    {"CID_003_Athena_Commando_F_Default", "Banshee"}
+                }},
+                {"backpacks", {
+                    {"BID_001_Default", "Default Cape"},
+                    {"BID_002_Default", "Black Shield"},
+                    {"BID_003_Default", "Wings"}
+                }},
+                {"pickaxes", {
+                    {"Pickaxe_Default", "Default Pickaxe"},
+                    {"Pickaxe_ID_001", "AC/DC"},
+                    {"Pickaxe_ID_002", "Raider's Revenge"}
+                }},
+                {"gliders", {
+                    {"Glider_Default", "Default Glider"},
+                    {"Glider_ID_001", "Mako"},
+                    {"Glider_ID_002", "Snowflake"}
+                }},
+                {"emotes", {
+                    {"EID_DanceDefault", "Dance Moves"},
+                    {"EID_Floss", "Floss"},
+                    {"EID_TakeTheL", "Take The L"},
+                    {"EID_Dab", "Dab"}
+                }}
+            };
+
+            std::ofstream out("cosmetics.json");
+            out << cosmeticsDb.dump(4);
+        }
+    }
 
     void initializePlayerData() {
-        playerLoadout["character"] = "CID_001_Athena_Commando_F_Default";
-        playerLoadout["backpack"] = "BID_001_Default";
-        playerLoadout["pickaxe"] = "Pickaxe_Default";
-        playerLoadout["glider"] = "Glider_Default";
-        playerLoadout["contrail"] = "Trails_Default";
-
-        playerInventory["characters"] = {"CID_001_Athena_Commando_F_Default"};
-        playerInventory["backpacks"] = {"BID_001_Default"};
-        playerInventory["pickaxes"] = {"Pickaxe_Default"};
-        playerInventory["gliders"] = {"Glider_Default"};
-        playerInventory["contrails"] = {"Trails_Default"};
-        playerInventory["emotes"] = {
-            "EID_DanceDefault",
-            "EID_DanceDefault2", 
-            "EID_DanceDefault3"
+        loadCosmeticsDatabase();
+        
+        playerLoadout = {
+            {"character", "CID_001_Athena_Commando_F_Default"},
+            {"backpack", "BID_001_Default"},
+            {"pickaxe", "Pickaxe_Default"},
+            {"glider", "Glider_Default"},
+            {"contrail", "Trails_Default"},
+            {"emotes", json::array({
+                "EID_DanceDefault",
+                "EID_Floss",
+                "EID_TakeTheL",
+                "EID_Dab"
+            })}
         };
+
+        playerInventory = cosmeticsDb;
     }
 
     void sendResponse(SOCKET clientSocket, const std::string& response) {
@@ -89,6 +135,17 @@ private:
         return "";
     }
 
+    json parseRequestBody(const std::string& request) {
+        size_t bodyStart = request.find("\r\n\r\n");
+        if(bodyStart != std::string::npos) {
+            std::string body = request.substr(bodyStart + 4);
+            try {
+                return json::parse(body);
+            } catch(...) {}
+        }
+        return json::object();
+    }
+
     std::string generateMatchId() {
         return "MATCH_" + std::to_string(rand());
     }
@@ -106,7 +163,9 @@ private:
                     
                     const size_t maxPlayers = 16;
                     while(!matchmakingQueue.empty() && session.players.size() < maxPlayers) {
-                        session.players.push_back(matchmakingQueue.back());
+                        std::string playerId = matchmakingQueue.back();
+                        session.players.push_back(playerId);
+                        session.playerLoadouts[playerId] = playerLoadout;
                         matchmakingQueue.pop_back();
                     }
                     
@@ -128,6 +187,7 @@ private:
         if (bytesReceived > 0) {
             std::string request(buffer.data(), bytesReceived);
             std::string endpoint = parseRequest(request);
+            json requestBody = parseRequestBody(request);
 
             std::string headers = "HTTP/1.1 200 OK\r\n"
                                 "Content-Type: application/json\r\n"
@@ -135,70 +195,86 @@ private:
                                 "Connection: keep-alive\r\n\r\n";
 
             if (endpoint == "/account/api/oauth/token") {
-                std::string response = "{";
-                response += "\"access_token\":\"" + authToken + "\",";
-                response += "\"expires_in\":28800,";
-                response += "\"expires_at\":\"9999-12-31T23:59:59.999Z\",";
-                response += "\"token_type\":\"bearer\",";
-                response += "\"refresh_token\":\"" + authToken + "\",";
-                response += "\"refresh_expires\":28800,";
-                response += "\"refresh_expires_at\":\"9999-12-31T23:59:59.999Z\",";
-                response += "\"account_id\":\"" + accountId + "\",";
-                response += "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",";
-                response += "\"internal_client\":true,";
-                response += "\"client_service\":\"fortnite\",";
-                response += "\"displayName\":\"" + displayName + "\",";
-                response += "\"app\":\"fortnite\",";
-                response += "\"in_app_id\":\"" + accountId + "\"";
-                response += "}";
+                json response = {
+                    {"access_token", authToken},
+                    {"expires_in", 28800},
+                    {"expires_at", "9999-12-31T23:59:59.999Z"},
+                    {"token_type", "bearer"},
+                    {"refresh_token", authToken},
+                    {"refresh_expires", 28800},
+                    {"refresh_expires_at", "9999-12-31T23:59:59.999Z"},
+                    {"account_id", accountId},
+                    {"client_id", "ec684b8c687f479fadea3cb2ad83f5c6"},
+                    {"internal_client", true},
+                    {"client_service", "fortnite"},
+                    {"displayName", displayName},
+                    {"app", "fortnite"},
+                    {"in_app_id", accountId}
+                };
                 
-                sendResponse(clientSocket, headers + response);
+                sendResponse(clientSocket, headers + response.dump());
             }
             else if (endpoint == "/account/api/public/account") {
-                std::string response = "{";
-                response += "\"id\":\"" + accountId + "\",";
-                response += "\"displayName\":\"" + displayName + "\",";
-                response += "\"externalAuths\":{}";
-                response += "}";
+                json response = {
+                    {"id", accountId},
+                    {"displayName", displayName},
+                    {"externalAuths", json::object()}
+                };
                 
-                sendResponse(clientSocket, headers + response);
+                sendResponse(clientSocket, headers + response.dump());
             }
-            else if (endpoint == "/fortnite/api/game/v2/profile/" + accountId + "/client/QueryProfile") {
-                std::string response = "{";
-                response += "\"profileId\":\"athena\",";
-                response += "\"profileChanges\":[{";
-                response += "\"_type\":\"fullProfileUpdate\",";
-                response += "\"profile\":{";
-                response += "\"_id\":\"" + accountId + "\",";
-                response += "\"accountId\":\"" + accountId + "\",";
-                response += "\"profileId\":\"athena\",";
-                response += "\"version\":\"1\",";
-                response += "\"items\":{},";
-                response += "\"stats\":{\"attributes\":{\"season_num\":0}},";
-                response += "\"commandRevision\":1";
-                response += "}}],";
-                response += "\"profileCommandRevision\":1,";
-                response += "\"serverTime\":\"2023-12-31T23:59:59.999Z\",";
-                response += "\"responseVersion\":1";
-                response += "}";
+            else if (endpoint.find("/fortnite/api/game/v2/profile/" + accountId + "/client") != std::string::npos) {
+                json response = {
+                    {"profileId", "athena"},
+                    {"profileChanges", {{
+                        {"_type", "fullProfileUpdate"},
+                        {"profile", {
+                            {"_id", accountId},
+                            {"accountId", accountId},
+                            {"profileId", "athena"},
+                            {"version", "1"},
+                            {"items", playerInventory},
+                            {"stats", {
+                                {"attributes", {
+                                    {"season_num", 0},
+                                    {"loadout", playerLoadout}
+                                }}
+                            }},
+                            {"commandRevision", 1}
+                        }}
+                    }},
+                    {"profileCommandRevision", 1},
+                    {"serverTime", "2023-12-31T23:59:59.999Z"},
+                    {"responseVersion", 1}
+                };
+
+                if(endpoint.find("SetCosmeticLockerSlot") != std::string::npos) {
+                    std::string category = requestBody["category"];
+                    std::string itemId = requestBody["itemId"];
+                    
+                    if(playerInventory[category].contains(itemId)) {
+                        playerLoadout[category] = itemId;
+                        std::cout << "[COSMETICS] Player changed " << category << " to " << itemId << std::endl;
+                    }
+                }
                 
-                sendResponse(clientSocket, headers + response);
+                sendResponse(clientSocket, headers + response.dump());
             }
             else if (endpoint.find("/fortnite/api/matchmaking/session/findPlayer/") != std::string::npos) {
                 std::lock_guard<std::mutex> lock(matchmakingMutex);
                 matchmakingQueue.push_back(accountId);
                 
-                std::string response = "{";
-                response += "\"status\":\"waiting\",";
-                response += "\"priority\":0,";
-                response += "\"ticket\":\"ticket_" + std::to_string(rand()) + "\",";
-                response += "\"queuedPlayers\":" + std::to_string(matchmakingQueue.size());
-                response += "}";
+                json response = {
+                    {"status", "waiting"},
+                    {"priority", 0},
+                    {"ticket", "ticket_" + std::to_string(rand())},
+                    {"queuedPlayers", matchmakingQueue.size()}
+                };
                 
-                sendResponse(clientSocket, headers + response);
+                sendResponse(clientSocket, headers + response.dump());
             }
             else if (endpoint.find("/fortnite/api/matchmaking/session/matchMakingRequest") != std::string::npos) {
-                std::string response;
+                json response;
                 std::lock_guard<std::mutex> lock(matchmakingMutex);
                 
                 bool found = false;
@@ -207,29 +283,29 @@ private:
                                       session.second.players.end(), 
                                       accountId);
                     if(it != session.second.players.end()) {
-                        response = "{";
-                        response += "\"status\":\"found\",";
-                        response += "\"matchId\":\"" + session.first + "\",";
-                        response += "\"sessionId\":\"" + session.first + "\",";
-                        response += "\"playlistId\":\"" + session.second.playlistId + "\"";
-                        response += "}";
+                        response = {
+                            {"status", "found"},
+                            {"matchId", session.first},
+                            {"sessionId", session.first},
+                            {"playlistId", session.second.playlistId}
+                        };
                         found = true;
                         break;
                     }
                 }
                 
                 if(!found) {
-                    response = "{";
-                    response += "\"status\":\"waiting\",";
-                    response += "\"estimatedWaitSeconds\":5";
-                    response += "}";
+                    response = {
+                        {"status", "waiting"},
+                        {"estimatedWaitSeconds", 5}
+                    };
                 }
                 
-                sendResponse(clientSocket, headers + response);
+                sendResponse(clientSocket, headers + response.dump());
             }
             else {
-                std::string response = "{\"status\":\"ok\"}";
-                sendResponse(clientSocket, headers + response);
+                json response = {{"status", "ok"}};
+                sendResponse(clientSocket, headers + response.dump());
             }
         }
 
@@ -284,7 +360,11 @@ public:
             {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
             {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
             {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
-            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xEB, 0x08, 0x8B, 0x45, 0xE8}}
+            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xEB, 0x08, 0x8B, 0x45, 0xE8}},
+            // Additional crash prevention patches
+            {{0x75, 0x1F, 0x48, 0x8B, 0x45}, {0xEB, 0x1F, 0x48, 0x8B, 0x45}},
+            {{0x74, 0x15, 0x48, 0x8B, 0x4D}, {0xEB, 0x15, 0x48, 0x8B, 0x4D}},
+            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0xE9, 0x96, 0x00, 0x00, 0x00}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -332,24 +412,28 @@ private:
         PROCESS_INFORMATION pi = {0};
         si.cb = sizeof(si);
         
-        char exePath[MAX_PATH];
-        GetModuleFileName(NULL, exePath, MAX_PATH);
+        std::string cmdLine = "cmd.exe /c title ZeroFN Patcher && echo Running patcher... && timeout /t 2 >nul";
         
-        std::string cmdLine = std::string(exePath) + " --patcher";
-        
-        CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE,
-                     CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
+        if (CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, FALSE,
+                         CREATE_NEW_CONSOLE | CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+            patcherProcess = pi.hProcess;
+            CloseHandle(pi.hThread);
 
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
+            std::thread([this]() {
+                while(running) {
+                    LivePatchFortnite();
+                    Sleep(5000);
+                }
+            }).detach();
+        }
     }
 
 public:
-    FortniteServer() : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL) {
+    FortniteServer() : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL), patcherProcess(NULL) {
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");
-        std::cout << "\nZeroFN Version 1.2.1\n";
+        std::cout << "\nZeroFN Version 1.2.2\n";
         std::cout << "Developed by DevHarris\n\n";
         
         std::cout << "Enter your desired in-game username: ";
@@ -503,6 +587,7 @@ public:
                 Sleep(1000);
             }
             std::cout << "Game process ended\n";
+            stop();
         }).detach();
     }
 
@@ -510,6 +595,11 @@ public:
         if(gameProcess != NULL) {
             TerminateProcess(gameProcess, 0);
             CloseHandle(gameProcess);
+        }
+        
+        if(patcherProcess != NULL) {
+            TerminateProcess(patcherProcess, 0);
+            CloseHandle(patcherProcess);
         }
         
         running = false;
@@ -522,19 +612,6 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-    if (argc > 1 && std::string(argv[1]) == "--patcher") {
-        SetConsoleTitle("ZeroFN Patcher");
-        std::cout << "ZeroFN Patcher Window\n";
-        std::cout << "====================\n\n";
-        
-        FortniteServer patcher;
-        while (true) {
-            patcher.LivePatchFortnite();
-            Sleep(5000);
-        }
-        return 0;
-    }
-
     SetConsoleTitle("ZeroFN Launcher");
     
     FortniteServer server;

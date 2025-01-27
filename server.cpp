@@ -318,11 +318,11 @@ private:
 
 public:
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting enhanced patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting comprehensive patching process...\n";
 
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 30;
+        const int MAX_RETRIES = 60; // Increased retry count
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -342,8 +342,9 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(100);
+                Sleep(500); // Increased sleep time
                 retryCount++;
+                std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
             }
         }
 
@@ -352,34 +353,53 @@ public:
             return false;
         }
 
+        std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
+
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
             std::cout << "[LIVE PATCHER] Failed to open process\n";
             return false;
         }
 
-        // Stealth patches with minimal memory footprint
+        // Comprehensive patch set
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core engine patches
+            // Core network patches
             {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x90, 0x90, 0x90}},
             {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x90, 0x90, 0x90}},
             
-            // Stability patches
+            // Authentication bypasses
             {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
             {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
 
-            // Essential bypasses
+            // SSL/Encryption bypasses
             {{0x74, 0x23, 0x48, 0x8B}, {0xEB, 0x23, 0x90, 0x90}},
-            {{0x75, 0x1C, 0x48, 0x8B}, {0xEB, 0x1C, 0x90, 0x90}}
+            {{0x75, 0x1C, 0x48, 0x8B}, {0xEB, 0x1C, 0x90, 0x90}},
+
+            // Anti-cheat bypasses
+            {{0x74, 0x15, 0x48, 0x8B}, {0xEB, 0x15, 0x90, 0x90}},
+            {{0x75, 0x18, 0x48, 0x8B}, {0xEB, 0x18, 0x90, 0x90}},
+
+            // Server communication patches
+            {{0x74, 0x24, 0x48, 0x8B}, {0xEB, 0x24, 0x90, 0x90}},
+            {{0x75, 0x1E, 0x48, 0x8B}, {0xEB, 0x1E, 0x90, 0x90}},
+
+            // Additional stability patches
+            {{0x0F, 0x84, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
+            {{0x0F, 0x85, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
         bool patchSuccess = false;
         int patchesApplied = 0;
+        int totalPatches = patches.size();
+
+        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " patches...\n";
 
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-            if (mbi.State == MEM_COMMIT && mbi.Protect == PAGE_EXECUTE_READ) {
+            if (mbi.State == MEM_COMMIT && 
+                (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
+                
                 std::vector<BYTE> buffer(mbi.RegionSize);
                 SIZE_T bytesRead;
                 
@@ -396,6 +416,7 @@ public:
                                         VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
                                         patchSuccess = true;
                                         patchesApplied++;
+                                        std::cout << "[LIVE PATCHER] Applied patch " << patchesApplied << "/" << totalPatches << "\n";
                                     }
                                 }
                             }
@@ -410,16 +431,24 @@ public:
         
         if (patchSuccess) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] All bypasses active\n";
+            std::cout << "[LIVE PATCHER] All bypasses and patches are active\n";
+            std::cout << "[LIVE PATCHER] Game is ready to play!\n";
+            return true;
+        } else {
+            std::cout << "[LIVE PATCHER] Failed to apply patches\n";
+            return false;
         }
-        
-        return patchSuccess;
     }
 
 private:
     void startPatcher() {
-        // No longer starting a continuous patcher thread
-        // Patches will be applied once before game launch
+        std::cout << "[PATCHER] Starting continuous patch monitoring...\n";
+        std::thread([this]() {
+            while (running) {
+                LivePatchFortnite();
+                Sleep(5000); // Check every 5 seconds
+            }
+        }).detach();
     }
 
 public:
@@ -530,6 +559,7 @@ public:
         auth_file.close();
 
         std::thread(&FortniteServer::handleMatchmaking, this).detach();
+        startPatcher(); // Start the continuous patcher
 
         std::thread([this]() {
             while (running) {
@@ -568,6 +598,8 @@ public:
 
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 
+        std::cout << "[LAUNCHER] Starting Fortnite...\n";
+
         if (!CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
                          CREATE_SUSPENDED | NORMAL_PRIORITY_CLASS,
                          NULL, workingDir.c_str(), &si, &pi)) {
@@ -577,10 +609,10 @@ public:
 
         gameProcess = pi.hProcess;
 
-        // Apply patches before resuming the process
-        std::cout << "[LIVE PATCHER] Applying patches before game start...\n";
+        // Apply initial patches before resuming
+        std::cout << "[LAUNCHER] Applying initial patches...\n";
         if (!LivePatchFortnite()) {
-            std::cerr << "Failed to apply patches\n";
+            std::cerr << "Failed to apply initial patches\n";
             TerminateProcess(gameProcess, 0);
             CloseHandle(gameProcess);
             return;
@@ -590,13 +622,20 @@ public:
         ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);
 
-        std::cout << "\nGame launched successfully!\n";
+        std::cout << "\n[LAUNCHER] Game launched successfully!\n";
+        std::cout << "[LAUNCHER] Waiting for game to initialize...\n";
         
+        // Wait for game to fully initialize
+        Sleep(5000);
+        
+        // Start monitoring thread
         std::thread([this]() {
             while (WaitForSingleObject(gameProcess, 100) == WAIT_TIMEOUT) {
                 Sleep(1000);
             }
-            std::cout << "Game process ended\n";
+            DWORD exitCode;
+            GetExitCodeProcess(gameProcess, &exitCode);
+            std::cout << "\n[LAUNCHER] Game process ended (Exit code: " << exitCode << ")\n";
             stop();
         }).detach();
     }

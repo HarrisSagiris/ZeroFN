@@ -1,6 +1,6 @@
 # ProjectZERO-ZeroFN
 
-ProjectZERO-ZeroFN is a custom batch script that provides a streamlined interface for downloading, managing, and launching custom Fortnite OG (Original Game) builds. It is designed to allow users to easily specify their FortniteOG path, install specific Fortnite seasons, and authenticate with Epic Games.
+ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for downloading, managing, and launching custom Fortnite OG (Original Game) builds. It is designed to allow users to easily specify their FortniteOG path, install specific Fortnite seasons, and authenticate with Epic Games.
 
 ---
 

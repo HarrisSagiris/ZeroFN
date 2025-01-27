@@ -19,9 +19,10 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 
-// ZeroFN Version 1.2.3
+// ZeroFN Version 1.2.4 
 // Developed by DevHarris
 // A private server implementation for Fortnite Season 2 Chapter 1
+// Added improved auth bypass and crash prevention
 
 namespace fs = std::experimental::filesystem;
 
@@ -322,11 +323,12 @@ private:
 
 public:
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting comprehensive patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting enhanced patching process...\n";
 
+        // Wait for Fortnite process with improved detection
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 60;
+        const int MAX_RETRIES = 120; // Increased retry count
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -346,7 +348,7 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(500);
+                Sleep(1000); // Increased sleep time
                 retryCount++;
                 std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
             }
@@ -358,6 +360,8 @@ public:
         }
 
         std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
+        std::cout << "[LIVE PATCHER] Waiting for process initialization...\n";
+        Sleep(5000); // Wait for process to fully initialize
 
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
@@ -365,27 +369,24 @@ public:
             return false;
         }
 
-        // Season 2 Chapter 1 specific patches
+        // Enhanced Season 2 patches with improved reliability
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core network patches
+            // Auth bypass patches (applied first)
+            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
+            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
+            {{0x74, 0x23, 0x48, 0x8B}, {0xEB, 0x23, 0x90, 0x90}},
+            
+            // Network patches
             {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x90, 0x90, 0x90}},
             {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x90, 0x90, 0x90}},
             
-            // Authentication bypasses
-            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
-            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
-
-            // SSL/Encryption bypasses
-            {{0x74, 0x23, 0x48, 0x8B}, {0xEB, 0x23, 0x90, 0x90}},
+            // SSL/Encryption patches
             {{0x75, 0x1C, 0x48, 0x8B}, {0xEB, 0x1C, 0x90, 0x90}},
+            {{0x74, 0x24, 0x48, 0x8B}, {0xEB, 0x24, 0x90, 0x90}},
 
-            // Anti-cheat bypasses
+            // Anti-cheat patches
             {{0x74, 0x15, 0x48, 0x8B}, {0xEB, 0x15, 0x90, 0x90}},
             {{0x75, 0x18, 0x48, 0x8B}, {0xEB, 0x18, 0x90, 0x90}},
-
-            // Server communication patches
-            {{0x74, 0x24, 0x48, 0x8B}, {0xEB, 0x24, 0x90, 0x90}},
-            {{0x75, 0x1E, 0x48, 0x8B}, {0xEB, 0x1E, 0x90, 0x90}},
 
             // Season 2 specific patches
             {{0x0F, 0x84, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
@@ -398,7 +399,7 @@ public:
         int patchesApplied = 0;
         int totalPatches = patches.size();
 
-        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " patches...\n";
+        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " patches carefully...\n";
 
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
@@ -420,7 +421,8 @@ public:
                                         VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
                                         patchSuccess = true;
                                         patchesApplied++;
-                                        std::cout << "[LIVE PATCHER] Applied patch " << patchesApplied << "/" << totalPatches << "\n";
+                                        std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches << "\n";
+                                        Sleep(100); // Small delay between patches
                                     }
                                 }
                             }
@@ -435,22 +437,22 @@ public:
         
         if (patchSuccess) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] All Season 2 bypasses and patches are active\n";
+            std::cout << "[LIVE PATCHER] Auth bypass and Season 2 patches are active\n";
             std::cout << "[LIVE PATCHER] Game is ready to play!\n";
             return true;
         } else {
-            std::cout << "[LIVE PATCHER] Failed to apply patches\n";
+            std::cout << "[LIVE PATCHER] Failed to apply patches - please verify game files\n";
             return false;
         }
     }
 
 private:
     void startPatcher() {
-        std::cout << "[PATCHER] Starting continuous patch monitoring...\n";
+        std::cout << "[PATCHER] Starting enhanced patch monitoring...\n";
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(5000);
+                Sleep(10000); // Increased interval between patch attempts
             }
         }).detach();
     }
@@ -460,7 +462,7 @@ public:
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");
-        std::cout << "\nZeroFN Version 1.2.3 - Season 2 Chapter 1\n";
+        std::cout << "\nZeroFN Version 1.2.4 - Season 2 Chapter 1\n";
         std::cout << "Developed by DevHarris\n\n";
         
         std::cout << "Enter your desired in-game username: ";
@@ -584,7 +586,7 @@ public:
         ZeroMemory(&pi, sizeof(pi));
         si.cb = sizeof(si);
 
-        // Season 2 specific launch parameters
+        // Enhanced Season 2 launch parameters
         std::string cmd = "\"" + installPath + "\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe\"";
         cmd += " -NOSSLPINNING -AUTH_TYPE=epic -AUTH_LOGIN=unused -AUTH_PASSWORD=" + authToken;
         cmd += " -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -noeac -nobe -fromfl=be -fltoken=fn -skippatchcheck";

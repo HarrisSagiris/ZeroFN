@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <TlHelp32.h>
 #include <Psapi.h>
+#include <processthreadsapi.h>
 
 // ZeroFN Version 1.2.4 
 // Developed by DevHarris
@@ -407,6 +408,12 @@ public:
             return false;
         }
 
+        // Force disable memory protection
+        DWORD oldProtect;
+        if (!VirtualProtectEx(processHandle, NULL, 0xFFFFFFFF, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+            SetProcessMitigationPolicy(ProcessDynamicCodePolicy, NULL, sizeof(PROCESS_MITIGATION_DYNAMIC_CODE_POLICY));
+        }
+
         // Updated Season 2 patches with more specific patterns
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
             // Core login bypass
@@ -440,11 +447,7 @@ public:
                 (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
                 
                 DWORD oldProtect;
-                if (!VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-                    std::cout << "[LIVE PATCHER] Failed to modify memory protection at " << mbi.BaseAddress << "\n";
-                    address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
-                    continue;
-                }
+                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
 
                 std::vector<BYTE> buffer(mbi.RegionSize);
                 SIZE_T bytesRead;

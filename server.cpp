@@ -19,7 +19,7 @@
 #include <TlHelp32.h>
 #include <Psapi.h>
 
-// ZeroFN Version 1.2.2
+// ZeroFN Version 1.2.3
 // Developed by DevHarris
 // A private server implementation for Fortnite
 
@@ -359,26 +359,39 @@ public:
             return false;
         }
 
+        // Enhanced patch patterns for UE4 crash prevention
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},
-            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},
-            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},
-            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xEB, 0x08, 0x8B, 0x45, 0xE8}},
-            // Additional crash prevention patches
-            {{0x75, 0x1F, 0x48, 0x8B, 0x45}, {0xEB, 0x1F, 0x48, 0x8B, 0x45}},
-            {{0x74, 0x15, 0x48, 0x8B, 0x4D}, {0xEB, 0x15, 0x48, 0x8B, 0x4D}},
-            {{0x0F, 0x85, 0x95, 0x00, 0x00}, {0xE9, 0x96, 0x00, 0x00, 0x00}},
-            // UE4 crash bypass patches
-            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}}, // Bypass crash check
-            {{0x0F, 0x85, 0x96, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}}, // Bypass error handling
-            {{0x75, 0x1C, 0x48, 0x8B, 0x0D}, {0xEB, 0x1C, 0x48, 0x8B, 0x0D}}, // Skip crash reporter
-            {{0x74, 0x25, 0x48, 0x8B, 0x4D}, {0xEB, 0x25, 0x48, 0x8B, 0x4D}} // Bypass crash dialog
+            // Core engine patches
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x48, 0x8B, 0x0D}},  // Jump patch
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x48, 0x8B, 0x5C}},  // Conditional bypass
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0xE9, 0x85, 0x00, 0x00, 0x00}},  // NOP + jump
+            
+            // UE4 crash handling bypasses
+            {{0x0F, 0x85, 0x96, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},  // Error check bypass
+            {{0x0F, 0x84, 0x95, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},  // Crash check bypass
+            
+            // Memory validation patches
+            {{0x75, 0x1F, 0x48, 0x8B, 0x45}, {0xEB, 0x1F, 0x48, 0x8B, 0x45}},  // Memory check bypass
+            {{0x74, 0x15, 0x48, 0x8B, 0x4D}, {0xEB, 0x15, 0x48, 0x8B, 0x4D}},  // Pointer validation bypass
+            
+            // Anti-crash patches
+            {{0x0F, 0x85, 0x95, 0x02, 0x00}, {0xE9, 0x96, 0x02, 0x00, 0x00, 0x90}},  // Exception handler bypass
+            {{0x75, 0x08, 0x8B, 0x45, 0xE8}, {0xEB, 0x08, 0x8B, 0x45, 0xE8}},  // Error state bypass
+            
+            // Additional stability patches
+            {{0x74, 0x23, 0x48, 0x8B, 0x4C}, {0xEB, 0x23, 0x48, 0x8B, 0x4C}},  // Error check bypass
+            {{0x75, 0x1C, 0x48, 0x8B, 0x0D}, {0xEB, 0x1C, 0x48, 0x8B, 0x0D}},  // Validation bypass
+            {{0x0F, 0x84, 0x95, 0x02, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},  // Complete bypass
+            
+            // Memory protection patches
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}},  // Memory protection bypass
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0x90, 0x90, 0x90, 0x90, 0x90}},  // Access validation bypass
         };
 
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
         bool patchSuccess = false;
+        int patchesApplied = 0;
 
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
@@ -392,15 +405,24 @@ public:
                         for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
                             if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
-                                SIZE_T bytesWritten;
                                 DWORD oldProtect;
 
                                 if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                                    SIZE_T bytesWritten;
                                     if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
                                         VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
-                                        std::cout << "[LIVE PATCHER] Successfully applied patch at " 
-                                                  << std::hex << patchAddress << std::dec << "\n";
+                                        std::cout << "[LIVE PATCHER] Successfully applied patch " << ++patchesApplied 
+                                                  << " at " << std::hex << patchAddress << std::dec << "\n";
                                         patchSuccess = true;
+                                        
+                                        // Verify patch
+                                        std::vector<BYTE> verifyBuffer(patch.second.size());
+                                        SIZE_T verifyBytesRead;
+                                        if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead)) {
+                                            if (memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
+                                                std::cout << "[LIVE PATCHER] Patch verification successful\n";
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -412,6 +434,11 @@ public:
         }
 
         CloseHandle(processHandle);
+        
+        if (patchSuccess) {
+            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
+        }
+        
         return patchSuccess;
     }
 
@@ -431,7 +458,7 @@ private:
             std::thread([this]() {
                 while(running) {
                     LivePatchFortnite();
-                    Sleep(5000);
+                    Sleep(2000); // Reduced sleep time for more frequent patching
                 }
             }).detach();
         }
@@ -442,7 +469,7 @@ public:
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");
-        std::cout << "\nZeroFN Version 1.2.2\n";
+        std::cout << "\nZeroFN Version 1.2.3\n";
         std::cout << "Developed by DevHarris\n\n";
         
         std::cout << "Enter your desired in-game username: ";
@@ -575,6 +602,12 @@ public:
         cmd += " -NOSSLPINNING_V2 -ALLOWALLSSL -BYPASSSSL -NOENCRYPTION";
         cmd += " -DISABLEPATCHCHECK -DISABLELOGGEDOUT";
         cmd += " -NOCRASHREPORT -NOCRASHREPORTCLIENT"; // Disable crash reporting
+        cmd += " -HEAPSIZE=2048"; // Increase heap size
+        cmd += " -NOTEXTURESTREAMING"; // Disable texture streaming
+        cmd += " -USEALLAVAILABLECORES"; // Use all CPU cores
+        cmd += " -NOSOUND"; // Disable sound for stability
+        cmd += " -LANPLAY"; // Force LAN mode
+        cmd += " -NOSTEAM"; // Disable Steam integration
 
         std::string workingDir = installPath + "\\FortniteGame\\Binaries\\Win64";
 

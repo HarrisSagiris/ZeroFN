@@ -390,6 +390,7 @@ public:
         }
 
         // Get main module information
+        MODULEINFO mainModuleInfo;
         HMODULE mainModule = NULL;
         DWORD cbNeeded;
         if (!EnumProcessModules(processHandle, &mainModule, sizeof(mainModule), &cbNeeded)) {
@@ -397,8 +398,6 @@ public:
             return false;
         }
 
-        // Get only the main executable module info
-        MODULEINFO mainModuleInfo;
         if (!GetModuleInformation(processHandle, mainModule, &mainModuleInfo, sizeof(mainModuleInfo))) {
             CloseHandle(processHandle);
             return false;
@@ -423,7 +422,7 @@ public:
         int patchesApplied = 0;
         const size_t bufferSize = 0x1000;
         std::vector<BYTE> buffer(bufferSize);
-        
+
         // Only scan the main executable module
         for (SIZE_T offset = 0; offset < mainModuleInfo.SizeOfImage; offset += bufferSize) {
             SIZE_T bytesRead;
@@ -635,6 +634,8 @@ public:
         }
 
         gameProcess = pi.hProcess;
+        
+        Sleep(3000); // Add delay before patching
 
         std::cout << "[LAUNCHER] Applying Season 2 patches...\n";
         if (!LivePatchFortnite()) {

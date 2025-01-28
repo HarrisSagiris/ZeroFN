@@ -338,9 +338,24 @@ void loadCosmeticsDatabase() {
                 
                 sendResponse(clientSocket, headers + response);
             }
+            else if (endpoint.find("/fortnite/api/cloudstorage/system") != std::string::npos) {
+                // Added cloudstorage system endpoint
+                std::string response = "[]";
+                sendResponse(clientSocket, headers + response);
+            }
+            else if (endpoint.find("/fortnite/api/game/v2/enabled_features") != std::string::npos) {
+                // Added enabled features endpoint
+                std::string response = "[]";
+                sendResponse(clientSocket, headers + response);
+            }
+            else if (endpoint.find("/lightswitch/api/service/bulk/status") != std::string::npos) {
+                // Added lightswitch service status endpoint
+                std::string response = "[{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"Fortnite is online\",\"maintenanceUri\":null,\"allowedActions\":[\"PLAY\",\"DOWNLOAD\"],\"banned\":false,\"launcherInfoDTO\":{\"appName\":\"Fortnite\",\"catalogItemId\":\"4fe75bbc5a674f4f9b356b5c90567da5\",\"namespace\":\"fn\"}}]";
+                sendResponse(clientSocket, headers + response);
+            }
             else {
                 // Default response for any unhandled endpoints
-                std::string response = "{\"status\":\"ok\",\"errorCode\":\"errors.com.epicgames.common.not_found\",\"errorMessage\":\"Sorry the resource you were trying to find could not be found\",\"messageVars\":[],\"numericErrorCode\":1004,\"originatingService\":\"fortnite\",\"intent\":\"prod\"}";
+                std::string response = "{\"status\":\"ok\"}";
                 sendResponse(clientSocket, headers + response);
             }
         }
@@ -438,7 +453,19 @@ public:
             // Lobby access
             {{0x74, 0x23, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
             // Asset validation bypass
-            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}}
+            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            // Additional login bypass
+            {{0x0F, 0x85, 0xFF, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Server connection bypass
+            {{0x74, 0x1A, 0x48, 0x8B, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Network validation bypass
+            {{0x75, 0x14, 0x48, 0x8B, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Additional server validation bypass
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Login flow bypass
+            {{0x74, 0x23, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Auth check bypass
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;

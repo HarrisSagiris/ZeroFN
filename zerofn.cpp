@@ -354,6 +354,9 @@ public:
     bool LivePatchFortnite() {
         std::cout << "\n[LIVE PATCHER] Starting rapid patching process...\n";
 
+        // Wait for process to be fully initialized
+        Sleep(3000);
+
         // Get Fortnite process ID
         DWORD processId = 0;
         HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -388,6 +391,9 @@ public:
             std::cout << "[LIVE PATCHER] Failed to open process\n";
             return false;
         }
+
+        // Wait for modules to load
+        Sleep(2000);
 
         // Get module information
         HMODULE moduleHandle = NULL;
@@ -634,6 +640,9 @@ public:
         }
 
         gameProcess = pi.hProcess;
+
+        // Wait for process to initialize
+        Sleep(3000);
 
         std::cout << "[LAUNCHER] Applying Season 2 patches...\n";
         if (!LivePatchFortnite()) {

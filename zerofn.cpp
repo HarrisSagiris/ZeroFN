@@ -350,12 +350,11 @@ void loadCosmeticsDatabase() {
 
 public:
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting enhanced patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting Season 2 patching process...\n";
 
-        // Wait for Fortnite process with improved detection
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 120;
+        const int MAX_RETRIES = 60;
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -375,9 +374,9 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(500); // Increased delay between retries
+                Sleep(1000);
                 retryCount++;
-                std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
+                std::cout << "[LIVE PATCHER] Waiting for Fortnite... " << retryCount << "/" << MAX_RETRIES << "\n";
             }
         }
 
@@ -387,21 +386,19 @@ public:
         }
 
         std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
-        Sleep(2000); // Wait for process to fully initialize
+        Sleep(5000);
 
-        // Enhanced privilege elevation with error handling
         HANDLE tokenHandle;
-        TOKEN_PRIVILEGES tokenPrivileges;
-        LUID luid;
-
         if(!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tokenHandle)) {
-            std::cout << "[LIVE PATCHER] Failed to open process token. Error: " << GetLastError() << "\n";
+            std::cout << "[LIVE PATCHER] Failed to open process token\n";
             return false;
         }
 
+        TOKEN_PRIVILEGES tokenPrivileges;
+        LUID luid;
         if(!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
-            std::cout << "[LIVE PATCHER] Failed to lookup privilege value. Error: " << GetLastError() << "\n";
             CloseHandle(tokenHandle);
+            std::cout << "[LIVE PATCHER] Failed to lookup privilege value\n";
             return false;
         }
 
@@ -410,55 +407,38 @@ public:
         tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
         if(!AdjustTokenPrivileges(tokenHandle, FALSE, &tokenPrivileges, sizeof(TOKEN_PRIVILEGES), NULL, NULL)) {
-            std::cout << "[LIVE PATCHER] Failed to adjust token privileges. Error: " << GetLastError() << "\n";
             CloseHandle(tokenHandle);
+            std::cout << "[LIVE PATCHER] Failed to adjust token privileges\n";
             return false;
         }
 
         CloseHandle(tokenHandle);
-        Sleep(1000); // Wait after privilege adjustment
+        Sleep(2000);
 
-        // Open process with enhanced error handling and retry mechanism
-        HANDLE processHandle = NULL;
-        int openAttempts = 0;
-        const int MAX_OPEN_ATTEMPTS = 5;
-
-        while (!processHandle && openAttempts < MAX_OPEN_ATTEMPTS) {
-            processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-            if (!processHandle) {
-                processHandle = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION, FALSE, processId);
-            }
-            if (!processHandle) {
-                openAttempts++;
-                Sleep(1000);
-                std::cout << "[LIVE PATCHER] Retry opening process attempt " << openAttempts << "/" << MAX_OPEN_ATTEMPTS << "\n";
-            }
-        }
-
+        HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
-            std::cout << "[LIVE PATCHER] Failed to open process after " << MAX_OPEN_ATTEMPTS << " attempts. Error: " << GetLastError() << "\n";
+            std::cout << "[LIVE PATCHER] Failed to open process\n";
             return false;
         }
 
-        Sleep(1000); // Wait after process handle obtained
-
-        // Updated Season 2 patches with more specific patterns and verification
+        // Season 2 specific memory patches
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core login bypass (Split into smaller chunks)
-            {{0x74, 0x20}, {0x90, 0x90}},
-            {{0x48, 0x8B}, {0x90, 0x90}},
-            
-            // Authentication bypass (Split into smaller chunks)
-            {{0x0F, 0x84}, {0x90, 0x90}},
-            {{0x85, 0x00}, {0x90, 0x90}},
-            
-            // Server validation (Smaller chunks)
-            {{0x74, 0x23}, {0x90, 0x90}},
-            {{0x75, 0x1D}, {0x90, 0x90}},
-            
-            // SSL pinning (Reduced size for stability)
-            {{0x0F, 0x84}, {0x90, 0x90}},
-            {{0x0F, 0x85}, {0x90, 0x90}}
+            // Login bypass
+            {{0x75, 0x04, 0x33, 0xC0, 0x5D, 0xC3}, {0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3}},
+            // Season check bypass
+            {{0x83, 0x3D, 0x00, 0x00, 0x00, 0x00, 0x02}, {0xB8, 0x02, 0x00, 0x00, 0x00, 0x90, 0x90}},
+            // Authentication bypass
+            {{0x74, 0x20, 0x48, 0x8B, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Server validation bypass
+            {{0x0F, 0x84, 0x00, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // SSL pinning bypass
+            {{0x0F, 0x85, 0x00, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
+            // Season 2 force
+            {{0xA1, 0x00, 0x00, 0x00, 0x00}, {0xB8, 0x02, 0x00, 0x00, 0x00}},
+            // Lobby access
+            {{0x74, 0x23, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            // Asset validation bypass
+            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -468,19 +448,15 @@ public:
         int totalPatches = patches.size();
         std::vector<LPVOID> appliedPatches;
 
-        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches with crash prevention...\n";
-        Sleep(2000); // Wait before starting patches
+        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " Season 2 patches...\n";
+        Sleep(2000);
 
-        // Enhanced memory scanning and patching with verification
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
                 (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
                 
                 DWORD oldProtect;
-                if (!VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-                    address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
-                    continue;
-                }
+                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
 
                 std::vector<BYTE> buffer(mbi.RegionSize);
                 SIZE_T bytesRead;
@@ -491,44 +467,25 @@ public:
                             if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                 
-                                Sleep(500); // Longer delay between patches
-                                
                                 SIZE_T bytesWritten;
-                                int writeAttempts = 0;
-                                bool writeSuccess = false;
-                                
-                                while (writeAttempts < 3 && !writeSuccess) {
-                                    if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                        Sleep(250); // Wait before verification
-                                        
-                                        std::vector<BYTE> verifyBuffer(patch.second.size());
-                                        SIZE_T verifyBytesRead;
-                                        
-                                        if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead) &&
-                                            verifyBytesRead == patch.second.size() &&
-                                            memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
-                                            
-                                            writeSuccess = true;
-                                            patchSuccess = true;
-                                            patchesApplied++;
-                                            appliedPatches.push_back(patchAddress);
-                                            
-                                            std::cout << "[LIVE PATCHER] Successfully applied and verified patch " << patchesApplied << "/" << totalPatches 
-                                                    << " at " << std::hex << patchAddress << std::dec << "\n";
-                                            
-                                            FlushInstructionCache(processHandle, patchAddress, patch.second.size());
-                                            Sleep(500); // Wait after successful patch
-                                        }
-                                    }
+                                if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
+                                    std::vector<BYTE> verifyBuffer(patch.second.size());
+                                    SIZE_T verifyBytesRead;
                                     
-                                    if (!writeSuccess) {
-                                        writeAttempts++;
-                                        Sleep(500); // Longer delay between retry attempts
+                                    if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead) &&
+                                        verifyBytesRead == patch.second.size() &&
+                                        memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
+                                        
+                                        patchSuccess = true;
+                                        patchesApplied++;
+                                        appliedPatches.push_back(patchAddress);
+                                        
+                                        std::cout << "[LIVE PATCHER] Applied Season 2 patch " << patchesApplied << "/" << totalPatches 
+                                                << " at " << std::hex << patchAddress << std::dec << "\n";
+                                        
+                                        FlushInstructionCache(processHandle, patchAddress, patch.second.size());
+                                        Sleep(1000);
                                     }
-                                }
-                                
-                                if (!writeSuccess) {
-                                    std::cout << "[LIVE PATCHER] Failed to apply or verify patch at " << std::hex << patchAddress << std::dec << "\n";
                                 }
                             }
                         }
@@ -541,26 +498,26 @@ public:
         }
 
         CloseHandle(processHandle);
-        Sleep(1000); // Final wait before completing
+        Sleep(2000);
 
         if (patchesApplied > 0) {
-            std::cout << "[LIVE PATCHER] Successfully applied and verified " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] Login bypass and Season 2 patches are active\n";
-            std::cout << "[LIVE PATCHER] Game is ready - you can now access the lobby!\n";
+            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " Season 2 patches\n";
+            std::cout << "[LIVE PATCHER] Season 2 patches are active\n";
+            std::cout << "[LIVE PATCHER] You can now access the Season 2 lobby!\n";
             return true;
         } else {
-            std::cout << "[LIVE PATCHER] Failed to apply any patches. Please run as Administrator.\n";
+            std::cout << "[LIVE PATCHER] Failed to apply Season 2 patches. Please run as Administrator.\n";
             return false;
         }
     }
 
 private:
     void startPatcher() {
-        std::cout << "[PATCHER] Starting enhanced patch monitoring...\n";
+        std::cout << "[PATCHER] Starting Season 2 patch monitoring...\n";
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(30000); // Increased interval to reduce CPU usage and prevent crashes
+                Sleep(30000);
             }
         }).detach();
     }

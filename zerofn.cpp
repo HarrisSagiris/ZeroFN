@@ -417,10 +417,10 @@ public:
 
         // Create child process for patching
         HANDLE childProcess = NULL;
-        STARTUPINFOW si = {sizeof(si)};
+        STARTUPINFOA si = {sizeof(si)};
         PROCESS_INFORMATION pi;
         
-        if (CreateProcessAsUserW(GetCurrentProcessToken(), NULL, NULL,
+        if (CreateProcessAsUserA(GetCurrentProcessToken(), NULL, NULL,
             NULL, NULL, FALSE, CREATE_SUSPENDED | CREATE_NO_WINDOW,
             NULL, NULL, &si, &pi)) {
             
@@ -616,7 +616,7 @@ public:
     }
 
     void launchGame() {
-        STARTUPINFOW si;
+        STARTUPINFOA si;
         PROCESS_INFORMATION pi;
         ZeroMemory(&si, sizeof(si));
         ZeroMemory(&pi, sizeof(pi));

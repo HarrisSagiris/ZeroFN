@@ -757,7 +757,7 @@ public:
 int main(int argc, char* argv[]) {
     SetConsoleTitle("ZeroFN Launcher");
     
-    FortniteServer server;
+    FortniteServer server(argv[0]);
     if(server.start()) {
         std::cout << "\nServer started successfully!\n";
         std::cout << "Starting Fortnite...\n";

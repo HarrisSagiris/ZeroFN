@@ -23,10 +23,10 @@
 #include <processthreadsapi.h>
 #include <winternl.h>
 
-// ZeroFN Version 1.2.5
+// ZeroFN Version 1.2.4 
 // Developed by DevHarris
 // A private server implementation for Fortnite Season 2 Chapter 1
-// Added improved auth bypass, crash prevention and continuous patching
+// Added improved auth bypass and crash prevention
 
 namespace fs = std::experimental::filesystem;
 
@@ -49,7 +49,6 @@ private:
     std::string installPath;
     HANDLE gameProcess;
     HANDLE patcherProcess;
-    std::string executablePath; // Added to store argv[0]
     
     std::map<std::string, GameSession> activeSessions;
     std::vector<std::string> matchmakingQueue;
@@ -341,7 +340,7 @@ void loadCosmeticsDatabase() {
             }
             else {
                 // Default response for any unhandled endpoints
-                std::string response = "{\"status\":\"ok\"}";
+                std::string response = "{\"status\":\"ok\",\"errorCode\":\"errors.com.epicgames.common.not_found\",\"errorMessage\":\"Sorry the resource you were trying to find could not be found\",\"messageVars\":[],\"numericErrorCode\":1004,\"originatingService\":\"fortnite\",\"intent\":\"prod\"}";
                 sendResponse(clientSocket, headers + response);
             }
         }
@@ -351,12 +350,7 @@ void loadCosmeticsDatabase() {
 
 public:
     bool LivePatchFortnite() {
-        // Create a new console window for the patcher
-        AllocConsole();
-        SetConsoleTitle("ZeroFN Live Patcher");
-        freopen("CONOUT$", "w", stdout);
-        
-        std::cout << "\n[LIVE PATCHER] Starting continuous Season 2 patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting Season 2 patching process...\n";
 
         DWORD processId = 0;
         int retryCount = 0;
@@ -427,7 +421,7 @@ public:
             return false;
         }
 
-        // Enhanced Season 2 memory patches
+        // Season 2 specific memory patches
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
             // Login bypass
             {{0x75, 0x04, 0x33, 0xC0, 0x5D, 0xC3}, {0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3}},
@@ -444,13 +438,7 @@ public:
             // Lobby access
             {{0x74, 0x23, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
             // Asset validation bypass
-            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            // Additional login bypass
-            {{0x0F, 0x85, 0xFF, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server connection bypass
-            {{0x74, 0x1A, 0x48, 0x8B, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Network validation bypass
-            {{0x75, 0x14, 0x48, 0x8B, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}}
+            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -463,96 +451,83 @@ public:
         std::cout << "[LIVE PATCHER] Applying " << totalPatches << " Season 2 patches...\n";
         Sleep(2000);
 
-        // Continuous patching loop
-        while (running) {
-            address = 0;
-            patchesApplied = 0;
-            
-            while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-                if (mbi.State == MEM_COMMIT && 
-                    (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
-                    
-                    DWORD oldProtect;
-                    VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+        while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
+            if (mbi.State == MEM_COMMIT && 
+                (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
+                
+                DWORD oldProtect;
+                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
 
-                    std::vector<BYTE> buffer(mbi.RegionSize);
-                    SIZE_T bytesRead;
-                    
-                    if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                        for (const auto& patch : patches) {
-                            for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
-                                if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                                    LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
+                std::vector<BYTE> buffer(mbi.RegionSize);
+                SIZE_T bytesRead;
+                
+                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
+                    for (const auto& patch : patches) {
+                        for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
+                            if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
+                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
+                                
+                                SIZE_T bytesWritten;
+                                if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
+                                    std::vector<BYTE> verifyBuffer(patch.second.size());
+                                    SIZE_T verifyBytesRead;
                                     
-                                    SIZE_T bytesWritten;
-                                    if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                        std::vector<BYTE> verifyBuffer(patch.second.size());
-                                        SIZE_T verifyBytesRead;
+                                    if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead) &&
+                                        verifyBytesRead == patch.second.size() &&
+                                        memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
                                         
-                                        if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead) &&
-                                            verifyBytesRead == patch.second.size() &&
-                                            memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
-                                            
-                                            patchSuccess = true;
-                                            patchesApplied++;
-                                            appliedPatches.push_back(patchAddress);
-                                            
-                                            std::cout << "[LIVE PATCHER] Applied Season 2 patch " << patchesApplied << "/" << totalPatches 
-                                                    << " at " << std::hex << patchAddress << std::dec << "\n";
-                                            
-                                            FlushInstructionCache(processHandle, patchAddress, patch.second.size());
-                                        }
+                                        patchSuccess = true;
+                                        patchesApplied++;
+                                        appliedPatches.push_back(patchAddress);
+                                        
+                                        std::cout << "[LIVE PATCHER] Applied Season 2 patch " << patchesApplied << "/" << totalPatches 
+                                                << " at " << std::hex << patchAddress << std::dec << "\n";
+                                        
+                                        FlushInstructionCache(processHandle, patchAddress, patch.second.size());
+                                        Sleep(1000);
                                     }
                                 }
                             }
                         }
                     }
-
-                    VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
                 }
-                address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
-            }
 
-            if (patchesApplied > 0) {
-                std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " Season 2 patches\n";
-                std::cout << "[LIVE PATCHER] Season 2 patches are active\n";
-                std::cout << "[LIVE PATCHER] Monitoring for patch stability...\n";
+                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
             }
-
-            Sleep(5000); // Check patches every 5 seconds
+            address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
         CloseHandle(processHandle);
-        return true;
+        Sleep(2000);
+
+        if (patchesApplied > 0) {
+            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " Season 2 patches\n";
+            std::cout << "[LIVE PATCHER] Season 2 patches are active\n";
+            std::cout << "[LIVE PATCHER] You can now access the Season 2 lobby!\n";
+            return true;
+        } else {
+            std::cout << "[LIVE PATCHER] Failed to apply Season 2 patches. Please run as Administrator.\n";
+            return false;
+        }
     }
 
 private:
     void startPatcher() {
         std::cout << "[PATCHER] Starting Season 2 patch monitoring...\n";
-        
-        // Create patcher process
-        STARTUPINFO si;
-        PROCESS_INFORMATION pi;
-        ZeroMemory(&si, sizeof(si));
-        ZeroMemory(&pi, sizeof(pi));
-        si.cb = sizeof(si);
-        si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_SHOW;
-
-        // Launch patcher in new window
-        std::string cmd = "cmd.exe /c start \"ZeroFN Live Patcher\" /wait " + executablePath + " --patcher";
-        CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
-        
-        patcherProcess = pi.hProcess;
-        CloseHandle(pi.hThread);
+        std::thread([this]() {
+            while (running) {
+                LivePatchFortnite();
+                Sleep(30000);
+            }
+        }).detach();
     }
 
 public:
-    FortniteServer(const std::string& exePath) : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL), patcherProcess(NULL), executablePath(exePath) {
+    FortniteServer() : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL), patcherProcess(NULL) {
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");
-        std::cout << "\nZeroFN Version 1.2.5 - Season 2 Chapter 1\n";
+        std::cout << "\nZeroFN Version 1.2.4 - Season 2 Chapter 1\n";
         std::cout << "Developed by @Devharris\n\n";
         
         std::cout << "Enter your desired in-game username: ";
@@ -757,7 +732,7 @@ public:
 int main(int argc, char* argv[]) {
     SetConsoleTitle("ZeroFN Launcher");
     
-    FortniteServer server(argv[0]);
+    FortniteServer server;
     if(server.start()) {
         std::cout << "\nServer started successfully!\n";
         std::cout << "Starting Fortnite...\n";

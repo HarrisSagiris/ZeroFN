@@ -354,8 +354,8 @@ public:
     bool LivePatchFortnite() {
         std::cout << "\n[LIVE PATCHER] Starting rapid patching process...\n";
 
-        // Wait for process to be fully initialized
-        Sleep(3000);
+        // Wait longer for process to be fully initialized and loaded
+        Sleep(10000); // Increased from 3000 to 10000ms
 
         // Get Fortnite process ID
         DWORD processId = 0;
@@ -392,8 +392,8 @@ public:
             return false;
         }
 
-        // Wait for modules to load
-        Sleep(2000);
+        // Wait longer for modules to load
+        Sleep(5000); // Increased from 2000 to 5000ms
 
         // Get module information
         HMODULE moduleHandle = NULL;

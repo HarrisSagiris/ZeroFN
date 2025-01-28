@@ -22,6 +22,10 @@
 #include <Psapi.h>
 #include <processthreadsapi.h>
 #include <winternl.h>
+#include <Shlwapi.h>
+#include <Shlobj.h>
+
+#pragma comment(lib, "Shlwapi.lib")
 
 // ZeroFN Version 1.2.4 
 // Developed by DevHarris
@@ -367,175 +371,159 @@ public:
     bool LivePatchFortnite() {
         std::cout << "\n[LIVE PATCHER] Starting Season 2 patching process...\n";
 
-        DWORD processId = 0;
-        int retryCount = 0;
-        const int MAX_RETRIES = 60;
-        
-        while (processId == 0 && retryCount < MAX_RETRIES) {
-            HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-            if (snapshot != INVALID_HANDLE_VALUE) {
-                PROCESSENTRY32W processEntry;
-                processEntry.dwSize = sizeof(processEntry);
-                
-                if (Process32FirstW(snapshot, &processEntry)) {
-                    do {
-                        if (_wcsicmp(processEntry.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
-                            processId = processEntry.th32ProcessID;
-                            break;
-                        }
-                    } while (Process32NextW(snapshot, &processEntry));
-                }
-                CloseHandle(snapshot);
-            }
-            
-            if (processId == 0) {
-                Sleep(1000);
-                retryCount++;
-                std::cout << "[LIVE PATCHER] Waiting for Fortnite... " << retryCount << "/" << MAX_RETRIES << "\n";
-            }
-        }
-
-        if (processId == 0) {
-            std::cout << "[LIVE PATCHER] Failed to find Fortnite process\n";
-            return false;
-        }
-
-        std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
-        Sleep(5000);
-
+        // Get debug privileges first
         HANDLE tokenHandle;
-        if(!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tokenHandle)) {
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tokenHandle)) {
             std::cout << "[LIVE PATCHER] Failed to open process token\n";
             return false;
         }
 
-        TOKEN_PRIVILEGES tokenPrivileges;
+        TOKEN_PRIVILEGES tp;
         LUID luid;
-        if(!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
+        if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
             CloseHandle(tokenHandle);
             std::cout << "[LIVE PATCHER] Failed to lookup privilege value\n";
             return false;
         }
 
-        tokenPrivileges.PrivilegeCount = 1;
-        tokenPrivileges.Privileges[0].Luid = luid;
-        tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+        tp.PrivilegeCount = 1;
+        tp.Privileges[0].Luid = luid;
+        tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
-        if(!AdjustTokenPrivileges(tokenHandle, FALSE, &tokenPrivileges, sizeof(TOKEN_PRIVILEGES), NULL, NULL)) {
+        if (!AdjustTokenPrivileges(tokenHandle, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL)) {
             CloseHandle(tokenHandle);
             std::cout << "[LIVE PATCHER] Failed to adjust token privileges\n";
             return false;
         }
 
         CloseHandle(tokenHandle);
-        Sleep(2000);
 
-        HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-        if (!processHandle) {
-            std::cout << "[LIVE PATCHER] Failed to open process\n";
+        // Find Fortnite process
+        DWORD processId = 0;
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snapshot == INVALID_HANDLE_VALUE) {
+            std::cout << "[LIVE PATCHER] Failed to create process snapshot\n";
             return false;
         }
 
-        // Season 2 specific memory patches
-        std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Login bypass
-            {{0x75, 0x04, 0x33, 0xC0, 0x5D, 0xC3}, {0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3}},
-            // Season check bypass
-            {{0x83, 0x3D, 0x00, 0x00, 0x00, 0x00, 0x02}, {0xB8, 0x02, 0x00, 0x00, 0x00, 0x90, 0x90}},
-            // Authentication bypass
-            {{0x74, 0x20, 0x48, 0x8B, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server validation bypass
-            {{0x0F, 0x84, 0x00, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // SSL pinning bypass
-            {{0x0F, 0x85, 0x00, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Season 2 force
-            {{0xA1, 0x00, 0x00, 0x00, 0x00}, {0xB8, 0x02, 0x00, 0x00, 0x00}},
-            // Lobby access
-            {{0x74, 0x23, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            // Asset validation bypass
-            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            // Additional login bypass
-            {{0x0F, 0x85, 0xFF, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server connection bypass
-            {{0x74, 0x1A, 0x48, 0x8B, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Network validation bypass
-            {{0x75, 0x14, 0x48, 0x8B, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Additional server validation bypass
-            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Login flow bypass
-            {{0x74, 0x23, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Auth check bypass
-            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0x90, 0x90, 0x90, 0x90, 0x90}}
+        PROCESSENTRY32W processEntry;
+        processEntry.dwSize = sizeof(processEntry);
+
+        if (Process32FirstW(snapshot, &processEntry)) {
+            do {
+                if (_wcsicmp(processEntry.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
+                    processId = processEntry.th32ProcessID;
+                    break;
+                }
+            } while (Process32NextW(snapshot, &processEntry));
+        }
+
+        CloseHandle(snapshot);
+
+        if (processId == 0) {
+            std::cout << "[LIVE PATCHER] Fortnite process not found\n";
+            return false;
+        }
+
+        // Open the process with full access
+        HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+        if (!processHandle) {
+            std::cout << "[LIVE PATCHER] Failed to open Fortnite process\n";
+            return false;
+        }
+
+        // Define our patches
+        struct Patch {
+            std::vector<BYTE> find;
+            std::vector<BYTE> replace;
+            std::string description;
         };
 
-        MEMORY_BASIC_INFORMATION mbi;
-        LPVOID address = 0;
-        bool patchSuccess = false;
-        int patchesApplied = 0;
-        int totalPatches = patches.size();
-        std::vector<LPVOID> appliedPatches;
+        std::vector<Patch> patches = {
+            // Auth bypass patches
+            {
+                {0x75, 0x04, 0x33, 0xC0, 0x5D, 0xC3},
+                {0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3},
+                "Auth Bypass 1"
+            },
+            {
+                {0x74, 0x20, 0x48, 0x8B, 0x00, 0x00},
+                {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
+                "Auth Bypass 2"
+            },
+            // SSL/Encryption bypasses
+            {
+                {0x0F, 0x84, 0x00, 0x00, 0x00, 0x00},
+                {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
+                "SSL Bypass"
+            },
+            {
+                {0x0F, 0x85, 0x00, 0x00, 0x00, 0x00},
+                {0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
+                "Encryption Bypass"
+            },
+            // Season check bypass
+            {
+                {0x83, 0x3D, 0x00, 0x00, 0x00, 0x00, 0x02},
+                {0xB8, 0x02, 0x00, 0x00, 0x00, 0x90, 0x90},
+                "Season Check Bypass"
+            },
+            // Server validation bypasses
+            {
+                {0x74, 0x23, 0x48, 0x8B},
+                {0x90, 0x90, 0x90, 0x90},
+                "Server Validation Bypass 1"
+            },
+            {
+                {0x75, 0x1D, 0x48, 0x8B},
+                {0x90, 0x90, 0x90, 0x90},
+                "Server Validation Bypass 2"
+            }
+        };
 
-        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " Season 2 patches...\n";
-        Sleep(2000);
+        // Scan and patch memory
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+        LPVOID address = sysInfo.lpMinimumApplicationAddress;
 
-        while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-            if (mbi.State == MEM_COMMIT && 
-                (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
-                
-                DWORD oldProtect;
-                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+        while (address < sysInfo.lpMaximumApplicationAddress) {
+            MEMORY_BASIC_INFORMATION memInfo;
+            if (VirtualQueryEx(processHandle, address, &memInfo, sizeof(memInfo))) {
+                if (memInfo.State == MEM_COMMIT && 
+                    (memInfo.Protect & PAGE_EXECUTE_READ || 
+                     memInfo.Protect & PAGE_EXECUTE_READWRITE)) {
+                    
+                    std::vector<BYTE> buffer(memInfo.RegionSize);
+                    SIZE_T bytesRead;
 
-                std::vector<BYTE> buffer(mbi.RegionSize);
-                SIZE_T bytesRead;
-                
-                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                    for (const auto& patch : patches) {
-                        for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
-                            if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
-                                
-                                SIZE_T bytesWritten;
-                                if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                    std::vector<BYTE> verifyBuffer(patch.second.size());
-                                    SIZE_T verifyBytesRead;
-                                    
-                                    if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead) &&
-                                        verifyBytesRead == patch.second.size() &&
-                                        memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
-                                        
-                                        patchSuccess = true;
-                                        patchesApplied++;
-                                        appliedPatches.push_back(patchAddress);
-                                        
-                                        std::cout << "[LIVE PATCHER] Applied Season 2 patch " << patchesApplied << "/" << totalPatches 
-                                                << " at " << std::hex << patchAddress << std::dec << "\n";
-                                        
-                                        FlushInstructionCache(processHandle, patchAddress, patch.second.size());
-                                        Sleep(1000);
+                    if (ReadProcessMemory(processHandle, memInfo.BaseAddress, buffer.data(), buffer.size(), &bytesRead)) {
+                        for (const auto& patch : patches) {
+                            for (size_t i = 0; i < buffer.size() - patch.find.size(); i++) {
+                                if (memcmp(buffer.data() + i, patch.find.data(), patch.find.size()) == 0) {
+                                    DWORD oldProtect;
+                                    LPVOID patchAddress = (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i);
+
+                                    if (VirtualProtectEx(processHandle, patchAddress, patch.replace.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                                        if (WriteProcessMemory(processHandle, patchAddress, patch.replace.data(), patch.replace.size(), nullptr)) {
+                                            std::cout << "[LIVE PATCHER] Applied " << patch.description << " at " << std::hex << patchAddress << std::dec << "\n";
+                                            FlushInstructionCache(processHandle, patchAddress, patch.replace.size());
+                                        }
+                                        VirtualProtectEx(processHandle, patchAddress, patch.replace.size(), oldProtect, &oldProtect);
                                     }
                                 }
                             }
                         }
                     }
                 }
-
-                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
+                address = (LPVOID)((DWORD_PTR)memInfo.BaseAddress + memInfo.RegionSize);
+            } else {
+                address = (LPVOID)((DWORD_PTR)address + sysInfo.dwPageSize);
             }
-            address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
         CloseHandle(processHandle);
-        Sleep(2000);
-
-        if (patchesApplied > 0) {
-            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " Season 2 patches\n";
-            std::cout << "[LIVE PATCHER] Season 2 patches are active\n";
-            std::cout << "[LIVE PATCHER] You can now access the Season 2 lobby!\n";
-            return true;
-        } else {
-            std::cout << "[LIVE PATCHER] Failed to apply Season 2 patches. Please run as Administrator.\n";
-            return false;
-        }
+        std::cout << "[LIVE PATCHER] Patching complete!\n";
+        return true;
     }
 
 private:

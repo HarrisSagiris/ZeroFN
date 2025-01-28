@@ -57,7 +57,7 @@ private:
     std::map<std::string, std::string> playerLoadout;
     std::map<std::string, std::map<std::string, std::string>> cosmeticsDb;
 
-void loadCosmeticsDatabase() {
+    void loadCosmeticsDatabase() {
         std::ifstream cosmeticsFile("cosmetics.json");
         if(cosmeticsFile.good()) {
             std::string line;
@@ -105,7 +105,9 @@ void loadCosmeticsDatabase() {
                 }
             }
         }
-    }    void initializePlayerData() {
+    }
+
+    void initializePlayerData() {
         loadCosmeticsDatabase();
         
         playerLoadout["character"] = "CID_004_Athena_Commando_F_Default"; // Black Knight
@@ -350,217 +352,126 @@ void loadCosmeticsDatabase() {
 
 public:
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting enhanced patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting rapid patching process...\n";
 
-        // Wait for Fortnite process with improved detection
+        // Get Fortnite process ID
         DWORD processId = 0;
-        int retryCount = 0;
-        const int MAX_RETRIES = 120;
-        
-        while (processId == 0 && retryCount < MAX_RETRIES) {
-            HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-            if (snapshot != INVALID_HANDLE_VALUE) {
-                PROCESSENTRY32W processEntry;
-                processEntry.dwSize = sizeof(processEntry);
-                
-                if (Process32FirstW(snapshot, &processEntry)) {
-                    do {
-                        if (_wcsicmp(processEntry.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
-                            processId = processEntry.th32ProcessID;
-                            break;
-                        }
-                    } while (Process32NextW(snapshot, &processEntry));
-                }
-                CloseHandle(snapshot);
-            }
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snapshot != INVALID_HANDLE_VALUE) {
+            PROCESSENTRY32W processEntry;
+            processEntry.dwSize = sizeof(processEntry);
             
-            if (processId == 0) {
-                Sleep(500); // Increased delay between retries
-                retryCount++;
-                std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
+            if (Process32FirstW(snapshot, &processEntry)) {
+                do {
+                    if (_wcsicmp(processEntry.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
+                        processId = processEntry.th32ProcessID;
+                        break;
+                    }
+                } while (Process32NextW(snapshot, &processEntry));
             }
+            CloseHandle(snapshot);
         }
 
         if (processId == 0) {
-            std::cout << "[LIVE PATCHER] Failed to find Fortnite process\n";
+            std::cout << "[LIVE PATCHER] Fortnite process not found\n";
             return false;
         }
 
-        std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
-        Sleep(2000); // Wait for process to fully initialize
-
-        // Enhanced privilege elevation with error handling
-        HANDLE tokenHandle;
-        TOKEN_PRIVILEGES tokenPrivileges;
-        LUID luid;
-
-        if(!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tokenHandle)) {
-            std::cout << "[LIVE PATCHER] Failed to open process token. Error: " << GetLastError() << "\n";
-            return false;
-        }
-
-        if(!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
-            std::cout << "[LIVE PATCHER] Failed to lookup privilege value. Error: " << GetLastError() << "\n";
-            CloseHandle(tokenHandle);
-            return false;
-        }
-
-        tokenPrivileges.PrivilegeCount = 1;
-        tokenPrivileges.Privileges[0].Luid = luid;
-        tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-        if(!AdjustTokenPrivileges(tokenHandle, FALSE, &tokenPrivileges, sizeof(TOKEN_PRIVILEGES), NULL, NULL)) {
-            std::cout << "[LIVE PATCHER] Failed to adjust token privileges. Error: " << GetLastError() << "\n";
-            CloseHandle(tokenHandle);
-            return false;
-        }
-
-        CloseHandle(tokenHandle);
-        Sleep(1000); // Wait after privilege adjustment
-
-        // Open process with enhanced error handling and retry mechanism
-        HANDLE processHandle = NULL;
-        int openAttempts = 0;
-        const int MAX_OPEN_ATTEMPTS = 5;
-
-        while (!processHandle && openAttempts < MAX_OPEN_ATTEMPTS) {
-            processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-            if (!processHandle) {
-                processHandle = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION, FALSE, processId);
-            }
-            if (!processHandle) {
-                openAttempts++;
-                Sleep(1000);
-                std::cout << "[LIVE PATCHER] Retry opening process attempt " << openAttempts << "/" << MAX_OPEN_ATTEMPTS << "\n";
-            }
-        }
+        // Open process with required access rights
+        HANDLE processHandle = OpenProcess(
+            PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION,
+            FALSE,
+            processId
+        );
 
         if (!processHandle) {
-            std::cout << "[LIVE PATCHER] Failed to open process after " << MAX_OPEN_ATTEMPTS << " attempts. Error: " << GetLastError() << "\n";
+            std::cout << "[LIVE PATCHER] Failed to open process\n";
             return false;
         }
 
-        Sleep(1000); // Wait after process handle obtained
+        // Get module information
+        HMODULE moduleHandle = NULL;
+        DWORD cbNeeded;
+        if (!EnumProcessModules(processHandle, &moduleHandle, sizeof(moduleHandle), &cbNeeded)) {
+            CloseHandle(processHandle);
+            return false;
+        }
 
-        // Updated Season 2 patches with more specific patterns and verification
+        MODULEINFO moduleInfo;
+        if (!GetModuleInformation(processHandle, moduleHandle, &moduleInfo, sizeof(moduleInfo))) {
+            CloseHandle(processHandle);
+            return false;
+        }
+
+        // Critical patches for Season 2
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core login bypass (Split into smaller chunks)
-            {{0x74, 0x20}, {0x90, 0x90}},
-            {{0x48, 0x8B}, {0x90, 0x90}},
+            // Auth bypass
+            {{0x75, 0x04, 0x33, 0xC0, 0x5D, 0xC3}, {0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3}},
+            {{0x74, 0x23, 0x8B, 0x46, 0x10}, {0x90, 0x90, 0x8B, 0x46, 0x10}},
             
-            // Authentication bypass (Split into smaller chunks)
-            {{0x0F, 0x84}, {0x90, 0x90}},
-            {{0x85, 0x00}, {0x90, 0x90}},
+            // SSL pinning bypass
+            {{0x0F, 0x84, 0x85, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
             
-            // Server validation (Smaller chunks)
-            {{0x74, 0x23}, {0x90, 0x90}},
-            {{0x75, 0x1D}, {0x90, 0x90}},
+            // Server validation bypass
+            {{0x75, 0x1D, 0x8B, 0x45, 0x08}, {0x90, 0x90, 0x8B, 0x45, 0x08}},
             
-            // SSL pinning (Reduced size for stability)
-            {{0x0F, 0x84}, {0x90, 0x90}},
-            {{0x0F, 0x85}, {0x90, 0x90}}
+            // Season check bypass
+            {{0x83, 0x3D, 0x00, 0x00, 0x00, 0x00, 0x02}, {0xB8, 0x02, 0x00, 0x00, 0x00, 0x90, 0x90}}
         };
 
-        MEMORY_BASIC_INFORMATION mbi;
-        LPVOID address = 0;
-        bool patchSuccess = false;
         int patchesApplied = 0;
-        int totalPatches = patches.size();
-        std::vector<LPVOID> appliedPatches;
-
-        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " critical patches with crash prevention...\n";
-        Sleep(2000); // Wait before starting patches
-
-        // Enhanced memory scanning and patching with verification
-        while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-            if (mbi.State == MEM_COMMIT && 
-                (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
+        const size_t bufferSize = 0x1000;
+        std::vector<BYTE> buffer(bufferSize);
+        
+        // Scan and patch in smaller chunks for speed
+        for (SIZE_T offset = 0; offset < moduleInfo.SizeOfImage; offset += bufferSize) {
+            SIZE_T bytesRead;
+            if (ReadProcessMemory(processHandle, (LPCVOID)((DWORD_PTR)moduleInfo.lpBaseOfDll + offset),
+                buffer.data(), bufferSize, &bytesRead)) {
                 
-                DWORD oldProtect;
-                if (!VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-                    address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
-                    continue;
-                }
-
-                std::vector<BYTE> buffer(mbi.RegionSize);
-                SIZE_T bytesRead;
-                
-                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                    for (const auto& patch : patches) {
-                        for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
-                            if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
+                for (const auto& patch : patches) {
+                    for (size_t i = 0; i < bytesRead - patch.first.size(); i++) {
+                        if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
+                            LPVOID patchAddr = (LPVOID)((DWORD_PTR)moduleInfo.lpBaseOfDll + offset + i);
+                            DWORD oldProtect;
+                            
+                            if (VirtualProtectEx(processHandle, patchAddr, patch.second.size(), 
+                                PAGE_EXECUTE_READWRITE, &oldProtect)) {
                                 
-                                Sleep(500); // Longer delay between patches
-                                
-                                SIZE_T bytesWritten;
-                                int writeAttempts = 0;
-                                bool writeSuccess = false;
-                                
-                                while (writeAttempts < 3 && !writeSuccess) {
-                                    if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                        Sleep(250); // Wait before verification
-                                        
-                                        std::vector<BYTE> verifyBuffer(patch.second.size());
-                                        SIZE_T verifyBytesRead;
-                                        
-                                        if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead) &&
-                                            verifyBytesRead == patch.second.size() &&
-                                            memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
-                                            
-                                            writeSuccess = true;
-                                            patchSuccess = true;
-                                            patchesApplied++;
-                                            appliedPatches.push_back(patchAddress);
-                                            
-                                            std::cout << "[LIVE PATCHER] Successfully applied and verified patch " << patchesApplied << "/" << totalPatches 
-                                                    << " at " << std::hex << patchAddress << std::dec << "\n";
-                                            
-                                            FlushInstructionCache(processHandle, patchAddress, patch.second.size());
-                                            Sleep(500); // Wait after successful patch
-                                        }
-                                    }
+                                if (WriteProcessMemory(processHandle, patchAddr, patch.second.data(),
+                                    patch.second.size(), NULL)) {
                                     
-                                    if (!writeSuccess) {
-                                        writeAttempts++;
-                                        Sleep(500); // Longer delay between retry attempts
-                                    }
-                                }
-                                
-                                if (!writeSuccess) {
-                                    std::cout << "[LIVE PATCHER] Failed to apply or verify patch at " << std::hex << patchAddress << std::dec << "\n";
+                                    VirtualProtectEx(processHandle, patchAddr, patch.second.size(),
+                                        oldProtect, &oldProtect);
+                                    
+                                    patchesApplied++;
+                                    std::cout << "[LIVE PATCHER] Applied patch " << patchesApplied << "\n";
                                 }
                             }
                         }
                     }
                 }
-
-                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
             }
-            address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
         CloseHandle(processHandle);
-        Sleep(1000); // Final wait before completing
 
         if (patchesApplied > 0) {
-            std::cout << "[LIVE PATCHER] Successfully applied and verified " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] Login bypass and Season 2 patches are active\n";
-            std::cout << "[LIVE PATCHER] Game is ready - you can now access the lobby!\n";
+            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
             return true;
-        } else {
-            std::cout << "[LIVE PATCHER] Failed to apply any patches. Please run as Administrator.\n";
-            return false;
         }
+
+        std::cout << "[LIVE PATCHER] No patches were applied\n";
+        return false;
     }
 
 private:
     void startPatcher() {
-        std::cout << "[PATCHER] Starting enhanced patch monitoring...\n";
+        std::cout << "[PATCHER] Starting optimized patch monitoring...\n";
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(30000); // Increased interval to reduce CPU usage and prevent crashes
+                Sleep(60000); // Check every minute
             }
         }).detach();
     }

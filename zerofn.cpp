@@ -350,7 +350,7 @@ void loadCosmeticsDatabase() {
 
 public:
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting optimized patching process...\n";
 
         // Find Fortnite process quickly
         DWORD processId = 0;
@@ -371,7 +371,7 @@ public:
         }
 
         if (processId == 0) {
-            std::cout << "[LIVE PATCHER] Failed to find Fortnite process\n";
+            std::cout << "[LIVE PATCHER] Fortnite process not found\n";
             return false;
         }
 
@@ -382,20 +382,28 @@ public:
             return false;
         }
 
-        // Optimized patches
+        // Critical Season 2 patches - optimized and essential only
         const std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            {{0x74, 0x20, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},  // Combined login bypass
-            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0x90, 0x90, 0x90}},  // Combined auth bypass
-            {{0x74, 0x23, 0x75, 0x1D}, {0x90, 0x90, 0x90, 0x90}},  // Combined server validation
-            {{0x0F, 0x84, 0x0F, 0x85}, {0x90, 0x90, 0x90, 0x90}}   // Combined SSL pinning
+            // Core login bypass
+            {{0x74, 0x20, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
+            
+            // Authentication bypass
+            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0x90, 0x90, 0x90}},
+            
+            // Server validation
+            {{0x74, 0x23, 0x75, 0x1D}, {0x90, 0x90, 0x90, 0x90}},
+            
+            // SSL pinning
+            {{0x0F, 0x84, 0x0F, 0x85}, {0x90, 0x90, 0x90, 0x90}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
         LPVOID address = 0;
         int patchesApplied = 0;
-        const int totalPatches = patches.size();
 
-        // Fast memory scanning
+        std::cout << "[LIVE PATCHER] Applying optimized patches...\n";
+
+        // Fast memory scanning with larger chunks
         while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
             if (mbi.State == MEM_COMMIT && 
                 (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
@@ -413,9 +421,8 @@ public:
                                 LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
                                 
                                 if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), nullptr)) {
-                                    FlushInstructionCache(processHandle, patchAddress, patch.second.size());
                                     patchesApplied++;
-                                    std::cout << "[LIVE PATCHER] Applied patch " << patchesApplied << "/" << totalPatches << "\n";
+                                    FlushInstructionCache(processHandle, patchAddress, patch.second.size());
                                 }
                             }
                         }
@@ -431,21 +438,21 @@ public:
 
         if (patchesApplied > 0) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] Game is ready!\n";
+            std::cout << "[LIVE PATCHER] Season 2 patches active - Ready to play!\n";
             return true;
         } else {
-            std::cout << "[LIVE PATCHER] Failed to apply patches. Run as Administrator.\n";
+            std::cout << "[LIVE PATCHER] Failed to apply patches\n";
             return false;
         }
     }
 
 private:
     void startPatcher() {
-        std::cout << "[PATCHER] Starting patch monitoring...\n";
+        std::cout << "[PATCHER] Starting optimized patch monitoring...\n";
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();
-                Sleep(30000);
+                Sleep(60000); // Check every minute instead of every 30 seconds
             }
         }).detach();
     }

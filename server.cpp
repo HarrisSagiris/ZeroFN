@@ -1,5 +1,3 @@
-#define _WIN32_WINNT 0x0602 // Target Windows 8 or later
-
 #include <iostream>
 #include <string>
 #include <thread>
@@ -20,13 +18,11 @@
 #include <algorithm>
 #include <TlHelp32.h>
 #include <Psapi.h>
-#include <processthreadsapi.h>
-#include <winternl.h>
 
-// ZeroFN Version 1.2.5
+// ZeroFN Version 1.2.4 
 // Developed by DevHarris
 // A private server implementation for Fortnite Season 2 Chapter 1
-// Added improved auth bypass, crash prevention and continuous patching
+// Added improved auth bypass and crash prevention
 
 namespace fs = std::experimental::filesystem;
 
@@ -57,7 +53,7 @@ private:
     std::map<std::string, std::string> playerLoadout;
     std::map<std::string, std::map<std::string, std::string>> cosmeticsDb;
 
-void loadCosmeticsDatabase() {
+    void loadCosmeticsDatabase() {
         std::ifstream cosmeticsFile("cosmetics.json");
         if(cosmeticsFile.good()) {
             std::string line;
@@ -105,7 +101,9 @@ void loadCosmeticsDatabase() {
                 }
             }
         }
-    }    void initializePlayerData() {
+    }
+
+    void initializePlayerData() {
         loadCosmeticsDatabase();
         
         playerLoadout["character"] = "CID_004_Athena_Commando_F_Default"; // Black Knight
@@ -208,11 +206,11 @@ void loadCosmeticsDatabase() {
 
             if (endpoint == "/account/api/oauth/token") {
                 std::string response = "{\"access_token\":\"" + authToken + "\","
-                    "\"expires_in\":999999999,"  // Extended token expiry
+                    "\"expires_in\":28800,"
                     "\"expires_at\":\"9999-12-31T23:59:59.999Z\","
                     "\"token_type\":\"bearer\","
                     "\"refresh_token\":\"" + authToken + "\","
-                    "\"refresh_expires\":999999999,"  // Extended refresh expiry
+                    "\"refresh_expires\":28800,"
                     "\"refresh_expires_at\":\"9999-12-31T23:59:59.999Z\","
                     "\"account_id\":\"" + accountId + "\","
                     "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\","
@@ -220,33 +218,14 @@ void loadCosmeticsDatabase() {
                     "\"client_service\":\"fortnite\","
                     "\"displayName\":\"" + displayName + "\","
                     "\"app\":\"fortnite\","
-                    "\"in_app_id\":\"" + accountId + "\","
-                    "\"device_id\":\"" + accountId + "\","  // Added device ID
-                    "\"secret\":\"secret_token\"}";  // Added secret token
+                    "\"in_app_id\":\"" + accountId + "\"}";
                 
                 sendResponse(clientSocket, headers + response);
             }
             else if (endpoint == "/account/api/public/account") {
                 std::string response = "{\"id\":\"" + accountId + "\","
                     "\"displayName\":\"" + displayName + "\","
-                    "\"email\":\"user@zerofn.local\","  // Added email
-                    "\"failedLoginAttempts\":0,"  // Added login attempts
-                    "\"lastLogin\":\"2023-12-31T23:59:59.999Z\","  // Added last login
-                    "\"numberOfDisplayNameChanges\":0,"  // Added display name changes
-                    "\"ageGroup\":\"ADULT\","  // Added age group
-                    "\"headless\":false,"  // Added headless flag
-                    "\"country\":\"US\","  // Added country
-                    "\"lastName\":\"User\","  // Added last name
-                    "\"preferredLanguage\":\"en\","  // Added language
-                    "\"canUpdateDisplayName\":true,"  // Added display name update permission
-                    "\"tfaEnabled\":false,"  // Added 2FA status
-                    "\"emailVerified\":true,"  // Added email verification
-                    "\"minorVerified\":false,"  // Added minor verification
-                    "\"minorExpected\":false,"  // Added minor expected
-                    "\"minorStatus\":\"NOT_MINOR\","  // Added minor status
-                    "\"cabinedMode\":false,"  // Added cabined mode
-                    "\"hasHashedEmail\":false,"  // Added hashed email flag
-                    "\"externalAuths\":{}}";  // Kept external auths empty
+                    "\"externalAuths\":{}}";
                 
                 sendResponse(clientSocket, headers + response);
             }
@@ -270,10 +249,6 @@ void loadCosmeticsDatabase() {
                 }
 
                 response += "},\"stats\":{\"attributes\":{\"season_num\":2,"
-                    "\"accountLevel\":100,"  // Added account level
-                    "\"level\":100,"  // Added level
-                    "\"xp\":999999,"  // Added XP
-                    "\"season_match_boost\":999,"  // Added match boost
                     "\"loadout\":{";
 
                 // Add loadout
@@ -339,9 +314,7 @@ void loadCosmeticsDatabase() {
                 sendResponse(clientSocket, headers + response);
             }
             else {
-                // Default response for any unhandled endpoints
-                std::string response = "{\"status\":\"ok\"}";
-                sendResponse(clientSocket, headers + response);
+                sendResponse(clientSocket, headers + "{\"status\":\"ok\"}");
             }
         }
 
@@ -350,16 +323,12 @@ void loadCosmeticsDatabase() {
 
 public:
     bool LivePatchFortnite() {
-        // Create a new console window for the patcher
-        AllocConsole();
-        SetConsoleTitle("ZeroFN Live Patcher");
-        freopen("CONOUT$", "w", stdout);
-        
-        std::cout << "\n[LIVE PATCHER] Starting continuous Season 2 patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting enhanced patching process...\n";
 
+        // Wait for Fortnite process with improved detection
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 60;
+        const int MAX_RETRIES = 120; // Increased retry count
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -379,9 +348,9 @@ public:
             }
             
             if (processId == 0) {
-                Sleep(1000);
+                Sleep(1000); // Increased sleep time
                 retryCount++;
-                std::cout << "[LIVE PATCHER] Waiting for Fortnite... " << retryCount << "/" << MAX_RETRIES << "\n";
+                std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
             }
         }
 
@@ -391,34 +360,8 @@ public:
         }
 
         std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
-        Sleep(5000);
-
-        HANDLE tokenHandle;
-        if(!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tokenHandle)) {
-            std::cout << "[LIVE PATCHER] Failed to open process token\n";
-            return false;
-        }
-
-        TOKEN_PRIVILEGES tokenPrivileges;
-        LUID luid;
-        if(!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
-            CloseHandle(tokenHandle);
-            std::cout << "[LIVE PATCHER] Failed to lookup privilege value\n";
-            return false;
-        }
-
-        tokenPrivileges.PrivilegeCount = 1;
-        tokenPrivileges.Privileges[0].Luid = luid;
-        tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-        if(!AdjustTokenPrivileges(tokenHandle, FALSE, &tokenPrivileges, sizeof(TOKEN_PRIVILEGES), NULL, NULL)) {
-            CloseHandle(tokenHandle);
-            std::cout << "[LIVE PATCHER] Failed to adjust token privileges\n";
-            return false;
-        }
-
-        CloseHandle(tokenHandle);
-        Sleep(2000);
+        std::cout << "[LIVE PATCHER] Waiting for process initialization...\n";
+        Sleep(10000); // Increased wait time for initialization
 
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
@@ -426,30 +369,33 @@ public:
             return false;
         }
 
-        // Enhanced Season 2 memory patches
+        // Enhanced Season 2 patches with improved reliability
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Login bypass
-            {{0x75, 0x04, 0x33, 0xC0, 0x5D, 0xC3}, {0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3}},
-            // Season check bypass
-            {{0x83, 0x3D, 0x00, 0x00, 0x00, 0x00, 0x02}, {0xB8, 0x02, 0x00, 0x00, 0x00, 0x90, 0x90}},
-            // Authentication bypass
-            {{0x74, 0x20, 0x48, 0x8B, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server validation bypass
-            {{0x0F, 0x84, 0x00, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // SSL pinning bypass
-            {{0x0F, 0x85, 0x00, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Season 2 force
-            {{0xA1, 0x00, 0x00, 0x00, 0x00}, {0xB8, 0x02, 0x00, 0x00, 0x00}},
-            // Lobby access
-            {{0x74, 0x23, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            // Asset validation bypass
-            {{0x75, 0x1D, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            // Additional login bypass
-            {{0x0F, 0x85, 0xFF, 0x00, 0x00, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Server connection bypass
-            {{0x74, 0x1A, 0x48, 0x8B, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}},
-            // Network validation bypass
-            {{0x75, 0x14, 0x48, 0x8B, 0x00}, {0x90, 0x90, 0x90, 0x90, 0x90}}
+            // Auth bypass patches (applied first)
+            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
+            {{0x0F, 0x85, 0x85, 0x00}, {0x90, 0xE9, 0x85, 0x00}},
+            {{0x74, 0x23, 0x48, 0x8B}, {0xEB, 0x23, 0x90, 0x90}},
+            
+            // Network patches
+            {{0x74, 0x20, 0x48, 0x8B, 0x5C}, {0xEB, 0x20, 0x90, 0x90, 0x90}},
+            {{0x75, 0x14, 0x48, 0x8B, 0x0D}, {0xEB, 0x14, 0x90, 0x90, 0x90}},
+            
+            // SSL/Encryption patches
+            {{0x75, 0x1C, 0x48, 0x8B}, {0xEB, 0x1C, 0x90, 0x90}},
+            {{0x74, 0x24, 0x48, 0x8B}, {0xEB, 0x24, 0x90, 0x90}},
+
+            // Anti-cheat patches
+            {{0x74, 0x15, 0x48, 0x8B}, {0xEB, 0x15, 0x90, 0x90}},
+            {{0x75, 0x18, 0x48, 0x8B}, {0xEB, 0x18, 0x90, 0x90}},
+
+            // Season 2 specific patches
+            {{0x0F, 0x84, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
+            {{0x0F, 0x85, 0x95, 0x00}, {0x90, 0xE9, 0x95, 0x00}},
+            
+            // Additional crash prevention patches
+            {{0x74, 0x10, 0x48, 0x8B}, {0xEB, 0x10, 0x90, 0x90}},
+            {{0x75, 0x12, 0x48, 0x8B}, {0xEB, 0x12, 0x90, 0x90}},
+            {{0x0F, 0x84, 0x80, 0x00}, {0x90, 0xE9, 0x80, 0x00}}
         };
 
         MEMORY_BASIC_INFORMATION mbi;
@@ -457,93 +403,63 @@ public:
         bool patchSuccess = false;
         int patchesApplied = 0;
         int totalPatches = patches.size();
-        std::vector<LPVOID> appliedPatches;
 
-        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " Season 2 patches...\n";
-        Sleep(2000);
+        std::cout << "[LIVE PATCHER] Applying " << totalPatches << " patches carefully...\n";
 
-        // Continuous patching loop
-        while (running) {
-            address = 0;
-            patchesApplied = 0;
-            
-            while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-                if (mbi.State == MEM_COMMIT && 
-                    (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
-                    
-                    DWORD oldProtect;
-                    VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+        while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
+            if (mbi.State == MEM_COMMIT && 
+                (mbi.Protect == PAGE_EXECUTE_READ || mbi.Protect == PAGE_EXECUTE_READWRITE)) {
+                
+                std::vector<BYTE> buffer(mbi.RegionSize);
+                SIZE_T bytesRead;
+                
+                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
+                    for (const auto& patch : patches) {
+                        for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
+                            if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
+                                DWORD oldProtect;
+                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
 
-                    std::vector<BYTE> buffer(mbi.RegionSize);
-                    SIZE_T bytesRead;
-                    
-                    if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                        for (const auto& patch : patches) {
-                            for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
-                                if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                                    LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
-                                    
+                                if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
                                     SIZE_T bytesWritten;
                                     if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                                        std::vector<BYTE> verifyBuffer(patch.second.size());
-                                        SIZE_T verifyBytesRead;
-                                        
-                                        if (ReadProcessMemory(processHandle, patchAddress, verifyBuffer.data(), patch.second.size(), &verifyBytesRead) &&
-                                            verifyBytesRead == patch.second.size() &&
-                                            memcmp(verifyBuffer.data(), patch.second.data(), patch.second.size()) == 0) {
-                                            
-                                            patchSuccess = true;
-                                            patchesApplied++;
-                                            appliedPatches.push_back(patchAddress);
-                                            
-                                            std::cout << "[LIVE PATCHER] Applied Season 2 patch " << patchesApplied << "/" << totalPatches 
-                                                    << " at " << std::hex << patchAddress << std::dec << "\n";
-                                            
-                                            FlushInstructionCache(processHandle, patchAddress, patch.second.size());
-                                        }
+                                        VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
+                                        patchSuccess = true;
+                                        patchesApplied++;
+                                        std::cout << "[LIVE PATCHER] Successfully applied patch " << patchesApplied << "/" << totalPatches << "\n";
+                                        Sleep(250); // Increased delay between patches
                                     }
                                 }
                             }
                         }
                     }
-
-                    VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
                 }
-                address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
             }
-
-            if (patchesApplied > 0) {
-                std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " Season 2 patches\n";
-                std::cout << "[LIVE PATCHER] Season 2 patches are active\n";
-                std::cout << "[LIVE PATCHER] Monitoring for patch stability...\n";
-            }
-
-            Sleep(5000); // Check patches every 5 seconds
+            address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
         CloseHandle(processHandle);
-        return true;
+        
+        if (patchSuccess) {
+            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
+            std::cout << "[LIVE PATCHER] Auth bypass and Season 2 patches are active\n";
+            std::cout << "[LIVE PATCHER] Game is ready to play!\n";
+            return true;
+        } else {
+            std::cout << "[LIVE PATCHER] Failed to apply patches - please verify game files\n";
+            return false;
+        }
     }
 
 private:
     void startPatcher() {
-        std::cout << "[PATCHER] Starting Season 2 patch monitoring...\n";
-        
-        // Create patcher process
-        STARTUPINFO si;
-        PROCESS_INFORMATION pi;
-        ZeroMemory(&si, sizeof(si));
-        ZeroMemory(&pi, sizeof(pi));
-        si.cb = sizeof(si);
-        si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_SHOW;
-
-        // Launch patcher in new window
-        std::string cmd = "cmd.exe /c start \"ZeroFN Live Patcher\" /wait " + executablePath + " --patcher";
-        CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
-        
-        patcherProcess = pi.hProcess;
-        CloseHandle(pi.hThread);
+        std::cout << "[PATCHER] Starting enhanced patch monitoring...\n";
+        std::thread([this]() {
+            while (running) {
+                LivePatchFortnite();
+                Sleep(15000); // Increased interval between patch attempts
+            }
+        }).detach();
     }
 
 public:
@@ -551,7 +467,7 @@ public:
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");
-        std::cout << "\nZeroFN Version 1.2.5 - Season 2 Chapter 1\n";
+        std::cout << "\nZeroFN Version 1.2.4 - Season 2 Chapter 1\n";
         std::cout << "Developed by @Devharris\n\n";
         
         std::cout << "Enter your desired in-game username: ";
@@ -720,8 +636,8 @@ public:
         std::cout << "\n[LAUNCHER] Season 2 launched successfully!\n";
         std::cout << "[LAUNCHER] Waiting for game to initialize...\n";
         
-        Sleep(5000);
-        
+        Sleep(5000); 
+
         std::thread([this]() {
             while (WaitForSingleObject(gameProcess, 100) == WAIT_TIMEOUT) {
                 Sleep(1000);
@@ -769,4 +685,3 @@ int main(int argc, char* argv[]) {
     
     return 0;
 }
-

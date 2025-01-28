@@ -49,6 +49,7 @@ private:
     std::string installPath;
     HANDLE gameProcess;
     HANDLE patcherProcess;
+    std::string executablePath; // Added to store argv[0]
     
     std::map<std::string, GameSession> activeSessions;
     std::vector<std::string> matchmakingQueue;
@@ -539,7 +540,7 @@ private:
         si.wShowWindow = SW_SHOW;
 
         // Launch patcher in new window
-        std::string cmd = "cmd.exe /c start \"ZeroFN Live Patcher\" /wait " + std::string(argv[0]) + " --patcher";
+        std::string cmd = "cmd.exe /c start \"ZeroFN Live Patcher\" /wait " + executablePath + " --patcher";
         CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
         
         patcherProcess = pi.hProcess;
@@ -547,7 +548,7 @@ private:
     }
 
 public:
-    FortniteServer() : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL), patcherProcess(NULL) {
+    FortniteServer(const std::string& exePath) : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL), patcherProcess(NULL), executablePath(exePath) {
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");

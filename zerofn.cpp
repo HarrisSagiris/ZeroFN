@@ -389,16 +389,16 @@ public:
             return false;
         }
 
-        // Get main module information
-        MODULEINFO mainModuleInfo;
-        HMODULE mainModule = NULL;
+        // Get module information
+        HMODULE moduleHandle = NULL;
         DWORD cbNeeded;
-        if (!EnumProcessModules(processHandle, &mainModule, sizeof(mainModule), &cbNeeded)) {
+        if (!EnumProcessModules(processHandle, &moduleHandle, sizeof(moduleHandle), &cbNeeded)) {
             CloseHandle(processHandle);
             return false;
         }
 
-        if (!GetModuleInformation(processHandle, mainModule, &mainModuleInfo, sizeof(mainModuleInfo))) {
+        MODULEINFO moduleInfo;
+        if (!GetModuleInformation(processHandle, moduleHandle, &moduleInfo, sizeof(moduleInfo))) {
             CloseHandle(processHandle);
             return false;
         }
@@ -422,17 +422,17 @@ public:
         int patchesApplied = 0;
         const size_t bufferSize = 0x1000;
         std::vector<BYTE> buffer(bufferSize);
-
-        // Only scan the main executable module
-        for (SIZE_T offset = 0; offset < mainModuleInfo.SizeOfImage; offset += bufferSize) {
+        
+        // Scan and patch in smaller chunks for speed
+        for (SIZE_T offset = 0; offset < moduleInfo.SizeOfImage; offset += bufferSize) {
             SIZE_T bytesRead;
-            if (ReadProcessMemory(processHandle, (LPCVOID)((DWORD_PTR)mainModuleInfo.lpBaseOfDll + offset),
+            if (ReadProcessMemory(processHandle, (LPCVOID)((DWORD_PTR)moduleInfo.lpBaseOfDll + offset),
                 buffer.data(), bufferSize, &bytesRead)) {
                 
                 for (const auto& patch : patches) {
                     for (size_t i = 0; i < bytesRead - patch.first.size(); i++) {
                         if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                            LPVOID patchAddr = (LPVOID)((DWORD_PTR)mainModuleInfo.lpBaseOfDll + offset + i);
+                            LPVOID patchAddr = (LPVOID)((DWORD_PTR)moduleInfo.lpBaseOfDll + offset + i);
                             DWORD oldProtect;
                             
                             if (VirtualProtectEx(processHandle, patchAddr, patch.second.size(), 
@@ -634,8 +634,6 @@ public:
         }
 
         gameProcess = pi.hProcess;
-        
-        Sleep(3000); // Add delay before patching
 
         std::cout << "[LAUNCHER] Applying Season 2 patches...\n";
         if (!LivePatchFortnite()) {

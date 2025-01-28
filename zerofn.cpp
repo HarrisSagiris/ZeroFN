@@ -354,9 +354,6 @@ public:
     bool LivePatchFortnite() {
         std::cout << "\n[LIVE PATCHER] Starting rapid patching process...\n";
 
-        // Wait longer for process to be fully initialized and loaded
-        Sleep(10000); // Increased from 3000 to 10000ms
-
         // Get Fortnite process ID
         DWORD processId = 0;
         HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -392,19 +389,17 @@ public:
             return false;
         }
 
-        // Wait longer for modules to load
-        Sleep(5000); // Increased from 2000 to 5000ms
-
-        // Get module information
-        HMODULE moduleHandle = NULL;
+        // Get main module information
+        HMODULE mainModule = NULL;
         DWORD cbNeeded;
-        if (!EnumProcessModules(processHandle, &moduleHandle, sizeof(moduleHandle), &cbNeeded)) {
+        if (!EnumProcessModules(processHandle, &mainModule, sizeof(mainModule), &cbNeeded)) {
             CloseHandle(processHandle);
             return false;
         }
 
-        MODULEINFO moduleInfo;
-        if (!GetModuleInformation(processHandle, moduleHandle, &moduleInfo, sizeof(moduleInfo))) {
+        // Get only the main executable module info
+        MODULEINFO mainModuleInfo;
+        if (!GetModuleInformation(processHandle, mainModule, &mainModuleInfo, sizeof(mainModuleInfo))) {
             CloseHandle(processHandle);
             return false;
         }
@@ -429,16 +424,16 @@ public:
         const size_t bufferSize = 0x1000;
         std::vector<BYTE> buffer(bufferSize);
         
-        // Scan and patch in smaller chunks for speed
-        for (SIZE_T offset = 0; offset < moduleInfo.SizeOfImage; offset += bufferSize) {
+        // Only scan the main executable module
+        for (SIZE_T offset = 0; offset < mainModuleInfo.SizeOfImage; offset += bufferSize) {
             SIZE_T bytesRead;
-            if (ReadProcessMemory(processHandle, (LPCVOID)((DWORD_PTR)moduleInfo.lpBaseOfDll + offset),
+            if (ReadProcessMemory(processHandle, (LPCVOID)((DWORD_PTR)mainModuleInfo.lpBaseOfDll + offset),
                 buffer.data(), bufferSize, &bytesRead)) {
                 
                 for (const auto& patch : patches) {
                     for (size_t i = 0; i < bytesRead - patch.first.size(); i++) {
                         if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                            LPVOID patchAddr = (LPVOID)((DWORD_PTR)moduleInfo.lpBaseOfDll + offset + i);
+                            LPVOID patchAddr = (LPVOID)((DWORD_PTR)mainModuleInfo.lpBaseOfDll + offset + i);
                             DWORD oldProtect;
                             
                             if (VirtualProtectEx(processHandle, patchAddr, patch.second.size(), 
@@ -640,9 +635,6 @@ public:
         }
 
         gameProcess = pi.hProcess;
-
-        // Wait for process to initialize
-        Sleep(3000);
 
         std::cout << "[LAUNCHER] Applying Season 2 patches...\n";
         if (!LivePatchFortnite()) {

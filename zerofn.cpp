@@ -350,12 +350,12 @@ void loadCosmeticsDatabase() {
 
 public:
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting patching process for main executable...\n";
 
         // Wait for Fortnite process
         DWORD processId = 0;
         int retryCount = 0;
-        const int MAX_RETRIES = 30;
+        const int MAX_RETRIES = 60;
         
         while (processId == 0 && retryCount < MAX_RETRIES) {
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -377,6 +377,7 @@ public:
             if (processId == 0) {
                 Sleep(1000);
                 retryCount++;
+                std::cout << "[LIVE PATCHER] Waiting for Fortnite process... Attempt " << retryCount << "/" << MAX_RETRIES << "\n";
             }
         }
 
@@ -385,18 +386,21 @@ public:
             return false;
         }
 
-        // Open process with required access rights
+        std::cout << "[LIVE PATCHER] Found Fortnite process (PID: " << processId << ")\n";
+        Sleep(2000);
+
+        // Get process handle with necessary privileges
         HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (!processHandle) {
-            std::cout << "[LIVE PATCHER] Failed to open process\n";
+            std::cout << "[LIVE PATCHER] Failed to open process. Error: " << GetLastError() << "\n";
             return false;
         }
 
-        // Get module information to find executable bounds
+        // Get module information for the main executable
         MODULEINFO moduleInfo;
         HMODULE moduleHandle = NULL;
         DWORD cbNeeded;
-        
+
         if (!EnumProcessModules(processHandle, &moduleHandle, sizeof(moduleHandle), &cbNeeded)) {
             std::cout << "[LIVE PATCHER] Failed to enumerate modules\n";
             CloseHandle(processHandle);
@@ -409,69 +413,71 @@ public:
             return false;
         }
 
-        // Define patches for Season 2
+        // Define patches for the main executable
         std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
             // Core login bypass
-            {{0x74, 0x20}, {0x90, 0x90}},
-            {{0x48, 0x8B}, {0x90, 0x90}},
+            {{0x74, 0x20, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
             
             // Authentication bypass
-            {{0x0F, 0x84}, {0x90, 0x90}},
-            {{0x85, 0x00}, {0x90, 0x90}},
+            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0x90, 0x90, 0x90}},
             
             // Server validation
-            {{0x74, 0x23}, {0x90, 0x90}},
-            {{0x75, 0x1D}, {0x90, 0x90}},
+            {{0x74, 0x23, 0x75, 0x1D}, {0x90, 0x90, 0x90, 0x90}},
             
             // SSL pinning
-            {{0x0F, 0x84}, {0x90, 0x90}},
-            {{0x0F, 0x85}, {0x90, 0x90}}
+            {{0x0F, 0x84, 0x0F, 0x85}, {0x90, 0x90, 0x90, 0x90}}
         };
 
-        // Scan and patch only within executable bounds
-        LPVOID baseAddress = moduleInfo.lpBaseOfDll;
-        SIZE_T regionSize = moduleInfo.SizeOfImage;
-        std::vector<BYTE> buffer(regionSize);
-        SIZE_T bytesRead;
-
-        if (!ReadProcessMemory(processHandle, baseAddress, buffer.data(), regionSize, &bytesRead)) {
-            std::cout << "[LIVE PATCHER] Failed to read process memory\n";
-            CloseHandle(processHandle);
-            return false;
-        }
-
+        std::cout << "[LIVE PATCHER] Scanning main executable memory region...\n";
+        
+        // Scan only the main executable's memory region
+        BYTE* currentAddress = (BYTE*)moduleInfo.lpBaseOfDll;
+        BYTE* endAddress = currentAddress + moduleInfo.SizeOfImage;
+        
+        std::vector<BYTE> buffer(1024); // Read in chunks
         int patchesApplied = 0;
-        for (const auto& patch : patches) {
-            for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
-                if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                    LPVOID patchAddress = (LPVOID)((DWORD_PTR)baseAddress + i);
-                    
-                    DWORD oldProtect;
-                    if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
-                        SIZE_T bytesWritten;
-                        if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
-                            VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
-                            patchesApplied++;
+
+        while (currentAddress < endAddress) {
+            SIZE_T bytesRead;
+            if (ReadProcessMemory(processHandle, currentAddress, buffer.data(), buffer.size(), &bytesRead)) {
+                for (const auto& patch : patches) {
+                    for (size_t i = 0; i < bytesRead - patch.first.size(); i++) {
+                        if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
+                            LPVOID patchAddress = currentAddress + i;
+                            
+                            DWORD oldProtect;
+                            if (VirtualProtectEx(processHandle, patchAddress, patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                                SIZE_T bytesWritten;
+                                if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), &bytesWritten)) {
+                                    patchesApplied++;
+                                    std::cout << "[LIVE PATCHER] Applied patch " << patchesApplied << " at " << std::hex << patchAddress << std::dec << "\n";
+                                    FlushInstructionCache(processHandle, patchAddress, patch.second.size());
+                                }
+                                VirtualProtectEx(processHandle, patchAddress, patch.second.size(), oldProtect, &oldProtect);
+                            }
                         }
                     }
                 }
+                currentAddress += bytesRead;
+            } else {
+                currentAddress += 1024; // Skip if read fails
             }
         }
 
         CloseHandle(processHandle);
 
         if (patchesApplied > 0) {
-            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
+            std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches to main executable\n";
             return true;
         } else {
-            std::cout << "[LIVE PATCHER] Failed to apply any patches\n";
+            std::cout << "[LIVE PATCHER] No patches were applied\n";
             return false;
         }
     }
 
 private:
     void startPatcher() {
-        std::cout << "[PATCHER] Starting patch monitoring...\n";
+        std::cout << "[PATCHER] Starting patch monitoring for main executable...\n";
         std::thread([this]() {
             while (running) {
                 LivePatchFortnite();

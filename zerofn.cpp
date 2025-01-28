@@ -350,9 +350,9 @@ void loadCosmeticsDatabase() {
 
 public:
     bool LivePatchFortnite() {
-        std::cout << "\n[LIVE PATCHER] Starting optimized patching process...\n";
+        std::cout << "\n[LIVE PATCHER] Starting targeted exe patching...\n";
 
-        // Find Fortnite process quickly
+        // Get Fortnite process ID
         DWORD processId = 0;
         HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if (snapshot != INVALID_HANDLE_VALUE) {
@@ -370,78 +370,114 @@ public:
             CloseHandle(snapshot);
         }
 
-        if (processId == 0) {
+        if (!processId) {
             std::cout << "[LIVE PATCHER] Fortnite process not found\n";
             return false;
         }
 
-        // Open process with required access
-        HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+        // Open the process with required access rights for child process
+        HANDLE processHandle = OpenProcess(
+            PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | 
+            PROCESS_VM_READ | PROCESS_VM_WRITE | 
+            PROCESS_QUERY_INFORMATION,
+            FALSE, processId);
+
         if (!processHandle) {
             std::cout << "[LIVE PATCHER] Failed to open process\n";
             return false;
         }
 
-        // Critical Season 2 patches - optimized and essential only
-        const std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
-            // Core login bypass
+        // Critical auth bypass patterns
+        std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patches = {
+            // Auth bypass (minimal set)
+            {{0x75, 0x04, 0x33, 0xC0, 0x5D, 0xC3}, {0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3}},
             {{0x74, 0x20, 0x48, 0x8B}, {0x90, 0x90, 0x90, 0x90}},
-            
-            // Authentication bypass
-            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0x90, 0x90, 0x90}},
-            
-            // Server validation
-            {{0x74, 0x23, 0x75, 0x1D}, {0x90, 0x90, 0x90, 0x90}},
-            
-            // SSL pinning
-            {{0x0F, 0x84, 0x0F, 0x85}, {0x90, 0x90, 0x90, 0x90}}
+            {{0x0F, 0x84, 0x85, 0x00}, {0x90, 0x90, 0x90, 0x90}}
         };
 
-        MEMORY_BASIC_INFORMATION mbi;
-        LPVOID address = 0;
+        MODULEENTRY32W moduleEntry;
+        moduleEntry.dwSize = sizeof(moduleEntry);
+        snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, processId);
+        
+        bool foundModule = false;
+        if (Module32FirstW(snapshot, &moduleEntry)) {
+            do {
+                if (_wcsicmp(moduleEntry.szModule, L"FortniteClient-Win64-Shipping.exe") == 0) {
+                    foundModule = true;
+                    break;
+                }
+            } while (Module32NextW(snapshot, &moduleEntry));
+        }
+        CloseHandle(snapshot);
+
+        if (!foundModule) {
+            CloseHandle(processHandle);
+            return false;
+        }
+
+        // Create child process for patching
+        HANDLE childProcess = NULL;
+        STARTUPINFO si = {sizeof(si)};
+        PROCESS_INFORMATION pi;
+        
+        if (CreateProcessAsUserW(GetCurrentProcessToken(), NULL, NULL,
+            NULL, NULL, FALSE, CREATE_SUSPENDED | CREATE_NO_WINDOW,
+            NULL, NULL, &si, &pi)) {
+            
+            childProcess = pi.hProcess;
+            CloseHandle(pi.hThread);
+        }
+
+        if (!childProcess) {
+            CloseHandle(processHandle);
+            return false;
+        }
+
+        // Apply patches through child process
         int patchesApplied = 0;
-
-        std::cout << "[LIVE PATCHER] Applying optimized patches...\n";
-
-        // Fast memory scanning with larger chunks
-        while (VirtualQueryEx(processHandle, address, &mbi, sizeof(mbi))) {
-            if (mbi.State == MEM_COMMIT && 
-                (mbi.Protect & (PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
-                
-                DWORD oldProtect;
-                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
-
-                std::vector<BYTE> buffer(mbi.RegionSize);
+        for (const auto& patch : patches) {
+            for (size_t offset = 0; offset < moduleEntry.modBaseSize - patch.first.size(); offset++) {
+                std::vector<BYTE> buffer(patch.first.size());
                 SIZE_T bytesRead;
                 
-                if (ReadProcessMemory(processHandle, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead)) {
-                    for (const auto& patch : patches) {
-                        for (size_t i = 0; i < buffer.size() - patch.first.size(); i++) {
-                            if (memcmp(buffer.data() + i, patch.first.data(), patch.first.size()) == 0) {
-                                LPVOID patchAddress = (LPVOID)((DWORD_PTR)mbi.BaseAddress + i);
-                                
-                                if (WriteProcessMemory(processHandle, patchAddress, patch.second.data(), patch.second.size(), nullptr)) {
-                                    patchesApplied++;
-                                    FlushInstructionCache(processHandle, patchAddress, patch.second.size());
-                                }
-                            }
+                if (ReadProcessMemory(processHandle, 
+                    (LPCVOID)((DWORD_PTR)moduleEntry.modBaseAddr + offset),
+                    buffer.data(), buffer.size(), &bytesRead) &&
+                    bytesRead == buffer.size() &&
+                    memcmp(buffer.data(), patch.first.data(), patch.first.size()) == 0) {
+
+                    DWORD oldProtect;
+                    if (VirtualProtectEx(processHandle, 
+                        (LPVOID)((DWORD_PTR)moduleEntry.modBaseAddr + offset),
+                        patch.second.size(), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+
+                        if (WriteProcessMemory(processHandle,
+                            (LPVOID)((DWORD_PTR)moduleEntry.modBaseAddr + offset),
+                            patch.second.data(), patch.second.size(), NULL)) {
+                            
+                            VirtualProtectEx(processHandle,
+                                (LPVOID)((DWORD_PTR)moduleEntry.modBaseAddr + offset),
+                                patch.second.size(), oldProtect, &oldProtect);
+                            
+                            patchesApplied++;
+                            std::cout << "[LIVE PATCHER] Applied patch " << patchesApplied << " at offset 0x" 
+                                    << std::hex << offset << std::dec << "\n";
                         }
                     }
                 }
-
-                VirtualProtectEx(processHandle, mbi.BaseAddress, mbi.RegionSize, oldProtect, &oldProtect);
             }
-            address = (LPVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
 
+        // Cleanup
+        TerminateProcess(childProcess, 0);
+        CloseHandle(childProcess);
         CloseHandle(processHandle);
 
         if (patchesApplied > 0) {
             std::cout << "[LIVE PATCHER] Successfully applied " << patchesApplied << " patches\n";
-            std::cout << "[LIVE PATCHER] Season 2 patches active - Ready to play!\n";
             return true;
         } else {
-            std::cout << "[LIVE PATCHER] Failed to apply patches\n";
+            std::cout << "[LIVE PATCHER] No patches were applied\n";
             return false;
         }
     }

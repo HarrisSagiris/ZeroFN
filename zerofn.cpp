@@ -49,6 +49,7 @@ private:
     std::string installPath;
     HANDLE gameProcess;
     HANDLE patcherProcess;
+    std::string executablePath; // Added to store argv[0]
     
     std::map<std::string, GameSession> activeSessions;
     std::vector<std::string> matchmakingQueue;
@@ -547,7 +548,7 @@ private:
     }
 
 public:
-    FortniteServer() : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL), patcherProcess(NULL) {
+    FortniteServer(const std::string& exePath) : running(false), serverSocket(INVALID_SOCKET), gameProcess(NULL), patcherProcess(NULL), executablePath(exePath) {
         srand(static_cast<unsigned>(time(0)));
         
         system("cls");

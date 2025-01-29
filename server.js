@@ -82,6 +82,8 @@ app.get('/fortnite/api/storefront/v2/catalog', (req, res) => {
 // Profile endpoints
 app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) => {
   const { accountId, command } = req.params;
+  const profileId = req.query.profileId || 'athena';
+  const rvn = req.query.rvn || -1;
   
   // Initialize user if not exists
   if (!database.users[accountId]) {
@@ -91,23 +93,28 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
     saveDatabase();
   }
 
-  // Handle different profile commands
-  let response = {
+  const baseResponse = {
     profileRevision: 1,
-    profileId: 'athena',
-    profileChanges: []
+    profileId: profileId,
+    profileChangesBaseRevision: 1,
+    profileChanges: [],
+    serverTime: new Date().toISOString(),
+    responseVersion: 1
   };
 
   switch(command) {
     case 'QueryProfile':
-    case 'ClientQuestLogin':
+    case 'ClientQuestLogin': 
     case 'RefreshExpeditions':
-      response.profileChanges.push({
+    case 'SetMtxPlatform':
+    case 'SetItemFavoriteStatusBatch':
+    case 'EquipBattleRoyaleCustomization':
+      baseResponse.profileChanges.push({
         changeType: 'fullProfileUpdate',
         profile: {
           _id: accountId,
           accountId: accountId,
-          profileId: 'athena',
+          profileId: profileId,
           version: 'no_version',
           items: database.users[accountId].cosmetics.reduce((acc, id) => {
             acc[id] = {
@@ -118,16 +125,40 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
                 item_seen: true,
                 xp: 0,
                 variants: [],
-              }
+                favorite: false
+              },
+              quantity: 1
             };
             return acc;
-          }, {})
+          }, {}),
+          stats: {
+            attributes: {
+              past_seasons: [],
+              season_match_boost: 0,
+              loadouts: ["loadout_0"],
+              mfa_reward_claimed: true,
+              rested_xp_overflow: 0,
+              quest_manager: {},
+              book_level: 1,
+              season_num: 20,
+              book_xp: 0,
+              permissions: [],
+              season: {
+                numWins: 0,
+                numHighBracket: 0,
+                numLowBracket: 0
+              }
+            }
+          }
         }
       });
       break;
+    default:
+      // Handle unknown commands
+      console.log(`Unknown command: ${command}`);
   }
   
-  res.json(response);
+  res.json(baseResponse);
 });
 
 // Start server

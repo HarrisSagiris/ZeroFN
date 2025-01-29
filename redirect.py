@@ -9,7 +9,10 @@ def request(flow: http.HTTPFlow) -> None:
         "account-public",
         "launcher-public",
         "epic-games-api",
-        "lightswitch-public"
+        "lightswitch-public",
+        "account/api/oauth/token",  # Auth endpoint
+        "account/api/oauth/verify", # Auth verification endpoint
+        "account/api/public/account" # Account info endpoint
     ]
     
     should_redirect = False
@@ -22,13 +25,16 @@ def request(flow: http.HTTPFlow) -> None:
         # Get the original path
         original_path = flow.request.path
         
-        # Redirect to 127.0.0.1:7777
+        # Redirect to local server
         flow.request.host = "127.0.0.1"
         flow.request.port = 7777
         flow.request.scheme = "http"
         
-        # Keep the original path 
+        # Keep the original path
         flow.request.path = original_path
+        
+        # Add headers needed for auth
+        flow.request.headers["Authorization"] = "bearer test"  # Default test token
         
         ctx.log.info(f"Redirecting {flow.request.pretty_url} to 127.0.0.1:7777")
     else:

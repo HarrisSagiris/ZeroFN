@@ -29,6 +29,21 @@ const saveDatabase = () => {
   );
 };
 
+// Version check endpoints
+app.get('/fortnite/api/version', (req, res) => {
+  res.json({
+    type: 'NO_UPDATE',
+    version: '++Fortnite+Release-20.00-CL-19458861',
+    buildDate: '2023-01-01'
+  });
+});
+
+app.get('/fortnite/api/versioncheck/:version', (req, res) => {
+  res.json({
+    type: 'NO_UPDATE'
+  });
+});
+
 // User cosmetics endpoints
 app.get('/fortnite/api/cloudstorage/user/:accountId', (req, res) => {
   const { accountId } = req.params;
@@ -67,35 +82,51 @@ app.get('/fortnite/api/storefront/v2/catalog', (req, res) => {
 app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) => {
   const { accountId, command } = req.params;
   
+  // Initialize user if not exists
   if (!database.users[accountId]) {
     database.users[accountId] = {
       cosmetics: database.cosmetics // Give all cosmetics by default
     };
     saveDatabase();
   }
-  
-  res.json({
+
+  // Handle different profile commands
+  let response = {
     profileRevision: 1,
     profileId: 'athena',
-    profileChanges: [{
-      changeType: 'fullProfileUpdate',
-      profile: {
-        items: database.users[accountId].cosmetics.reduce((acc, id) => {
-          acc[id] = {
-            templateId: id,
-            attributes: {
-              max_level_bonus: 0,
-              level: 1,
-              item_seen: true,
-              xp: 0,
-              variants: [],
-            }
-          };
-          return acc;
-        }, {})
-      }
-    }]
-  });
+    profileChanges: []
+  };
+
+  switch(command) {
+    case 'QueryProfile':
+    case 'ClientQuestLogin':
+    case 'RefreshExpeditions':
+      response.profileChanges.push({
+        changeType: 'fullProfileUpdate',
+        profile: {
+          _id: accountId,
+          accountId: accountId,
+          profileId: 'athena',
+          version: 'no_version',
+          items: database.users[accountId].cosmetics.reduce((acc, id) => {
+            acc[id] = {
+              templateId: id,
+              attributes: {
+                max_level_bonus: 0,
+                level: 1,
+                item_seen: true,
+                xp: 0,
+                variants: [],
+              }
+            };
+            return acc;
+          }, {})
+        }
+      });
+      break;
+  }
+  
+  res.json(response);
 });
 
 // Start server

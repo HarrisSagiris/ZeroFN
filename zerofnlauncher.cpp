@@ -5,19 +5,20 @@
 #include <ctime>
 #include <sstream>
 #include <filesystem>
+#include <shlobj.h>
 
 class ZeroFNLauncher {
 public:
     ZeroFNLauncher() {
         // Create main window
-        WNDCLASSEX wc = {0};
-        wc.cbSize = sizeof(WNDCLASSEX);
+        WNDCLASSEXW wc = {0};
+        wc.cbSize = sizeof(WNDCLASSEXW);
         wc.lpfnWndProc = WindowProc;
         wc.hInstance = GetModuleHandle(NULL);
         wc.lpszClassName = L"ZeroFNLauncher";
-        RegisterClassEx(&wc);
+        RegisterClassExW(&wc);
 
-        hwnd = CreateWindowEx(
+        hwnd = CreateWindowExW(
             0,
             L"ZeroFNLauncher",
             L"ZeroFN Launcher",
@@ -30,20 +31,20 @@ public:
         );
 
         // Create controls
-        CreateWindow(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD,
+        CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD,
             10, 10, 80, 25, hwnd, (HMENU)1, NULL, NULL);
 
-        pathEdit = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER,
+        pathEdit = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER,
             100, 10, 300, 25, hwnd, (HMENU)2, NULL, NULL);
 
-        startButton = CreateWindow(L"BUTTON", L"Launch Game", WS_VISIBLE | WS_CHILD,
+        startButton = CreateWindowW(L"BUTTON", L"Launch Game", WS_VISIBLE | WS_CHILD,
             10, 45, 100, 30, hwnd, (HMENU)3, NULL, NULL);
 
-        stopButton = CreateWindow(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD,
+        stopButton = CreateWindowW(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD,
             120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
         EnableWindow(stopButton, FALSE);
 
-        consoleOutput = CreateWindow(L"EDIT", L"", 
+        consoleOutput = CreateWindowW(L"EDIT", L"", 
             WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
             10, 85, 760, 400, hwnd, (HMENU)5, NULL, NULL);
 
@@ -87,13 +88,13 @@ public:
 private:
     static void BrowsePath() {
         // Show folder browser dialog
-        BROWSEINFO bi = {0};
+        BROWSEINFOW bi = {0};
         bi.lpszTitle = L"Select Fortnite Installation Directory";
-        LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+        LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
         if (pidl != 0) {
             WCHAR path[MAX_PATH];
-            SHGetPathFromIDList(pidl, path);
-            SetWindowText(pathEdit, path);
+            SHGetPathFromIDListW(pidl, path);
+            SetWindowTextW(pathEdit, path);
             SavePath(path);
             IMalloc * imalloc = 0;
             if (SUCCEEDED(SHGetMalloc(&imalloc))) {
@@ -106,36 +107,36 @@ private:
     static void StartServer() {
         // Check required files
         if (!std::filesystem::exists("server.js") || !std::filesystem::exists("redirect.py")) {
-            MessageBox(NULL, L"Required server files are missing!", L"Error", MB_OK | MB_ICONERROR);
+            MessageBoxW(NULL, L"Required server files are missing!", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
         // Start Node.js server
-        STARTUPINFO si = {0};
+        STARTUPINFOW si = {0};
         PROCESS_INFORMATION pi = {0};
-        if (!CreateProcess(NULL, L"node server.js", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-            MessageBox(NULL, L"Failed to start Node.js server", L"Error", MB_OK | MB_ICONERROR);
+        if (!CreateProcessW(NULL, L"node server.js", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            MessageBoxW(NULL, L"Failed to start Node.js server", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
         // Start mitmproxy
-        if (!CreateProcess(NULL, L"mitmdump -s redirect.py", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-            MessageBox(NULL, L"Failed to start mitmproxy", L"Error", MB_OK | MB_ICONERROR);
+        if (!CreateProcessW(NULL, L"mitmdump -s redirect.py", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            MessageBoxW(NULL, L"Failed to start mitmproxy", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
         // Launch Fortnite
         WCHAR path[MAX_PATH];
-        GetWindowText(pathEdit, path, MAX_PATH);
+        GetWindowTextW(pathEdit, path, MAX_PATH);
         std::wstring fortnitePath = std::wstring(path) + L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
         
         if (!std::filesystem::exists(fortnitePath)) {
-            MessageBox(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
+            MessageBoxW(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
-        if (!CreateProcess(fortnitePath.c_str(), L"-epicportal", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-            MessageBox(NULL, L"Failed to launch Fortnite", L"Error", MB_OK | MB_ICONERROR);
+        if (!CreateProcessW(fortnitePath.c_str(), L"-epicportal", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            MessageBoxW(NULL, L"Failed to launch Fortnite", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 

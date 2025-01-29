@@ -9,9 +9,45 @@
 #include <commdlg.h>
 #include <wininet.h>
 #include <tlhelp32.h>
+#include <vector>
+#include <thread>
+#include <chrono>
 #pragma comment(lib, "wininet.lib")
 
 namespace fs = std::experimental::filesystem;
+
+// Pattern scanning helper functions
+bool CompareBytes(const BYTE* data, const BYTE* pattern, const char* mask) {
+    for (; *mask; ++mask, ++data, ++pattern) {
+        if (*mask == 'x' && *data != *pattern)
+            return false;
+    }
+    return (*mask) == 0;
+}
+
+DWORD_PTR FindPattern(HANDLE process, DWORD_PTR start, DWORD_PTR end, const BYTE* pattern, const char* mask) {
+    BYTE* buffer = new BYTE[4096];
+    DWORD_PTR pos = start;
+    SIZE_T bytesRead;
+
+    while (pos < end) {
+        if (!ReadProcessMemory(process, (LPCVOID)pos, buffer, 4096, &bytesRead)) {
+            pos += 4096;
+            continue;
+        }
+
+        for (DWORD_PTR i = 0; i < bytesRead; i++) {
+            if (CompareBytes(buffer + i, pattern, mask)) {
+                delete[] buffer;
+                return pos + i;
+            }
+        }
+        pos += bytesRead;
+    }
+
+    delete[] buffer;
+    return 0;
+}
 
 class ZeroFNLauncher {
 public:
@@ -181,96 +217,63 @@ private:
         }
     }
 
-    static void PatchFortniteProcess(DWORD processId) {
-        logMessage("Attempting to patch Fortnite process (PID: " + std::to_string(processId) + ")...");
+    static void ContinuouslyPatchProcess(DWORD processId) {
         HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-        if (hProcess == NULL) {
-            logMessage("Failed to open Fortnite process for patching");
+        if (!hProcess) {
+            logMessage("Failed to open Fortnite process for continuous patching");
             return;
         }
 
-        // Immediate connection patch
-        unsigned char connectionPattern[] = {0x74, 0x07, 0x8B, 0x45, 0x0C, 0x89, 0x45, 0xFC};
-        unsigned char connectionPatch[] = {0xEB, 0x07, 0x8B, 0x45, 0x0C, 0x89, 0x45, 0xFC};
+        // Known patterns for authentication checks
+        std::vector<std::pair<BYTE*, char*>> patterns = {
+            {(BYTE*)"\x74\x07\x8B\x45\x0C\x89\x45\xFC", "xxxxxxxx"},  // Connection check
+            {(BYTE*)"\x75\x0F\x8B\x45\x08\x89\x45\xFC", "xxxxxxxx"},  // Auth check
+            {(BYTE*)"\x0F\x84\x00\x00\x00\x00\x48\x8B", "xx????xx"},  // Login check
+            {(BYTE*)"\x74\x23\x48\x8B\x4B\x78", "xxxxxx"}            // Server check
+        };
 
-        logMessage("Applying immediate connection patch...");
-        
-        SYSTEM_INFO sysInfo;
-        GetSystemInfo(&sysInfo);
-        LPVOID address = sysInfo.lpMinimumApplicationAddress;
-        
-        while (address < sysInfo.lpMaximumApplicationAddress) {
-            MEMORY_BASIC_INFORMATION memInfo;
-            if (VirtualQueryEx(hProcess, address, &memInfo, sizeof(memInfo))) {
-                if (memInfo.State == MEM_COMMIT && 
-                    (memInfo.Protect == PAGE_EXECUTE_READ || memInfo.Protect == PAGE_EXECUTE_READWRITE)) {
+        std::vector<BYTE*> patches = {
+            (BYTE*)"\xEB\x07\x8B\x45\x0C\x89\x45\xFC",  // Connection bypass
+            (BYTE*)"\xEB\x0F\x8B\x45\x08\x89\x45\xFC",  // Auth bypass
+            (BYTE*)"\xE9\x90\x90\x90\x90\x48\x8B",      // Login bypass
+            (BYTE*)"\xEB\x23\x48\x8B\x4B\x78"           // Server bypass
+        };
+
+        while (true) {
+            SYSTEM_INFO sysInfo;
+            GetSystemInfo(&sysInfo);
+            
+            for (size_t i = 0; i < patterns.size(); i++) {
+                DWORD_PTR address = FindPattern(
+                    hProcess,
+                    (DWORD_PTR)sysInfo.lpMinimumApplicationAddress,
+                    (DWORD_PTR)sysInfo.lpMaximumApplicationAddress,
+                    patterns[i].first,
+                    patterns[i].second
+                );
+
+                if (address) {
+                    DWORD oldProtect;
+                    VirtualProtectEx(hProcess, (LPVOID)address, 8, PAGE_EXECUTE_READWRITE, &oldProtect);
+                    WriteProcessMemory(hProcess, (LPVOID)address, patches[i], 8, NULL);
+                    VirtualProtectEx(hProcess, (LPVOID)address, 8, oldProtect, &oldProtect);
                     
-                    std::vector<BYTE> buffer(memInfo.RegionSize);
-                    SIZE_T bytesRead;
-                    
-                    if (ReadProcessMemory(hProcess, memInfo.BaseAddress, buffer.data(), memInfo.RegionSize, &bytesRead)) {
-                        for (size_t i = 0; i < bytesRead - sizeof(connectionPattern); i++) {
-                            if (memcmp(buffer.data() + i, connectionPattern, sizeof(connectionPattern)) == 0) {
-                                DWORD oldProtect;
-                                VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
-                                    sizeof(connectionPatch), PAGE_EXECUTE_READWRITE, &oldProtect);
-                                
-                                WriteProcessMemory(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
-                                    connectionPatch, sizeof(connectionPatch), NULL);
-                                
-                                VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
-                                    sizeof(connectionPatch), oldProtect, &oldProtect);
-                                
-                                logMessage("Applied immediate connection patch");
-                            }
-                        }
-                    }
+                    logMessage("Applied patch type " + std::to_string(i) + " at address: 0x" + 
+                              std::to_string(address));
                 }
-                address = (LPVOID)((DWORD_PTR)memInfo.BaseAddress + memInfo.RegionSize);
             }
-        }
 
-        // Original auth bypass patch
-        unsigned char pattern[] = {0x75, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
-        unsigned char patch[] = {0xEB, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
-
-        logMessage("Applying auth bypass patch...");
-        
-        address = sysInfo.lpMinimumApplicationAddress;
-        
-        while (address < sysInfo.lpMaximumApplicationAddress) {
-            MEMORY_BASIC_INFORMATION memInfo;
-            if (VirtualQueryEx(hProcess, address, &memInfo, sizeof(memInfo))) {
-                if (memInfo.State == MEM_COMMIT && 
-                    (memInfo.Protect == PAGE_EXECUTE_READ || memInfo.Protect == PAGE_EXECUTE_READWRITE)) {
-                    
-                    std::vector<BYTE> buffer(memInfo.RegionSize);
-                    SIZE_T bytesRead;
-                    
-                    if (ReadProcessMemory(hProcess, memInfo.BaseAddress, buffer.data(), memInfo.RegionSize, &bytesRead)) {
-                        for (size_t i = 0; i < bytesRead - sizeof(pattern); i++) {
-                            if (memcmp(buffer.data() + i, pattern, sizeof(pattern)) == 0) {
-                                DWORD oldProtect;
-                                VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
-                                    sizeof(patch), PAGE_EXECUTE_READWRITE, &oldProtect);
-                                
-                                WriteProcessMemory(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
-                                    patch, sizeof(patch), NULL);
-                                
-                                VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
-                                    sizeof(patch), oldProtect, &oldProtect);
-                                
-                                logMessage("Applied auth bypass patch");
-                            }
-                        }
-                    }
-                }
-                address = (LPVOID)((DWORD_PTR)memInfo.BaseAddress + memInfo.RegionSize);
+            // Check if process is still running
+            DWORD exitCode;
+            if (!GetExitCodeProcess(hProcess, &exitCode) || exitCode != STILL_ACTIVE) {
+                logMessage("Fortnite process terminated, stopping continuous patching");
+                break;
             }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
         CloseHandle(hProcess);
-        logMessage("Memory patching completed successfully");
     }
 
     static void StartServer() {
@@ -338,7 +341,6 @@ private:
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
 
-        // Enhanced launch parameters with immediate connection
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
             L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
@@ -375,8 +377,10 @@ private:
 
         logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
 
-        // Apply patches
-        PatchFortniteProcess(piGame.dwProcessId);
+        // Start continuous patching thread
+        std::thread patchThread(ContinuouslyPatchProcess, piGame.dwProcessId);
+        patchThread.detach();
+        logMessage("Started continuous memory patching thread");
 
         // Resume the process
         logMessage("Resuming Fortnite process...");
@@ -390,7 +394,7 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully with immediate connection enabled");
+        logMessage("Fortnite launched successfully with continuous patching enabled");
     }
 
     static void StopServer() {

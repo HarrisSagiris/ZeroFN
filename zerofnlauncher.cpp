@@ -139,21 +139,39 @@ private:
             return;
         }
 
-        WCHAR cmdLine[] = L"-epicportal";
-        if (!CreateProcessW(fortnitePath.c_str(), cmdLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        // Launch without Epic Games launcher
+        STARTUPINFOW siGame = {0};
+        PROCESS_INFORMATION piGame = {0};
+        
+        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -noeac -fromfl=be -fltoken=h1h4370717422124b232377 -skippatchcheck";
+        
+        WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
+        wcscpy(cmdLinePtr, cmdLine.c_str());
+
+        if (!CreateProcessW(NULL, cmdLinePtr, NULL, NULL, FALSE, 
+            CREATE_NEW_CONSOLE | DETACHED_PROCESS,
+            NULL, NULL, &siGame, &piGame)) {
             MessageBoxW(NULL, L"Failed to launch Fortnite", L"Error", MB_OK | MB_ICONERROR);
+            delete[] cmdLinePtr;
             return;
         }
+
+        delete[] cmdLinePtr;
+        CloseHandle(piGame.hProcess);
+        CloseHandle(piGame.hThread);
 
         EnableWindow(startButton, FALSE);
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
+        
+        logMessage("Fortnite launched successfully without Epic Games launcher");
     }
 
     static void StopServer() {
         // Kill processes
         system("taskkill /F /IM node.exe");
         system("taskkill /F /IM mitmdump.exe");
+        system("taskkill /F /IM FortniteClient-Win64-Shipping.exe");
 
         EnableWindow(startButton, TRUE); 
         EnableWindow(stopButton, FALSE);

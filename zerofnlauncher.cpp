@@ -170,8 +170,8 @@ private:
         ZeroMemory(&proxyInfo, sizeof(proxyInfo));
 
         proxyInfo.dwAccessType = INTERNET_OPEN_TYPE_PROXY;
-        proxyInfo.lpszProxy = L"127.0.0.1:8080";
-        proxyInfo.lpszProxyBypass = L"<local>";
+        proxyInfo.lpszProxy = (LPCTSTR)"127.0.0.1:8080";
+        proxyInfo.lpszProxyBypass = (LPCTSTR)"<local>";
 
         BOOL result = InternetSetOption(NULL, INTERNET_OPTION_PROXY, &proxyInfo, sizeof(proxyInfo));
         if(result) {

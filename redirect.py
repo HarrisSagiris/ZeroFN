@@ -2,22 +2,39 @@ from mitmproxy import ctx
 from mitmproxy import http
 
 def request(flow: http.HTTPFlow) -> None:
-    # Check if request is going to Fortnite/Epic Games API endpoints
-    if "fortnite" in flow.request.pretty_url.lower() or "epicgames" in flow.request.pretty_url.lower():
-        
+    # Only redirect specific Fortnite/Epic API endpoints that need to be handled locally
+    target_endpoints = [
+        "fortnite-game",
+        "fortnite-content",
+        "account-public",
+        "launcher-public",
+        "epic-games-api",
+        "lightswitch-public"
+    ]
+    
+    should_redirect = False
+    for endpoint in target_endpoints:
+        if endpoint in flow.request.pretty_url.lower():
+            should_redirect = True
+            break
+            
+    if should_redirect:
         # Get the original path
         original_path = flow.request.path
         
         # Redirect to localhost:3000
-        flow.request.host = "localhost" 
+        flow.request.host = "localhost"
         flow.request.port = 3000
         flow.request.scheme = "http"
         
-        # Keep the original path
+        # Keep the original path 
         flow.request.path = original_path
         
         ctx.log.info(f"Redirecting {flow.request.pretty_url} to localhost:3000")
+    else:
+        # Let all other traffic pass through normally
+        pass
 
 addons = [
-    # Register the script
+    request
 ]

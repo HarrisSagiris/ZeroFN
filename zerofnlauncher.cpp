@@ -182,10 +182,10 @@ private:
         unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
 
         option[0].dwOption = INTERNET_PER_CONN_PROXY_SERVER;
-        option[0].Value.pszValue = const_cast<LPWSTR>(L"127.0.0.1:8080");
+        option[0].Value.pszValue = const_cast<LPSTR>("127.0.0.1:8080");
         
         option[1].dwOption = INTERNET_PER_CONN_PROXY_BYPASS;
-        option[1].Value.pszValue = const_cast<LPWSTR>(L"localhost");
+        option[1].Value.pszValue = const_cast<LPSTR>("localhost");
         
         option[2].dwOption = INTERNET_PER_CONN_FLAGS;
         option[2].Value.dwValue = PROXY_TYPE_PROXY;

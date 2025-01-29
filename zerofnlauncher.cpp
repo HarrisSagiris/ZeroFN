@@ -217,47 +217,23 @@ private:
         }
     }
 
-    static void LaunchPatcher(DWORD processId) {
-        // Create a new console window for the patcher
-        STARTUPINFOW si = {0};
-        PROCESS_INFORMATION pi = {0};
-        si.cb = sizeof(si);
+    static void PatchFortnite(HANDLE hProcess) {
+        logMessage("Starting auth bypass patching...");
+        
+        // Auth bypass patterns
+        const BYTE authPattern[] = {0x74, 0x23, 0x48, 0x8B, 0x4B, 0x78};
+        const BYTE authPatch[] = {0xEB, 0x23, 0x48, 0x8B, 0x4B, 0x78};
 
-        std::wstring cmdLine = L"cmd.exe /k echo Patching Fortnite Auth... && "
-                              L"echo Process ID: " + std::to_wstring(processId);
-
-        if (CreateProcessW(NULL, (LPWSTR)cmdLine.c_str(), NULL, NULL, FALSE, 
-            CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
-            
-            // Write the patching script to the console
-            DWORD written;
-            std::string patchScript = 
-                "echo Patching authentication...\n"
-                "echo Redirecting to local server...\n";
-                
-            WriteConsoleA(pi.hProcess, patchScript.c_str(), patchScript.length(), &written, NULL);
-
-            // Start patching the process
-            HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-            if (hProcess) {
-                // Auth bypass patterns
-                const BYTE authPattern[] = {0x74, 0x23, 0x48, 0x8B, 0x4B, 0x78};
-                const BYTE authPatch[] = {0xEB, 0x23, 0x48, 0x8B, 0x4B, 0x78};
-
-                // Find and patch auth check
-                DWORD_PTR authAddr = FindPattern(hProcess, 0, (DWORD_PTR)-1, authPattern, "xxxxxx");
-                if (authAddr) {
-                    DWORD oldProtect;
-                    VirtualProtectEx(hProcess, (LPVOID)authAddr, sizeof(authPatch), PAGE_EXECUTE_READWRITE, &oldProtect);
-                    WriteProcessMemory(hProcess, (LPVOID)authAddr, authPatch, sizeof(authPatch), NULL);
-                    VirtualProtectEx(hProcess, (LPVOID)authAddr, sizeof(authPatch), oldProtect, &oldProtect);
-                }
-
-                CloseHandle(hProcess);
-            }
-
-            CloseHandle(pi.hProcess);
-            CloseHandle(pi.hThread);
+        // Find and patch auth check
+        DWORD_PTR authAddr = FindPattern(hProcess, 0, (DWORD_PTR)-1, authPattern, "xxxxxx");
+        if (authAddr) {
+            DWORD oldProtect;
+            VirtualProtectEx(hProcess, (LPVOID)authAddr, sizeof(authPatch), PAGE_EXECUTE_READWRITE, &oldProtect);
+            WriteProcessMemory(hProcess, (LPVOID)authAddr, authPatch, sizeof(authPatch), NULL);
+            VirtualProtectEx(hProcess, (LPVOID)authAddr, sizeof(authPatch), oldProtect, &oldProtect);
+            logMessage("Auth bypass patch applied successfully");
+        } else {
+            logMessage("WARNING: Could not find auth pattern to patch");
         }
     }
 
@@ -281,11 +257,11 @@ private:
         PROCESS_INFORMATION pi = {0};
         si.cb = sizeof(si);
         si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_HIDE;
+        si.wShowWindow = SW_SHOW; // Show the server window
 
         logMessage("Starting auth server on port 7777...");
         WCHAR nodeCmd[] = L"node server.js";
-        if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start auth server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start auth server!");
             return;
@@ -297,7 +273,7 @@ private:
         // Start proxy server for auth redirection
         logMessage("Starting proxy server on port 8080...");
         WCHAR proxyCmd[] = L"mitmdump -s redirect.py --listen-port 8080";
-        if (!CreateProcessW(NULL, proxyCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        if (!CreateProcessW(NULL, proxyCmd, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start proxy server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start proxy server!");
             return;
@@ -305,6 +281,9 @@ private:
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         logMessage("Proxy server started successfully");
+
+        // Wait for servers to initialize
+        Sleep(2000); // Give servers time to start
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -321,28 +300,28 @@ private:
         logMessage("Fortnite executable found");
 
         // Launch Fortnite with auth redirection
-        logMessage("Preparing to launch Fortnite...");
+        logMessage("Launching Fortnite...");
         STARTUPINFOW siGame = {0};
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
+        siGame.dwFlags = STARTF_USESHOWWINDOW;
+        siGame.wShowWindow = SW_SHOW;
 
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
             L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
             L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -NOFORCECONNECT";
-        
+
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
         wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
 
-        logMessage("Launching Fortnite with custom parameters...");
-        
         BOOL success = CreateProcessW(
             fortnitePath.c_str(),
             cmdLinePtr,
             NULL,
             NULL,
             FALSE,
-            CREATE_NEW_CONSOLE | CREATE_SUSPENDED,
+            CREATE_SUSPENDED,  // Create suspended so we can patch before it runs
             NULL,
             basePath.c_str(),
             &siGame,
@@ -362,14 +341,13 @@ private:
 
         logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
 
-        // Launch patcher in new console window
-        LaunchPatcher(piGame.dwProcessId);
-        logMessage("Started auth patcher in separate console");
-
+        // Patch the process immediately
+        PatchFortnite(piGame.hProcess);
+        
         // Resume the process
-        logMessage("Resuming Fortnite process...");
+        logMessage("Starting Fortnite...");
         ResumeThread(piGame.hThread);
-        logMessage("Fortnite process resumed");
+        logMessage("Fortnite process started");
 
         CloseHandle(piGame.hProcess);
         CloseHandle(piGame.hThread);
@@ -378,7 +356,7 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully with auth patching enabled");
+        logMessage("Fortnite launched successfully with auth bypass enabled");
     }
 
     static void StopServer() {

@@ -192,6 +192,34 @@ private:
         CloseHandle(pi.hThread);
         logMessage("Node.js server started successfully");
 
+        // Configure proxy settings - only for Epic authentication endpoints
+        logMessage("Configuring proxy settings...");
+        INTERNET_PER_CONN_OPTION_LIST options;
+        INTERNET_PER_CONN_OPTION option[3];
+        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+
+        option[0].dwOption = INTERNET_PER_CONN_PROXY_SERVER;
+        option[0].Value.pszValue = const_cast<LPSTR>("127.0.0.1:8080");
+        
+        option[1].dwOption = INTERNET_PER_CONN_PROXY_BYPASS;
+        option[1].Value.pszValue = const_cast<LPSTR>("*.epicgames.com;*.fortnite.com;*.amazonaws.com;*.epicgames.dev;localhost");
+        
+        option[2].dwOption = INTERNET_PER_CONN_FLAGS;
+        option[2].Value.dwValue = PROXY_TYPE_PROXY;
+
+        options.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+        options.pszConnection = NULL;
+        options.dwOptionCount = 3;
+        options.dwOptionError = 0;
+        options.pOptions = option;
+
+        if (!InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize)) {
+            logMessage("WARNING: Failed to set proxy settings");
+        }
+        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
+        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
+        logMessage("Proxy settings configured");
+
         // Get Fortnite path
         WCHAR path[MAX_PATH];
         GetWindowTextW(pathEdit, path, MAX_PATH);
@@ -259,6 +287,25 @@ private:
 
     static void StopServer() {
         logMessage("Stopping all services...");
+        
+        // Reset proxy settings
+        INTERNET_PER_CONN_OPTION_LIST options;
+        INTERNET_PER_CONN_OPTION option[1];
+        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+
+        option[0].dwOption = INTERNET_PER_CONN_FLAGS;
+        option[0].Value.dwValue = PROXY_TYPE_DIRECT;
+
+        options.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+        options.pszConnection = NULL;
+        options.dwOptionCount = 1;
+        options.dwOptionError = 0;
+        options.pOptions = option;
+
+        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize);
+        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
+        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
+        logMessage("Proxy settings reset to default");
 
         // Kill processes
         logMessage("Terminating Node.js server...");

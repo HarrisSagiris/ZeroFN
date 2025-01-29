@@ -192,7 +192,7 @@ private:
         CloseHandle(pi.hThread);
         logMessage("Node.js server started successfully");
 
-        // Configure proxy settings - only for Epic authentication endpoints
+        // Configure proxy settings - only proxy specific domains
         logMessage("Configuring proxy settings...");
         INTERNET_PER_CONN_OPTION_LIST options;
         INTERNET_PER_CONN_OPTION option[3];
@@ -201,11 +201,12 @@ private:
         option[0].dwOption = INTERNET_PER_CONN_PROXY_SERVER;
         option[0].Value.pszValue = const_cast<LPSTR>("127.0.0.1:8080");
         
+        // Only proxy Epic domains, let other traffic pass through
         option[1].dwOption = INTERNET_PER_CONN_PROXY_BYPASS;
-        option[1].Value.pszValue = const_cast<LPSTR>("*.epicgames.com;*.fortnite.com;*.amazonaws.com;*.epicgames.dev;localhost");
+        option[1].Value.pszValue = const_cast<LPSTR>("localhost;127.*;10.*;172.16.*;192.168.*;*.epicgames.com;*.fortnite.com");
         
         option[2].dwOption = INTERNET_PER_CONN_FLAGS;
-        option[2].Value.dwValue = PROXY_TYPE_PROXY;
+        option[2].Value.dwValue = PROXY_TYPE_PROXY | PROXY_TYPE_DIRECT;  // Allow direct connections for non-proxied traffic
 
         options.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
         options.pszConnection = NULL;
@@ -218,7 +219,7 @@ private:
         }
         InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
         InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
-        logMessage("Proxy settings configured");
+        logMessage("Proxy settings configured - only Epic domains will be proxied");
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];

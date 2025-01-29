@@ -1,254 +1,204 @@
-#include <QtWidgets/QApplication>
-#include <QtWidgets/QMainWindow>
-#include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QLineEdit>
-#include <QtWidgets/QPushButton>
-#include <QtWidgets/QTextEdit>
-#include <QtWidgets/QMessageBox>
-#include <QtCore/QProcess>
-#include <QtCore/QSettings>
-#include <QtWidgets/QFileDialog>
-#include <QtWidgets/QLabel>
-#include <QtCore/QTime>
-#include <QtCore/QFile>
-#include <QtCore/QDir>
+#include <windows.h>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <ctime>
+#include <sstream>
+#include <filesystem>
 
-class ZeroFNLauncher : public QMainWindow {
-    Q_OBJECT
-
+class ZeroFNLauncher {
 public:
-    ZeroFNLauncher(QWidget *parent = nullptr) : QMainWindow(parent) {
-        setWindowTitle("ZeroFN Launcher");
-        setMinimumSize(800, 600);
-        setStyleSheet("QMainWindow { background-color: #2d2d2d; }"
-                     "QLabel { color: white; }"
-                     "QPushButton { background-color: #0078d7; color: white; padding: 8px; border-radius: 4px; }"
-                     "QPushButton:disabled { background-color: #666666; }"
-                     "QLineEdit { padding: 6px; border-radius: 4px; }");
+    ZeroFNLauncher() {
+        // Create main window
+        WNDCLASSEX wc = {0};
+        wc.cbSize = sizeof(WNDCLASSEX);
+        wc.lpfnWndProc = WindowProc;
+        wc.hInstance = GetModuleHandle(NULL);
+        wc.lpszClassName = L"ZeroFNLauncher";
+        RegisterClassEx(&wc);
 
-        // Create central widget and layout
-        QWidget *centralWidget = new QWidget(this);
-        QVBoxLayout *layout = new QVBoxLayout(centralWidget);
-        setCentralWidget(centralWidget);
+        hwnd = CreateWindowEx(
+            0,
+            L"ZeroFNLauncher",
+            L"ZeroFN Launcher",
+            WS_OVERLAPPEDWINDOW,
+            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+            NULL,
+            NULL,
+            GetModuleHandle(NULL),
+            NULL
+        );
 
-        // Title and logo
-        QLabel *titleLabel = new QLabel("ZeroFN Launcher", this);
-        titleLabel->setStyleSheet("font-size: 24px; font-weight: bold; color: white; margin: 20px;");
-        titleLabel->setAlignment(Qt::AlignCenter);
-        layout->addWidget(titleLabel);
+        // Create controls
+        CreateWindow(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD,
+            10, 10, 80, 25, hwnd, (HMENU)1, NULL, NULL);
 
-        // Path selection
-        QHBoxLayout *pathLayout = new QHBoxLayout();
-        QLabel *pathLabel = new QLabel("Fortnite Path:", this);
-        pathEdit = new QLineEdit(this);
-        QPushButton *browseButton = new QPushButton("Browse", this);
-        pathLayout->addWidget(pathLabel);
-        pathLayout->addWidget(pathEdit);
-        pathLayout->addWidget(browseButton);
-        layout->addLayout(pathLayout);
+        pathEdit = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER,
+            100, 10, 300, 25, hwnd, (HMENU)2, NULL, NULL);
 
-        // Console output
-        consoleOutput = new QTextEdit(this);
-        consoleOutput->setReadOnly(true);
-        consoleOutput->setStyleSheet("QTextEdit { background-color: #1e1e1e; color: #ffffff; border-radius: 4px; padding: 10px; font-family: Consolas, monospace; }");
-        layout->addWidget(consoleOutput);
+        startButton = CreateWindow(L"BUTTON", L"Launch Game", WS_VISIBLE | WS_CHILD,
+            10, 45, 100, 30, hwnd, (HMENU)3, NULL, NULL);
 
-        // Status indicators
-        QHBoxLayout *statusLayout = new QHBoxLayout();
-        nodeStatus = new QLabel("Node.js Server: Stopped", this);
-        proxyStatus = new QLabel("Proxy Server: Stopped", this);
-        fortniteStatus = new QLabel("Fortnite: Not Running", this);
-        nodeStatus->setStyleSheet("color: #ff4444;");
-        proxyStatus->setStyleSheet("color: #ff4444;");
-        fortniteStatus->setStyleSheet("color: #ff4444;");
-        statusLayout->addWidget(nodeStatus);
-        statusLayout->addWidget(proxyStatus);
-        statusLayout->addWidget(fortniteStatus);
-        layout->addLayout(statusLayout);
+        stopButton = CreateWindow(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD,
+            120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
+        EnableWindow(stopButton, FALSE);
 
-        // Control buttons
-        QHBoxLayout *buttonLayout = new QHBoxLayout();
-        startButton = new QPushButton("Launch Game", this);
-        stopButton = new QPushButton("Stop All Services", this);
-        startButton->setFixedHeight(40);
-        stopButton->setFixedHeight(40);
-        stopButton->setEnabled(false);
-        buttonLayout->addWidget(startButton);
-        buttonLayout->addWidget(stopButton);
-        layout->addLayout(buttonLayout);
+        consoleOutput = CreateWindow(L"EDIT", L"", 
+            WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+            10, 85, 760, 400, hwnd, (HMENU)5, NULL, NULL);
 
         // Load saved path
-        QSettings settings("ZeroFN", "Launcher");
-        QString savedPath = settings.value("fortnitePath").toString();
-        pathEdit->setText(savedPath);
-
-        // Connect signals
-        connect(browseButton, &QPushButton::clicked, this, &ZeroFNLauncher::browsePath);
-        connect(startButton, &QPushButton::clicked, this, &ZeroFNLauncher::startServer);
-        connect(stopButton, &QPushButton::clicked, this, &ZeroFNLauncher::stopServer);
-        connect(pathEdit, &QLineEdit::textChanged, this, &ZeroFNLauncher::validatePath);
-
-        // Connect process signals
-        connect(&nodeProcess, &QProcess::readyReadStandardOutput, this, &ZeroFNLauncher::handleNodeOutput);
-        connect(&nodeProcess, &QProcess::readyReadStandardError, this, &ZeroFNLauncher::handleNodeError);
-        connect(&proxyProcess, &QProcess::readyReadStandardOutput, this, &ZeroFNLauncher::handleProxyOutput);
-        connect(&proxyProcess, &QProcess::readyReadStandardError, this, &ZeroFNLauncher::handleProxyError);
-
-        // Initial path validation
-        validatePath();
+        LoadSavedPath();
         
+        ShowWindow(hwnd, SW_SHOW);
         logMessage("ZeroFN Launcher initialized successfully");
     }
 
-private slots:
-    void browsePath() {
-        QString dir = QFileDialog::getExistingDirectory(this, "Select Fortnite Installation Directory",
-                                                      pathEdit->text(),
-                                                      QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-        if (!dir.isEmpty()) {
-            pathEdit->setText(dir);
-            QSettings settings("ZeroFN", "Launcher");
-            settings.setValue("fortnitePath", dir);
+    static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+        switch (uMsg) {
+            case WM_COMMAND:
+                switch (LOWORD(wParam)) {
+                    case 1: // Browse button
+                        BrowsePath();
+                        break;
+                    case 3: // Start button  
+                        StartServer();
+                        break;
+                    case 4: // Stop button
+                        StopServer();
+                        break;
+                }
+                break;
+            case WM_DESTROY:
+                PostQuitMessage(0);
+                return 0;
+        }
+        return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+
+    void Run() {
+        MSG msg = {};
+        while (GetMessage(&msg, NULL, 0, 0)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
         }
     }
 
-    void startServer() {
-        // Check if required files exist
-        if (!QFile::exists("server.js") || !QFile::exists("redirect.py")) {
-            showError("Required server files are missing!");
+private:
+    static void BrowsePath() {
+        // Show folder browser dialog
+        BROWSEINFO bi = {0};
+        bi.lpszTitle = L"Select Fortnite Installation Directory";
+        LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+        if (pidl != 0) {
+            WCHAR path[MAX_PATH];
+            SHGetPathFromIDList(pidl, path);
+            SetWindowText(pathEdit, path);
+            SavePath(path);
+            IMalloc * imalloc = 0;
+            if (SUCCEEDED(SHGetMalloc(&imalloc))) {
+                imalloc->Free(pidl);
+                imalloc->Release();
+            }
+        }
+    }
+
+    static void StartServer() {
+        // Check required files
+        if (!std::filesystem::exists("server.js") || !std::filesystem::exists("redirect.py")) {
+            MessageBox(NULL, L"Required server files are missing!", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
         // Start Node.js server
-        nodeProcess.start("node", QStringList() << "server.js");
-        if (!nodeProcess.waitForStarted()) {
-            showError("Failed to start Node.js server. Make sure Node.js is installed.");
+        STARTUPINFO si = {0};
+        PROCESS_INFORMATION pi = {0};
+        if (!CreateProcess(NULL, L"node server.js", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            MessageBox(NULL, L"Failed to start Node.js server", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
-        nodeStatus->setText("Node.js Server: Running");
-        nodeStatus->setStyleSheet("color: #44ff44;");
-        logMessage("Node.js server started successfully");
 
         // Start mitmproxy
-        proxyProcess.start("mitmdump", QStringList() << "-s" << "redirect.py");
-        if (!proxyProcess.waitForStarted()) {
-            showError("Failed to start mitmproxy. Make sure mitmproxy is installed.");
-            stopServer();
+        if (!CreateProcess(NULL, L"mitmdump -s redirect.py", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            MessageBox(NULL, L"Failed to start mitmproxy", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
-        proxyStatus->setText("Proxy Server: Running");
-        proxyStatus->setStyleSheet("color: #44ff44;");
-        logMessage("Mitmproxy started successfully");
 
         // Launch Fortnite
-        QString fortnitePath = pathEdit->text() + "/FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe";
-        if (!QFile::exists(fortnitePath)) {
-            showError("Fortnite executable not found!");
-            stopServer();
+        WCHAR path[MAX_PATH];
+        GetWindowText(pathEdit, path, MAX_PATH);
+        std::wstring fortnitePath = std::wstring(path) + L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
+        
+        if (!std::filesystem::exists(fortnitePath)) {
+            MessageBox(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
-        QProcess *fortniteProcess = new QProcess(this);
-        if (!fortniteProcess->startDetached(fortnitePath, QStringList() << "-epicportal")) {
-            showError("Failed to launch Fortnite");
-            delete fortniteProcess;
-            stopServer();
+        if (!CreateProcess(fortnitePath.c_str(), L"-epicportal", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            MessageBox(NULL, L"Failed to launch Fortnite", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
-        fortniteStatus->setText("Fortnite: Running");
-        fortniteStatus->setStyleSheet("color: #44ff44;");
-        logMessage("Fortnite launched successfully");
 
-        startButton->setEnabled(false);
-        stopButton->setEnabled(true);
-        pathEdit->setEnabled(false);
+        EnableWindow(startButton, FALSE);
+        EnableWindow(stopButton, TRUE);
+        EnableWindow(pathEdit, FALSE);
     }
 
-    void stopServer() {
-        // Stop Node.js server
-        if (nodeProcess.state() != QProcess::NotRunning) {
-            nodeProcess.terminate();
-            nodeProcess.waitForFinished();
-        }
-        nodeStatus->setText("Node.js Server: Stopped");
-        nodeStatus->setStyleSheet("color: #ff4444;");
+    static void StopServer() {
+        // Kill processes
+        system("taskkill /F /IM node.exe");
+        system("taskkill /F /IM mitmdump.exe");
 
-        // Stop mitmproxy
-        if (proxyProcess.state() != QProcess::NotRunning) {
-            proxyProcess.terminate();
-            proxyProcess.waitForFinished();
-        }
-        proxyStatus->setText("Proxy Server: Stopped");
-        proxyStatus->setStyleSheet("color: #ff4444;");
-
-        fortniteStatus->setText("Fortnite: Not Running");
-        fortniteStatus->setStyleSheet("color: #ff4444;");
-
-        logMessage("All services stopped");
-        startButton->setEnabled(true);
-        stopButton->setEnabled(false);
-        pathEdit->setEnabled(true);
+        EnableWindow(startButton, TRUE); 
+        EnableWindow(stopButton, FALSE);
+        EnableWindow(pathEdit, TRUE);
     }
 
-    void validatePath() {
-        QString path = pathEdit->text();
-        bool valid = !path.isEmpty() && 
-                    QFile::exists(path + "/FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe");
-        startButton->setEnabled(valid);
-        if (valid) {
-            logMessage("Valid Fortnite installation found");
+    static void LoadSavedPath() {
+        std::ifstream file("path.txt");
+        if (file.is_open()) {
+            std::string path;
+            std::getline(file, path);
+            SetWindowTextA(pathEdit, path.c_str());
+            file.close();
         }
     }
 
-    void handleNodeOutput() {
-        QString output = QString::fromUtf8(nodeProcess.readAllStandardOutput());
-        logMessage("Node.js: " + output.trimmed());
+    static void SavePath(const WCHAR* path) {
+        std::wofstream file("path.txt");
+        if (file.is_open()) {
+            file << path;
+            file.close();
+        }
     }
 
-    void handleNodeError() {
-        QString error = QString::fromUtf8(nodeProcess.readAllStandardError());
-        logMessage("Node.js Error: " + error.trimmed());
+    static void logMessage(const std::string& message) {
+        time_t now = time(0);
+        char timestamp[32];
+        strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", localtime(&now));
+        
+        std::string logLine = timestamp + message + "\r\n";
+        
+        int length = GetWindowTextLength(consoleOutput);
+        SendMessageA(consoleOutput, EM_SETSEL, length, length);
+        SendMessageA(consoleOutput, EM_REPLACESEL, FALSE, (LPARAM)logLine.c_str());
     }
 
-    void handleProxyOutput() {
-        QString output = QString::fromUtf8(proxyProcess.readAllStandardOutput());
-        logMessage("Proxy: " + output.trimmed());
-    }
-
-    void handleProxyError() {
-        QString error = QString::fromUtf8(proxyProcess.readAllStandardError());
-        logMessage("Proxy Error: " + error.trimmed());
-    }
-
-private:
-    void showError(const QString &message) {
-        QMessageBox::critical(this, "Error", message);
-        logMessage("ERROR: " + message);
-    }
-
-    void logMessage(const QString &message) {
-        QString timestamp = QTime::currentTime().toString("[hh:mm:ss]");
-        consoleOutput->append(timestamp + " " + message);
-        consoleOutput->verticalScrollBar()->setValue(consoleOutput->verticalScrollBar()->maximum());
-    }
-
-    QLineEdit *pathEdit;
-    QTextEdit *consoleOutput;
-    QPushButton *startButton;
-    QPushButton *stopButton;
-    QLabel *nodeStatus;
-    QLabel *proxyStatus;
-    QLabel *fortniteStatus;
-    QProcess nodeProcess;
-    QProcess proxyProcess;
+    static HWND hwnd;
+    static HWND pathEdit;
+    static HWND startButton;
+    static HWND stopButton; 
+    static HWND consoleOutput;
 };
 
-int main(int argc, char *argv[]) {
-    QApplication app(argc, argv);
-    ZeroFNLauncher launcher;
-    launcher.show();
-    return app.exec();
-}
+HWND ZeroFNLauncher::hwnd = NULL;
+HWND ZeroFNLauncher::pathEdit = NULL;
+HWND ZeroFNLauncher::startButton = NULL;
+HWND ZeroFNLauncher::stopButton = NULL;
+HWND ZeroFNLauncher::consoleOutput = NULL;
 
-#include "zerofnlauncher.moc"
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    ZeroFNLauncher launcher;
+    launcher.Run();
+    return 0;
+}

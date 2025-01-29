@@ -171,6 +171,9 @@ private:
             return;
         }
 
+        // Wait for process to fully initialize
+        Sleep(2000);
+
         // Pattern for connection check
         unsigned char pattern[] = {0x75, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
         unsigned char patch[] = {0xEB, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
@@ -183,14 +186,29 @@ private:
         while (address < sysInfo.lpMaximumApplicationAddress) {
             MEMORY_BASIC_INFORMATION memInfo;
             if (VirtualQueryEx(hProcess, address, &memInfo, sizeof(memInfo))) {
-                if (memInfo.State == MEM_COMMIT && memInfo.Protect == PAGE_EXECUTE_READ) {
-                    DWORD oldProtect;
-                    VirtualProtectEx(hProcess, memInfo.BaseAddress, memInfo.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+                if (memInfo.State == MEM_COMMIT && 
+                    (memInfo.Protect == PAGE_EXECUTE_READ || memInfo.Protect == PAGE_EXECUTE_READWRITE)) {
                     
-                    // Apply patch
-                    WriteProcessMemory(hProcess, memInfo.BaseAddress, patch, sizeof(patch), NULL);
+                    std::vector<BYTE> buffer(memInfo.RegionSize);
+                    SIZE_T bytesRead;
                     
-                    VirtualProtectEx(hProcess, memInfo.BaseAddress, memInfo.RegionSize, oldProtect, &oldProtect);
+                    if (ReadProcessMemory(hProcess, memInfo.BaseAddress, buffer.data(), memInfo.RegionSize, &bytesRead)) {
+                        for (size_t i = 0; i < bytesRead - sizeof(pattern); i++) {
+                            if (memcmp(buffer.data() + i, pattern, sizeof(pattern)) == 0) {
+                                DWORD oldProtect;
+                                VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
+                                    sizeof(patch), PAGE_EXECUTE_READWRITE, &oldProtect);
+                                
+                                WriteProcessMemory(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
+                                    patch, sizeof(patch), NULL);
+                                
+                                VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
+                                    sizeof(patch), oldProtect, &oldProtect);
+                                
+                                logMessage("Successfully patched memory at offset: " + std::to_string(i));
+                            }
+                        }
+                    }
                 }
                 address = (LPVOID)((DWORD_PTR)memInfo.BaseAddress + memInfo.RegionSize);
             }
@@ -229,6 +247,9 @@ private:
         CloseHandle(pi.hThread);
         logMessage("Node.js server started successfully");
 
+        // Wait for Node.js server to initialize
+        Sleep(1000);
+
         // Start proxy server
         logMessage("Starting proxy server...");
         WCHAR proxyCmd[] = L"mitmdump -s redirect.py";
@@ -240,6 +261,9 @@ private:
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         logMessage("Proxy server started successfully");
+
+        // Wait for proxy server to initialize
+        Sleep(2000);
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -259,8 +283,11 @@ private:
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
 
-        // Enhanced launch parameters with connection bypass
-        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 -skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none -nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 -FORCECONSOLE";
+        // Enhanced launch parameters with connection bypass and additional stability flags
+        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
+            L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
+            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
+            L"-FORCECONSOLE -notexturestreaming -dx11 -windowed";
         
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
         wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());

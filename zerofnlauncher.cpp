@@ -9,9 +9,7 @@
 #include <commdlg.h>
 #include <wininet.h>
 #include <tlhelp32.h>
-#include <winhttp.h>
 #pragma comment(lib, "wininet.lib")
-#pragma comment(lib, "winhttp.lib")
 
 namespace fs = std::experimental::filesystem;
 
@@ -168,18 +166,19 @@ private:
 
     static void SetupProxy() {
         logMessage("Configuring system proxy settings...");
-        WINHTTP_CURRENT_USER_IE_PROXY_CONFIG ieProxyConfig;
-        WINHTTP_PROXY_INFO proxyInfo;
-
-        ZeroMemory(&ieProxyConfig, sizeof(ieProxyConfig));
+        INTERNET_PROXY_INFO proxyInfo;
         ZeroMemory(&proxyInfo, sizeof(proxyInfo));
 
-        proxyInfo.dwAccessType = WINHTTP_ACCESS_TYPE_NAMED_PROXY;
+        proxyInfo.dwAccessType = INTERNET_OPEN_TYPE_PROXY;
         proxyInfo.lpszProxy = L"127.0.0.1:8080";
         proxyInfo.lpszProxyBypass = L"<local>";
 
-        WinHttpSetDefaultProxyConfiguration(&proxyInfo);
-        logMessage("Proxy configuration set successfully to 127.0.0.1:8080");
+        BOOL result = InternetSetOption(NULL, INTERNET_OPTION_PROXY, &proxyInfo, sizeof(proxyInfo));
+        if(result) {
+            logMessage("Proxy configuration set successfully to 127.0.0.1:8080");
+        } else {
+            logMessage("Failed to set proxy configuration");
+        }
     }
 
     static void PatchFortniteProcess(DWORD processId) {

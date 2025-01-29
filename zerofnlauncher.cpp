@@ -4,7 +4,7 @@
 #include <iostream>
 #include <ctime>
 #include <sstream>
-#include <filesystem>
+#include <experimental/filesystem>
 #include <shlobj.h>
 #include <commdlg.h>
 #include <wininet.h>
@@ -14,7 +14,7 @@
 #include <chrono>
 #pragma comment(lib, "wininet.lib")
 
-namespace fs = std::filesystem;
+namespace fs = std::experimental::filesystem;
 
 // Pattern scanning helper functions
 bool CompareBytes(const BYTE* data, const BYTE* pattern, const char* mask) {
@@ -448,7 +448,8 @@ private:
                         if (hProcess != NULL) {
                             TerminateProcess(hProcess, 0);
                             CloseHandle(hProcess);
-                            logMessage("Terminated process: " + std::wstring(pe32.szExeFile));
+                            std::wstring wExeFile = pe32.szExeFile;
+                            logMessage("Terminated process: " + std::string(wExeFile.begin(), wExeFile.end()));
                         }
                     }
                 } while (Process32NextW(snapshot, &pe32));

@@ -6,6 +6,7 @@
 #include <sstream>
 #include <experimental/filesystem>
 #include <shlobj.h>
+#include <commdlg.h> // Add this for GetOpenFileName
 
 namespace fs = std::experimental::filesystem;
 

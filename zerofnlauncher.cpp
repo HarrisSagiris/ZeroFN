@@ -1,18 +1,18 @@
-#include <QApplication>
-#include <QMainWindow>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QTextEdit>
-#include <QMessageBox>
-#include <QProcess>
-#include <QSettings>
-#include <QFileDialog>
-#include <QLabel>
-#include <QTime>
-#include <QFile>
-#include <QDir>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QTextEdit>
+#include <QtWidgets/QMessageBox>
+#include <QtCore/QProcess>
+#include <QtCore/QSettings>
+#include <QtWidgets/QFileDialog>
+#include <QtWidgets/QLabel>
+#include <QtCore/QTime>
+#include <QtCore/QFile>
+#include <QtCore/QDir>
 
 class ZeroFNLauncher : public QMainWindow {
     Q_OBJECT

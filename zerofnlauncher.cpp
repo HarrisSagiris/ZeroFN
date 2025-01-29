@@ -90,41 +90,28 @@ public:
 
 private:
     static void BrowsePath() {
-        WCHAR path[MAX_PATH] = {0};
-        
-        OPENFILENAMEW ofn = {0};
-        ofn.lStructSize = sizeof(ofn);
-        ofn.hwndOwner = hwnd;
-        ofn.lpstrFilter = L"Fortnite Executable\0FortniteClient-Win64-Shipping.exe\0\0";
-        ofn.lpstrFile = path;
-        ofn.nMaxFile = MAX_PATH;
-        ofn.lpstrTitle = L"Select FortniteClient-Win64-Shipping.exe";
-        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+        BROWSEINFOW bi = {0};
+        bi.hwndOwner = hwnd;
+        bi.lpszTitle = L"Select Fortnite Installation Folder";
+        bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+        bi.lpfn = BrowseCallbackProc;
 
-        if (GetOpenFileNameW(&ofn)) {
-            // Extract base directory by removing executable name
-            std::wstring fullPath(path);
-            size_t pos = fullPath.find_last_of(L"\\");
-            if (pos != std::wstring::npos) {
-                std::wstring baseDir = fullPath.substr(0, pos);
-                pos = baseDir.find_last_of(L"\\");
-                if (pos != std::wstring::npos) {
-                    baseDir = baseDir.substr(0, pos);
-                    pos = baseDir.find_last_of(L"\\");
-                    if (pos != std::wstring::npos) {
-                        baseDir = baseDir.substr(0, pos);
-                        
-                        if (ValidateFortniteDirectory(baseDir)) {
-                            SetWindowTextW(pathEdit, baseDir.c_str());
-                            SavePath(baseDir.c_str());
-                            logMessage("Valid Fortnite directory selected");
-                        } else {
-                            MessageBoxW(NULL, L"Selected file is not in a valid Fortnite installation directory.", 
-                                L"Invalid Directory", MB_OK | MB_ICONWARNING);
-                        }
-                    }
+        LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
+        if (pidl) {
+            WCHAR path[MAX_PATH];
+            if (SHGetPathFromIDListW(pidl, path)) {
+                std::wstring baseDir(path);
+                
+                if (ValidateFortniteDirectory(baseDir)) {
+                    SetWindowTextW(pathEdit, baseDir.c_str());
+                    SavePath(baseDir.c_str());
+                    logMessage("Valid Fortnite directory selected");
+                } else {
+                    MessageBoxW(NULL, L"Selected folder is not a valid Fortnite installation directory.", 
+                        L"Invalid Directory", MB_OK | MB_ICONWARNING);
                 }
             }
+            CoTaskMemFree(pidl);
         }
     }
 

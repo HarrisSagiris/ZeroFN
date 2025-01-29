@@ -189,16 +189,12 @@ private:
             return;
         }
 
-        logMessage("Process opened successfully, waiting for initialization...");
-        Sleep(2000);
+        // Immediate connection patch
+        unsigned char connectionPattern[] = {0x74, 0x07, 0x8B, 0x45, 0x0C, 0x89, 0x45, 0xFC};
+        unsigned char connectionPatch[] = {0xEB, 0x07, 0x8B, 0x45, 0x0C, 0x89, 0x45, 0xFC};
 
-        // Pattern for auth bypass
-        unsigned char pattern[] = {0x75, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
-        unsigned char patch[] = {0xEB, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
-
-        logMessage("Scanning memory for auth pattern...");
+        logMessage("Applying immediate connection patch...");
         
-        // Search and patch memory
         SYSTEM_INFO sysInfo;
         GetSystemInfo(&sysInfo);
         LPVOID address = sysInfo.lpMinimumApplicationAddress;
@@ -213,10 +209,47 @@ private:
                     SIZE_T bytesRead;
                     
                     if (ReadProcessMemory(hProcess, memInfo.BaseAddress, buffer.data(), memInfo.RegionSize, &bytesRead)) {
+                        for (size_t i = 0; i < bytesRead - sizeof(connectionPattern); i++) {
+                            if (memcmp(buffer.data() + i, connectionPattern, sizeof(connectionPattern)) == 0) {
+                                DWORD oldProtect;
+                                VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
+                                    sizeof(connectionPatch), PAGE_EXECUTE_READWRITE, &oldProtect);
+                                
+                                WriteProcessMemory(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
+                                    connectionPatch, sizeof(connectionPatch), NULL);
+                                
+                                VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
+                                    sizeof(connectionPatch), oldProtect, &oldProtect);
+                                
+                                logMessage("Applied immediate connection patch");
+                            }
+                        }
+                    }
+                }
+                address = (LPVOID)((DWORD_PTR)memInfo.BaseAddress + memInfo.RegionSize);
+            }
+        }
+
+        // Original auth bypass patch
+        unsigned char pattern[] = {0x75, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
+        unsigned char patch[] = {0xEB, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
+
+        logMessage("Applying auth bypass patch...");
+        
+        address = sysInfo.lpMinimumApplicationAddress;
+        
+        while (address < sysInfo.lpMaximumApplicationAddress) {
+            MEMORY_BASIC_INFORMATION memInfo;
+            if (VirtualQueryEx(hProcess, address, &memInfo, sizeof(memInfo))) {
+                if (memInfo.State == MEM_COMMIT && 
+                    (memInfo.Protect == PAGE_EXECUTE_READ || memInfo.Protect == PAGE_EXECUTE_READWRITE)) {
+                    
+                    std::vector<BYTE> buffer(memInfo.RegionSize);
+                    SIZE_T bytesRead;
+                    
+                    if (ReadProcessMemory(hProcess, memInfo.BaseAddress, buffer.data(), memInfo.RegionSize, &bytesRead)) {
                         for (size_t i = 0; i < bytesRead - sizeof(pattern); i++) {
                             if (memcmp(buffer.data() + i, pattern, sizeof(pattern)) == 0) {
-                                logMessage("Found auth pattern at memory offset: 0x" + std::to_string(i));
-                                
                                 DWORD oldProtect;
                                 VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
                                     sizeof(patch), PAGE_EXECUTE_READWRITE, &oldProtect);
@@ -227,7 +260,7 @@ private:
                                 VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
                                     sizeof(patch), oldProtect, &oldProtect);
                                 
-                                logMessage("Successfully applied auth bypass patch");
+                                logMessage("Applied auth bypass patch");
                             }
                         }
                     }
@@ -237,7 +270,7 @@ private:
         }
 
         CloseHandle(hProcess);
-        logMessage("Memory patching process completed");
+        logMessage("Memory patching completed successfully");
     }
 
     static void StartServer() {
@@ -272,9 +305,6 @@ private:
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         logMessage("Auth server started successfully");
-        logMessage("Waiting for auth server initialization...");
-
-        Sleep(1000);
 
         // Start proxy server for auth redirection
         logMessage("Starting proxy server on port 8080...");
@@ -287,9 +317,6 @@ private:
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         logMessage("Proxy server started successfully");
-        logMessage("Waiting for proxy server initialization...");
-
-        Sleep(2000);
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -311,11 +338,11 @@ private:
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
 
-        // Enhanced launch parameters with auth redirection and SSL pinning bypass
+        // Enhanced launch parameters with immediate connection
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
             L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
-            L"-FORCECONSOLE -notexturestreaming -dx11 -windowed";
+            L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -NOFORCECONNECT";
         
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
         wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
@@ -348,7 +375,7 @@ private:
 
         logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
 
-        // Apply auth bypass patch
+        // Apply patches
         PatchFortniteProcess(piGame.dwProcessId);
 
         // Resume the process
@@ -363,9 +390,7 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully with auth redirection");
-        logMessage("Waiting for client connection...");
-        logMessage("Game initialization in progress...");
+        logMessage("Fortnite launched successfully with immediate connection enabled");
     }
 
     static void StopServer() {

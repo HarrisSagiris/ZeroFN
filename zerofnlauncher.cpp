@@ -89,21 +89,72 @@ public:
 
 private:
     static void BrowsePath() {
-        // Show folder browser dialog
+        // Show folder browser dialog with improved UI
         BROWSEINFOW bi = {0};
         bi.lpszTitle = L"Select Fortnite Installation Directory";
+        bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+        bi.lpfn = BrowseCallbackProc;
+        
         LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
         if (pidl != 0) {
             WCHAR path[MAX_PATH];
             SHGetPathFromIDListW(pidl, path);
-            SetWindowTextW(pathEdit, path);
-            SavePath(path);
+            
+            // Validate that this is a Fortnite directory
+            std::wstring selectedPath(path);
+            if (ValidateFortniteDirectory(selectedPath)) {
+                SetWindowTextW(pathEdit, path);
+                SavePath(path);
+                logMessage("Valid Fortnite directory selected");
+            } else {
+                MessageBoxW(NULL, L"Selected folder does not contain Fortnite installation.\nPlease select the main Fortnite folder.", 
+                    L"Invalid Directory", MB_OK | MB_ICONWARNING);
+            }
+
             IMalloc * imalloc = 0;
             if (SUCCEEDED(SHGetMalloc(&imalloc))) {
                 imalloc->Free(pidl);
                 imalloc->Release();
             }
         }
+    }
+
+    static int CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData) {
+        if (uMsg == BFFM_INITIALIZED) {
+            // Set initial directory if previously saved
+            std::wstring savedPath = LoadLastPath();
+            if (!savedPath.empty()) {
+                SendMessage(hwnd, BFFM_SETSELECTION, TRUE, (LPARAM)savedPath.c_str());
+            }
+        }
+        return 0;
+    }
+
+    static bool ValidateFortniteDirectory(const std::wstring& path) {
+        // Check for common Fortnite folders/files to validate directory
+        std::vector<std::wstring> checkPaths = {
+            L"\\FortniteGame",
+            L"\\Engine",
+            L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe"
+        };
+
+        for (const auto& checkPath : checkPaths) {
+            if (!fs::exists(path + checkPath)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static std::wstring LoadLastPath() {
+        std::wifstream file(L"path.txt");
+        if (file.is_open()) {
+            std::wstring path;
+            std::getline(file, path);
+            file.close();
+            return path;
+        }
+        return L"";
     }
 
     static void StartServer() {
@@ -116,47 +167,71 @@ private:
         // Start Node.js server
         STARTUPINFOW si = {0};
         PROCESS_INFORMATION pi = {0};
+        si.cb = sizeof(si);
+        si.dwFlags = STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_HIDE;
+
         WCHAR nodeCmd[] = L"node server.js";
-        if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start Node.js server", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
 
         // Start mitmproxy
         WCHAR mitmCmd[] = L"mitmdump -s redirect.py";
-        if (!CreateProcessW(NULL, mitmCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        if (!CreateProcessW(NULL, mitmCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start mitmproxy", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
 
-        // Launch Fortnite
+        // Get Fortnite path and validate
         WCHAR path[MAX_PATH];
         GetWindowTextW(pathEdit, path, MAX_PATH);
-        std::wstring fortnitePath = std::wstring(path) + L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
-        
+        std::wstring basePath(path);
+        std::wstring fortnitePath = basePath + L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
+
         if (!fs::exists(fortnitePath)) {
-            MessageBoxW(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
+            MessageBoxW(NULL, L"Fortnite executable not found! Please verify the installation directory.", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
-        // Launch without Epic Games launcher
+        // Launch Fortnite with improved process creation
         STARTUPINFOW siGame = {0};
         PROCESS_INFORMATION piGame = {0};
+        siGame.cb = sizeof(siGame);
         
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -noeac -fromfl=be -fltoken=h1h4370717422124b232377 -skippatchcheck";
         
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
-        wcscpy(cmdLinePtr, cmdLine.c_str());
+        wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
 
-        if (!CreateProcessW(NULL, cmdLinePtr, NULL, NULL, FALSE, 
+        BOOL success = CreateProcessW(
+            NULL,
+            cmdLinePtr,
+            NULL,
+            NULL,
+            FALSE,
             CREATE_NEW_CONSOLE | DETACHED_PROCESS,
-            NULL, NULL, &siGame, &piGame)) {
-            MessageBoxW(NULL, L"Failed to launch Fortnite", L"Error", MB_OK | MB_ICONERROR);
-            delete[] cmdLinePtr;
+            NULL,
+            basePath.c_str(), // Set working directory to Fortnite base path
+            &siGame,
+            &piGame
+        );
+
+        delete[] cmdLinePtr;
+
+        if (!success) {
+            DWORD error = GetLastError();
+            WCHAR errorMsg[256];
+            swprintf_s(errorMsg, L"Failed to launch Fortnite. Error code: %d", error);
+            MessageBoxW(NULL, errorMsg, L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
-        delete[] cmdLinePtr;
         CloseHandle(piGame.hProcess);
         CloseHandle(piGame.hThread);
 
@@ -164,7 +239,7 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully without Epic Games launcher");
+        logMessage("Fortnite launched successfully");
     }
 
     static void StopServer() {
@@ -176,6 +251,8 @@ private:
         EnableWindow(startButton, TRUE); 
         EnableWindow(stopButton, FALSE);
         EnableWindow(pathEdit, TRUE);
+        
+        logMessage("All services stopped");
     }
 
     static void LoadSavedPath() {
@@ -193,6 +270,7 @@ private:
         if (file.is_open()) {
             file << path;
             file.close();
+            logMessage("Path saved successfully");
         }
     }
 

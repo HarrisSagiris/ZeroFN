@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <shlobj.h>
 
+namespace fs = std::filesystem;
+
 class ZeroFNLauncher {
 public:
     ZeroFNLauncher() {
@@ -20,7 +22,7 @@ public:
 
         hwnd = CreateWindowExW(
             0,
-            L"ZeroFNLauncher",
+            L"ZeroFNLauncher", 
             L"ZeroFN Launcher",
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
@@ -106,7 +108,7 @@ private:
 
     static void StartServer() {
         // Check required files
-        if (!std::filesystem::exists("server.js") || !std::filesystem::exists("redirect.py")) {
+        if (!fs::exists("server.js") || !fs::exists("redirect.py")) {
             MessageBoxW(NULL, L"Required server files are missing!", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
@@ -114,13 +116,15 @@ private:
         // Start Node.js server
         STARTUPINFOW si = {0};
         PROCESS_INFORMATION pi = {0};
-        if (!CreateProcessW(NULL, L"node server.js", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        WCHAR nodeCmd[] = L"node server.js";
+        if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start Node.js server", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
         // Start mitmproxy
-        if (!CreateProcessW(NULL, L"mitmdump -s redirect.py", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        WCHAR mitmCmd[] = L"mitmdump -s redirect.py";
+        if (!CreateProcessW(NULL, mitmCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start mitmproxy", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
@@ -130,12 +134,13 @@ private:
         GetWindowTextW(pathEdit, path, MAX_PATH);
         std::wstring fortnitePath = std::wstring(path) + L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
         
-        if (!std::filesystem::exists(fortnitePath)) {
+        if (!fs::exists(fortnitePath)) {
             MessageBoxW(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
-        if (!CreateProcessW(fortnitePath.c_str(), L"-epicportal", NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        WCHAR cmdLine[] = L"-epicportal";
+        if (!CreateProcessW(fortnitePath.c_str(), cmdLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to launch Fortnite", L"Error", MB_OK | MB_ICONERROR);
             return;
         }

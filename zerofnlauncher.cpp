@@ -12,7 +12,9 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <userenv.h> // Add this for CreateEnvironmentBlock
 #pragma comment(lib, "wininet.lib")
+#pragma comment(lib, "userenv.lib") // Add this for CreateEnvironmentBlock
 
 namespace fs = std::experimental::filesystem;
 
@@ -383,9 +385,13 @@ private:
             L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -NOFORCECONNECT";
 
         // Create process with environment block
+        HANDLE hToken;
         LPVOID envBlock = NULL;
-        if (!CreateEnvironmentBlock(&envBlock, NULL, FALSE)) {
-            logMessage("WARNING: Failed to create environment block");
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+            if (!CreateEnvironmentBlock(&envBlock, hToken, FALSE)) {
+                logMessage("WARNING: Failed to create environment block");
+            }
+            CloseHandle(hToken);
         }
 
         BOOL success = CreateProcessW(

@@ -49,15 +49,23 @@ public:
             120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
         EnableWindow(stopButton, FALSE);
 
+        // Create console output with larger size and auto-scroll
         consoleOutput = CreateWindowW(L"EDIT", L"", 
-            WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-            10, 85, 760, 400, hwnd, (HMENU)5, NULL, NULL);
+            WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
+            10, 85, 760, 460, hwnd, (HMENU)5, NULL, NULL);
+
+        // Set console font for better readability
+        HFONT hFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas");
+        SendMessage(consoleOutput, WM_SETFONT, (WPARAM)hFont, TRUE);
 
         // Load saved path
         LoadSavedPath();
         
         ShowWindow(hwnd, SW_SHOW);
         logMessage("ZeroFN Launcher initialized successfully");
+        logMessage("Waiting for user input...");
     }
 
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -111,6 +119,7 @@ private:
                 } else {
                     MessageBoxW(NULL, L"Selected folder is not a valid Fortnite installation directory.", 
                         L"Invalid Directory", MB_OK | MB_ICONWARNING);
+                    logMessage("Invalid Fortnite directory selected");
                 }
             }
             CoTaskMemFree(pidl);
@@ -136,6 +145,7 @@ private:
 
         for (const auto& checkPath : checkPaths) {
             if (!fs::exists(path + checkPath)) {
+                logMessage("Missing required file/directory: " + std::string(checkPath.begin(), checkPath.end()));
                 return false;
             }
         }
@@ -154,9 +164,12 @@ private:
     }
 
     static void StartServer() {
+        logMessage("Starting server initialization...");
+        
         // Check required files
         if (!fs::exists("server.js") || !fs::exists("redirect.py")) {
             MessageBoxW(NULL, L"Required server files are missing!", L"Error", MB_OK | MB_ICONERROR);
+            logMessage("ERROR: Missing required server files!");
             return;
         }
 
@@ -168,15 +181,19 @@ private:
         si.wShowWindow = SW_HIDE;
 
         // Start local server
+        logMessage("Starting Node.js server...");
         WCHAR nodeCmd[] = L"node server.js";
         if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start local server", L"Error", MB_OK | MB_ICONERROR);
+            logMessage("ERROR: Failed to start Node.js server!");
             return;
         }
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
+        logMessage("Node.js server started successfully");
 
-        // Configure proxy settings to redirect to local server
+        // Configure proxy settings
+        logMessage("Configuring proxy settings...");
         INTERNET_PER_CONN_OPTION_LIST options;
         INTERNET_PER_CONN_OPTION option[3];
         unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
@@ -196,9 +213,12 @@ private:
         options.dwOptionError = 0;
         options.pOptions = option;
 
-        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize);
+        if (!InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize)) {
+            logMessage("WARNING: Failed to set proxy settings");
+        }
         InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
         InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
+        logMessage("Proxy settings configured");
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -208,27 +228,31 @@ private:
 
         if (!fs::exists(fortnitePath)) {
             MessageBoxW(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
+            logMessage("ERROR: Fortnite executable not found at: " + std::string(fortnitePath.begin(), fortnitePath.end()));
             return;
         }
 
-        // Launch Fortnite directly with custom parameters
+        // Launch Fortnite
+        logMessage("Launching Fortnite...");
         STARTUPINFOW siGame = {0};
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
 
-        // Custom launch parameters to bypass Epic launcher and connect to local server
+        // Custom launch parameters
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 -skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none -nosound -AUTH_TYPE=epic -AUTH_LOGIN=localhost:3000 -AUTH_PASSWORD=test";
         
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
         wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
 
+        logMessage("Launching with parameters: " + std::string(cmdLine.begin(), cmdLine.end()));
+        
         BOOL success = CreateProcessW(
             fortnitePath.c_str(),
             cmdLinePtr,
             NULL,
             NULL,
             FALSE,
-            CREATE_NEW_CONSOLE | CREATE_SUSPENDED,  // Start suspended to inject necessary modifications
+            CREATE_NEW_CONSOLE | CREATE_SUSPENDED,
             NULL,
             basePath.c_str(),
             &siGame,
@@ -242,10 +266,12 @@ private:
             WCHAR errorMsg[256];
             swprintf_s(errorMsg, L"Failed to launch Fortnite. Error code: %d", error);
             MessageBoxW(NULL, errorMsg, L"Error", MB_OK | MB_ICONERROR);
+            logMessage("ERROR: Failed to launch Fortnite. Error code: " + std::to_string(error));
             return;
         }
 
         // Resume the process
+        logMessage("Resuming Fortnite process...");
         ResumeThread(piGame.hThread);
 
         CloseHandle(piGame.hProcess);
@@ -255,10 +281,13 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully with custom configuration");
+        logMessage("Fortnite launched successfully");
+        logMessage("Waiting for game to initialize...");
     }
 
     static void StopServer() {
+        logMessage("Stopping all services...");
+        
         // Reset proxy settings
         INTERNET_PER_CONN_OPTION_LIST options;
         INTERNET_PER_CONN_OPTION option[1];
@@ -276,16 +305,20 @@ private:
         InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize);
         InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
         InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
+        logMessage("Proxy settings reset to default");
 
         // Kill processes
+        logMessage("Terminating Node.js server...");
         system("taskkill /F /IM node.exe");
+        logMessage("Terminating Fortnite...");
         system("taskkill /F /IM FortniteClient-Win64-Shipping.exe");
 
         EnableWindow(startButton, TRUE);
         EnableWindow(stopButton, FALSE);
         EnableWindow(pathEdit, TRUE);
         
-        logMessage("All services stopped and settings restored");
+        logMessage("All services stopped successfully");
+        logMessage("Ready to start again");
     }
 
     static void LoadSavedPath() {
@@ -295,6 +328,9 @@ private:
             std::getline(file, path);
             SetWindowTextA(pathEdit, path.c_str());
             file.close();
+            logMessage("Loaded saved Fortnite path: " + path);
+        } else {
+            logMessage("No saved path found");
         }
     }
 
@@ -304,6 +340,8 @@ private:
             file << path;
             file.close();
             logMessage("Path saved successfully");
+        } else {
+            logMessage("ERROR: Failed to save path");
         }
     }
 
@@ -317,6 +355,7 @@ private:
         int length = GetWindowTextLength(consoleOutput);
         SendMessageA(consoleOutput, EM_SETSEL, length, length);
         SendMessageA(consoleOutput, EM_REPLACESEL, FALSE, (LPARAM)logLine.c_str());
+        SendMessage(consoleOutput, EM_SCROLLCARET, 0, 0);
     }
 
     static HWND hwnd;

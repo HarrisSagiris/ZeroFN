@@ -217,68 +217,48 @@ private:
         }
     }
 
-    static void ContinuouslyPatchProcess(DWORD processId) {
-        HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-        if (!hProcess) {
-            logMessage("Failed to open Fortnite process for continuous patching");
-            return;
-        }
+    static void LaunchPatcher(DWORD processId) {
+        // Create a new console window for the patcher
+        STARTUPINFOW si = {0};
+        PROCESS_INFORMATION pi = {0};
+        si.cb = sizeof(si);
 
-        // Known patterns for authentication checks
-        struct Pattern {
-            const BYTE* bytes;
-            const char* mask;
-        };
+        std::wstring cmdLine = L"cmd.exe /k echo Patching Fortnite Auth... && "
+                              L"echo Process ID: " + std::to_wstring(processId);
 
-        const Pattern patterns[] = {
-            {(BYTE*)"\x74\x07\x8B\x45\x0C\x89\x45\xFC", const_cast<const char*>("xxxxxxxx")},  // Connection check
-            {(BYTE*)"\x75\x0F\x8B\x45\x08\x89\x45\xFC", const_cast<const char*>("xxxxxxxx")},  // Auth check
-            {(BYTE*)"\x0F\x84\x00\x00\x00\x00\x48\x8B", const_cast<const char*>("xx????xx")},  // Login check
-            {(BYTE*)"\x74\x23\x48\x8B\x4B\x78", const_cast<const char*>("xxxxxx")}             // Server check
-        };
-
-        const BYTE* patches[] = {
-            (BYTE*)"\xEB\x07\x8B\x45\x0C\x89\x45\xFC",  // Connection bypass
-            (BYTE*)"\xEB\x0F\x8B\x45\x08\x89\x45\xFC",  // Auth bypass
-            (BYTE*)"\xE9\x90\x90\x90\x90\x48\x8B",      // Login bypass
-            (BYTE*)"\xEB\x23\x48\x8B\x4B\x78"           // Server bypass
-        };
-
-        while (true) {
-            SYSTEM_INFO sysInfo;
-            GetSystemInfo(&sysInfo);
+        if (CreateProcessW(NULL, (LPWSTR)cmdLine.c_str(), NULL, NULL, FALSE, 
+            CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
             
-            for (size_t i = 0; i < sizeof(patterns)/sizeof(Pattern); i++) {
-                DWORD_PTR address = FindPattern(
-                    hProcess,
-                    (DWORD_PTR)sysInfo.lpMinimumApplicationAddress,
-                    (DWORD_PTR)sysInfo.lpMaximumApplicationAddress,
-                    patterns[i].bytes,
-                    patterns[i].mask
-                );
+            // Write the patching script to the console
+            DWORD written;
+            std::string patchScript = 
+                "echo Patching authentication...\n"
+                "echo Redirecting to local server...\n";
+                
+            WriteConsoleA(pi.hProcess, patchScript.c_str(), patchScript.length(), &written, NULL);
 
-                if (address) {
+            // Start patching the process
+            HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+            if (hProcess) {
+                // Auth bypass patterns
+                const BYTE authPattern[] = {0x74, 0x23, 0x48, 0x8B, 0x4B, 0x78};
+                const BYTE authPatch[] = {0xEB, 0x23, 0x48, 0x8B, 0x4B, 0x78};
+
+                // Find and patch auth check
+                DWORD_PTR authAddr = FindPattern(hProcess, 0, (DWORD_PTR)-1, authPattern, "xxxxxx");
+                if (authAddr) {
                     DWORD oldProtect;
-                    VirtualProtectEx(hProcess, (LPVOID)address, 8, PAGE_EXECUTE_READWRITE, &oldProtect);
-                    WriteProcessMemory(hProcess, (LPVOID)address, patches[i], 8, NULL);
-                    VirtualProtectEx(hProcess, (LPVOID)address, 8, oldProtect, &oldProtect);
-                    
-                    logMessage("Applied patch type " + std::to_string(i) + " at address: 0x" + 
-                              std::to_string(address));
+                    VirtualProtectEx(hProcess, (LPVOID)authAddr, sizeof(authPatch), PAGE_EXECUTE_READWRITE, &oldProtect);
+                    WriteProcessMemory(hProcess, (LPVOID)authAddr, authPatch, sizeof(authPatch), NULL);
+                    VirtualProtectEx(hProcess, (LPVOID)authAddr, sizeof(authPatch), oldProtect, &oldProtect);
                 }
+
+                CloseHandle(hProcess);
             }
 
-            // Check if process is still running
-            DWORD exitCode;
-            if (!GetExitCodeProcess(hProcess, &exitCode) || exitCode != STILL_ACTIVE) {
-                logMessage("Fortnite process terminated, stopping continuous patching");
-                break;
-            }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
         }
-
-        CloseHandle(hProcess);
     }
 
     static void StartServer() {
@@ -382,10 +362,9 @@ private:
 
         logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
 
-        // Start continuous patching thread
-        std::thread patchThread(ContinuouslyPatchProcess, piGame.dwProcessId);
-        patchThread.detach();
-        logMessage("Started continuous memory patching thread");
+        // Launch patcher in new console window
+        LaunchPatcher(piGame.dwProcessId);
+        logMessage("Started auth patcher in separate console");
 
         // Resume the process
         logMessage("Resuming Fortnite process...");
@@ -399,7 +378,7 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully with continuous patching enabled");
+        logMessage("Fortnite launched successfully with auth patching enabled");
     }
 
     static void StopServer() {

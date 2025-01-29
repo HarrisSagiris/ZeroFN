@@ -9,7 +9,9 @@
 #include <commdlg.h>
 #include <wininet.h>
 #include <tlhelp32.h>
+#include <winhttp.h>
 #pragma comment(lib, "wininet.lib")
+#pragma comment(lib, "winhttp.lib")
 
 namespace fs = std::experimental::filesystem;
 
@@ -164,20 +166,39 @@ private:
         return L"";
     }
 
+    static void SetupProxy() {
+        logMessage("Configuring system proxy settings...");
+        WINHTTP_CURRENT_USER_IE_PROXY_CONFIG ieProxyConfig;
+        WINHTTP_PROXY_INFO proxyInfo;
+
+        ZeroMemory(&ieProxyConfig, sizeof(ieProxyConfig));
+        ZeroMemory(&proxyInfo, sizeof(proxyInfo));
+
+        proxyInfo.dwAccessType = WINHTTP_ACCESS_TYPE_NAMED_PROXY;
+        proxyInfo.lpszProxy = L"127.0.0.1:8080";
+        proxyInfo.lpszProxyBypass = L"<local>";
+
+        WinHttpSetDefaultProxyConfiguration(&proxyInfo);
+        logMessage("Proxy configuration set successfully to 127.0.0.1:8080");
+    }
+
     static void PatchFortniteProcess(DWORD processId) {
+        logMessage("Attempting to patch Fortnite process (PID: " + std::to_string(processId) + ")...");
         HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
         if (hProcess == NULL) {
             logMessage("Failed to open Fortnite process for patching");
             return;
         }
 
-        // Wait for process to fully initialize
+        logMessage("Process opened successfully, waiting for initialization...");
         Sleep(2000);
 
-        // Pattern for connection check
+        // Pattern for auth bypass
         unsigned char pattern[] = {0x75, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
         unsigned char patch[] = {0xEB, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
 
+        logMessage("Scanning memory for auth pattern...");
+        
         // Search and patch memory
         SYSTEM_INFO sysInfo;
         GetSystemInfo(&sysInfo);
@@ -195,6 +216,8 @@ private:
                     if (ReadProcessMemory(hProcess, memInfo.BaseAddress, buffer.data(), memInfo.RegionSize, &bytesRead)) {
                         for (size_t i = 0; i < bytesRead - sizeof(pattern); i++) {
                             if (memcmp(buffer.data() + i, pattern, sizeof(pattern)) == 0) {
+                                logMessage("Found auth pattern at memory offset: 0x" + std::to_string(i));
+                                
                                 DWORD oldProtect;
                                 VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
                                     sizeof(patch), PAGE_EXECUTE_READWRITE, &oldProtect);
@@ -205,7 +228,7 @@ private:
                                 VirtualProtectEx(hProcess, (LPVOID)((DWORD_PTR)memInfo.BaseAddress + i), 
                                     sizeof(patch), oldProtect, &oldProtect);
                                 
-                                logMessage("Successfully patched memory at offset: " + std::to_string(i));
+                                logMessage("Successfully applied auth bypass patch");
                             }
                         }
                     }
@@ -215,44 +238,48 @@ private:
         }
 
         CloseHandle(hProcess);
-        logMessage("Applied connection check bypass patch");
+        logMessage("Memory patching process completed");
     }
 
     static void StartServer() {
-        logMessage("Starting server initialization...");
+        logMessage("Starting server initialization sequence...");
         
         // Check required files
+        logMessage("Checking required server files...");
         if (!fs::exists("server.js") || !fs::exists("redirect.py")) {
             MessageBoxW(NULL, L"Required server files are missing!", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Missing required server files!");
             return;
         }
+        logMessage("All required files found");
 
-        // Start Node.js server
+        // Setup proxy configuration
+        SetupProxy();
+
+        // Start Node.js auth server
         STARTUPINFOW si = {0};
         PROCESS_INFORMATION pi = {0};
         si.cb = sizeof(si);
         si.dwFlags = STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_HIDE;
 
-        // Start local server
-        logMessage("Starting Node.js server...");
+        logMessage("Starting auth server on port 7777...");
         WCHAR nodeCmd[] = L"node server.js";
         if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-            MessageBoxW(NULL, L"Failed to start local server", L"Error", MB_OK | MB_ICONERROR);
-            logMessage("ERROR: Failed to start Node.js server!");
+            MessageBoxW(NULL, L"Failed to start auth server", L"Error", MB_OK | MB_ICONERROR);
+            logMessage("ERROR: Failed to start auth server!");
             return;
         }
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
-        logMessage("Node.js server started successfully");
+        logMessage("Auth server started successfully");
+        logMessage("Waiting for auth server initialization...");
 
-        // Wait for Node.js server to initialize
         Sleep(1000);
 
-        // Start proxy server
-        logMessage("Starting proxy server...");
-        WCHAR proxyCmd[] = L"mitmdump -s redirect.py";
+        // Start proxy server for auth redirection
+        logMessage("Starting proxy server on port 8080...");
+        WCHAR proxyCmd[] = L"mitmdump -s redirect.py --listen-port 8080";
         if (!CreateProcessW(NULL, proxyCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start proxy server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start proxy server!");
@@ -261,8 +288,8 @@ private:
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         logMessage("Proxy server started successfully");
+        logMessage("Waiting for proxy server initialization...");
 
-        // Wait for proxy server to initialize
         Sleep(2000);
 
         // Get Fortnite path
@@ -271,19 +298,21 @@ private:
         std::wstring basePath(path);
         std::wstring fortnitePath = basePath + L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
 
+        logMessage("Verifying Fortnite executable...");
         if (!fs::exists(fortnitePath)) {
             MessageBoxW(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Fortnite executable not found at: " + std::string(fortnitePath.begin(), fortnitePath.end()));
             return;
         }
+        logMessage("Fortnite executable found");
 
-        // Launch Fortnite
-        logMessage("Launching Fortnite...");
+        // Launch Fortnite with auth redirection
+        logMessage("Preparing to launch Fortnite...");
         STARTUPINFOW siGame = {0};
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
 
-        // Enhanced launch parameters with connection bypass and additional stability flags
+        // Enhanced launch parameters with auth redirection and SSL pinning bypass
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
             L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
@@ -292,7 +321,7 @@ private:
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
         wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
 
-        logMessage("Launching with enhanced parameters: " + std::string(cmdLine.begin(), cmdLine.end()));
+        logMessage("Launching Fortnite with custom parameters...");
         
         BOOL success = CreateProcessW(
             fortnitePath.c_str(),
@@ -318,12 +347,15 @@ private:
             return;
         }
 
-        // Apply connection check bypass patch
+        logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
+
+        // Apply auth bypass patch
         PatchFortniteProcess(piGame.dwProcessId);
 
         // Resume the process
         logMessage("Resuming Fortnite process...");
         ResumeThread(piGame.hThread);
+        logMessage("Fortnite process resumed");
 
         CloseHandle(piGame.hProcess);
         CloseHandle(piGame.hThread);
@@ -332,27 +364,33 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully with connection bypass");
-        logMessage("Waiting for game to initialize...");
+        logMessage("Fortnite launched successfully with auth redirection");
+        logMessage("Waiting for client connection...");
+        logMessage("Game initialization in progress...");
     }
 
     static void StopServer() {
-        logMessage("Stopping all services...");
+        logMessage("Initiating shutdown sequence...");
 
         // Kill processes
-        logMessage("Terminating Node.js server...");
+        logMessage("Terminating auth server process...");
         system("taskkill /F /IM node.exe");
-        logMessage("Terminating proxy server...");
+        logMessage("Auth server terminated");
+        
+        logMessage("Terminating proxy server process...");
         system("taskkill /F /IM mitmdump.exe");
-        logMessage("Terminating Fortnite...");
+        logMessage("Proxy server terminated");
+        
+        logMessage("Terminating Fortnite client...");
         system("taskkill /F /IM FortniteClient-Win64-Shipping.exe");
+        logMessage("Fortnite client terminated");
 
         EnableWindow(startButton, TRUE);
         EnableWindow(stopButton, FALSE);
         EnableWindow(pathEdit, TRUE);
         
         logMessage("All services stopped successfully");
-        logMessage("Ready to start again");
+        logMessage("System ready for next session");
     }
 
     static void LoadSavedPath() {

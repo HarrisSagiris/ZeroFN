@@ -6,7 +6,9 @@
 #include <sstream>
 #include <experimental/filesystem>
 #include <shlobj.h>
-#include <commdlg.h> // Add this for GetOpenFileName
+#include <commdlg.h>
+#include <wininet.h>
+#pragma comment(lib, "wininet.lib")
 
 namespace fs = std::experimental::filesystem;
 
@@ -117,7 +119,6 @@ private:
 
     static int CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData) {
         if (uMsg == BFFM_INITIALIZED) {
-            // Set initial directory if previously saved
             std::wstring savedPath = LoadLastPath();
             if (!savedPath.empty()) {
                 SendMessage(hwnd, BFFM_SETSELECTION, TRUE, (LPARAM)savedPath.c_str());
@@ -127,7 +128,6 @@ private:
     }
 
     static bool ValidateFortniteDirectory(const std::wstring& path) {
-        // Check for common Fortnite folders/files to validate directory
         std::vector<std::wstring> checkPaths = {
             L"\\FortniteGame",
             L"\\Engine",
@@ -167,40 +167,57 @@ private:
         si.dwFlags = STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_HIDE;
 
+        // Start local server
         WCHAR nodeCmd[] = L"node server.js";
         if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-            MessageBoxW(NULL, L"Failed to start Node.js server", L"Error", MB_OK | MB_ICONERROR);
+            MessageBoxW(NULL, L"Failed to start local server", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
 
-        // Start mitmproxy
-        WCHAR mitmCmd[] = L"mitmdump -s redirect.py";
-        if (!CreateProcessW(NULL, mitmCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-            MessageBoxW(NULL, L"Failed to start mitmproxy", L"Error", MB_OK | MB_ICONERROR);
-            return;
-        }
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
+        // Configure proxy settings to redirect to local server
+        INTERNET_PER_CONN_OPTION_LIST options;
+        INTERNET_PER_CONN_OPTION option[3];
+        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
 
-        // Get Fortnite path and validate
+        option[0].dwOption = INTERNET_PER_CONN_PROXY_SERVER;
+        option[0].Value.pszValue = const_cast<LPWSTR>(L"127.0.0.1:8080");
+        
+        option[1].dwOption = INTERNET_PER_CONN_PROXY_BYPASS;
+        option[1].Value.pszValue = const_cast<LPWSTR>(L"localhost");
+        
+        option[2].dwOption = INTERNET_PER_CONN_FLAGS;
+        option[2].Value.dwValue = PROXY_TYPE_PROXY;
+
+        options.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+        options.pszConnection = NULL;
+        options.dwOptionCount = 3;
+        options.dwOptionError = 0;
+        options.pOptions = option;
+
+        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize);
+        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
+        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
+
+        // Get Fortnite path
         WCHAR path[MAX_PATH];
         GetWindowTextW(pathEdit, path, MAX_PATH);
         std::wstring basePath(path);
         std::wstring fortnitePath = basePath + L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
 
         if (!fs::exists(fortnitePath)) {
-            MessageBoxW(NULL, L"Fortnite executable not found! Please verify the installation directory.", L"Error", MB_OK | MB_ICONERROR);
+            MessageBoxW(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
 
-        // Launch Fortnite with improved process creation
+        // Launch Fortnite directly with custom parameters
         STARTUPINFOW siGame = {0};
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
-        
-        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -noeac -fromfl=be -fltoken=h1h4370717422124b232377 -skippatchcheck";
+
+        // Custom launch parameters to bypass Epic launcher and connect to local server
+        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 -skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none -nosound -AUTH_TYPE=epic -AUTH_LOGIN=localhost:3000 -AUTH_PASSWORD=test";
         
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
         wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
@@ -211,7 +228,7 @@ private:
             NULL,
             NULL,
             FALSE,
-            CREATE_NEW_CONSOLE,
+            CREATE_NEW_CONSOLE | CREATE_SUSPENDED,  // Start suspended to inject necessary modifications
             NULL,
             basePath.c_str(),
             &siGame,
@@ -228,6 +245,9 @@ private:
             return;
         }
 
+        // Resume the process
+        ResumeThread(piGame.hThread);
+
         CloseHandle(piGame.hProcess);
         CloseHandle(piGame.hThread);
 
@@ -235,20 +255,37 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully");
+        logMessage("Fortnite launched successfully with custom configuration");
     }
 
     static void StopServer() {
+        // Reset proxy settings
+        INTERNET_PER_CONN_OPTION_LIST options;
+        INTERNET_PER_CONN_OPTION option[1];
+        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+
+        option[0].dwOption = INTERNET_PER_CONN_FLAGS;
+        option[0].Value.dwValue = PROXY_TYPE_DIRECT;
+
+        options.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+        options.pszConnection = NULL;
+        options.dwOptionCount = 1;
+        options.dwOptionError = 0;
+        options.pOptions = option;
+
+        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize);
+        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
+        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
+
         // Kill processes
         system("taskkill /F /IM node.exe");
-        system("taskkill /F /IM mitmdump.exe");
         system("taskkill /F /IM FortniteClient-Win64-Shipping.exe");
 
-        EnableWindow(startButton, TRUE); 
+        EnableWindow(startButton, TRUE);
         EnableWindow(stopButton, FALSE);
         EnableWindow(pathEdit, TRUE);
         
-        logMessage("All services stopped");
+        logMessage("All services stopped and settings restored");
     }
 
     static void LoadSavedPath() {
@@ -285,7 +322,7 @@ private:
     static HWND hwnd;
     static HWND pathEdit;
     static HWND startButton;
-    static HWND stopButton; 
+    static HWND stopButton;
     static HWND consoleOutput;
 };
 

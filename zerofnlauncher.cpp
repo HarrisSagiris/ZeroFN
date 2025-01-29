@@ -353,7 +353,7 @@ private:
 
         // Wait for servers to initialize
         logMessage("Waiting for services to initialize...");
-        Sleep(3000);
+        Sleep(5000); // Increased wait time to ensure services are ready
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -382,23 +382,28 @@ private:
             L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
             L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -NOFORCECONNECT";
 
-        WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
-        wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
+        // Create process with environment block
+        LPVOID envBlock = NULL;
+        if (!CreateEnvironmentBlock(&envBlock, NULL, FALSE)) {
+            logMessage("WARNING: Failed to create environment block");
+        }
 
         BOOL success = CreateProcessW(
             fortnitePath.c_str(),
-            cmdLinePtr,
+            (LPWSTR)cmdLine.c_str(),
             NULL,
             NULL,
             FALSE,
-            CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP,
-            NULL,
+            CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP | CREATE_UNICODE_ENVIRONMENT,
+            envBlock,
             basePath.c_str(),
             &siGame,
             &piGame
         );
 
-        delete[] cmdLinePtr;
+        if (envBlock) {
+            DestroyEnvironmentBlock(envBlock);
+        }
 
         if (!success) {
             DWORD error = GetLastError();
@@ -410,6 +415,9 @@ private:
         }
 
         logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
+
+        // Wait a moment before patching
+        Sleep(2000);
 
         // Patch the process
         PatchFortnite(piGame.hProcess);

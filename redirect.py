@@ -5,7 +5,7 @@ def request(flow: http.HTTPFlow) -> None:
     # Only redirect specific Fortnite/Epic API endpoints that need to be handled locally
     target_endpoints = [
         "fortnite-game",
-        "fortnite-content",
+        "fortnite-content", 
         "account-public",
         "launcher-public",
         "epic-games-api",
@@ -22,15 +22,15 @@ def request(flow: http.HTTPFlow) -> None:
         # Get the original path
         original_path = flow.request.path
         
-        # Redirect to localhost:3000
-        flow.request.host = "localhost"
-        flow.request.port = 3000
+        # Redirect to 127.0.0.1:7777
+        flow.request.host = "127.0.0.1"
+        flow.request.port = 7777
         flow.request.scheme = "http"
         
         # Keep the original path 
         flow.request.path = original_path
         
-        ctx.log.info(f"Redirecting {flow.request.pretty_url} to localhost:3000")
+        ctx.log.info(f"Redirecting {flow.request.pretty_url} to 127.0.0.1:7777")
     else:
         # Let all other traffic pass through normally
         pass

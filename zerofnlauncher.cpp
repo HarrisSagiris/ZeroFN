@@ -192,34 +192,17 @@ private:
         CloseHandle(pi.hThread);
         logMessage("Node.js server started successfully");
 
-        // Configure proxy settings - only proxy specific domains
-        logMessage("Configuring proxy settings...");
-        INTERNET_PER_CONN_OPTION_LIST options;
-        INTERNET_PER_CONN_OPTION option[3];
-        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
-
-        option[0].dwOption = INTERNET_PER_CONN_PROXY_SERVER;
-        option[0].Value.pszValue = const_cast<LPSTR>("127.0.0.1:8080");
-        
-        // Only proxy Epic domains, let other traffic pass through
-        option[1].dwOption = INTERNET_PER_CONN_PROXY_BYPASS;
-        option[1].Value.pszValue = const_cast<LPSTR>("localhost;127.*;10.*;172.16.*;192.168.*;*.epicgames.com;*.fortnite.com");
-        
-        option[2].dwOption = INTERNET_PER_CONN_FLAGS;
-        option[2].Value.dwValue = PROXY_TYPE_PROXY | PROXY_TYPE_DIRECT;  // Allow direct connections for non-proxied traffic
-
-        options.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
-        options.pszConnection = NULL;
-        options.dwOptionCount = 3;
-        options.dwOptionError = 0;
-        options.pOptions = option;
-
-        if (!InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize)) {
-            logMessage("WARNING: Failed to set proxy settings");
+        // Start proxy server
+        logMessage("Starting proxy server...");
+        WCHAR proxyCmd[] = L"mitmdump -s redirect.py";
+        if (!CreateProcessW(NULL, proxyCmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+            MessageBoxW(NULL, L"Failed to start proxy server", L"Error", MB_OK | MB_ICONERROR);
+            logMessage("ERROR: Failed to start proxy server!");
+            return;
         }
-        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
-        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
-        logMessage("Proxy settings configured - only Epic domains will be proxied");
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        logMessage("Proxy server started successfully");
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -239,8 +222,8 @@ private:
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
 
-        // Custom launch parameters
-        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 -skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none -nosound -AUTH_TYPE=epic -AUTH_LOGIN=localhost:3000 -AUTH_PASSWORD=test";
+        // Custom launch parameters with proxy settings
+        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 -skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none -nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080";
         
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
         wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
@@ -288,29 +271,12 @@ private:
 
     static void StopServer() {
         logMessage("Stopping all services...");
-        
-        // Reset proxy settings
-        INTERNET_PER_CONN_OPTION_LIST options;
-        INTERNET_PER_CONN_OPTION option[1];
-        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
-
-        option[0].dwOption = INTERNET_PER_CONN_FLAGS;
-        option[0].Value.dwValue = PROXY_TYPE_DIRECT;
-
-        options.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
-        options.pszConnection = NULL;
-        options.dwOptionCount = 1;
-        options.dwOptionError = 0;
-        options.pOptions = option;
-
-        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &options, listSize);
-        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
-        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
-        logMessage("Proxy settings reset to default");
 
         // Kill processes
         logMessage("Terminating Node.js server...");
         system("taskkill /F /IM node.exe");
+        logMessage("Terminating proxy server...");
+        system("taskkill /F /IM mitmdump.exe");
         logMessage("Terminating Fortnite...");
         system("taskkill /F /IM FortniteClient-Win64-Shipping.exe");
 

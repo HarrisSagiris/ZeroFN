@@ -2,7 +2,8 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const app = express();
-const port = 3000;
+const port = 7777;
+const host = '127.0.0.1';
 
 // Middleware to parse JSON bodies
 app.use(express.json());
@@ -130,6 +131,6 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
 });
 
 // Start server
-app.listen(port, () => {
-  console.log(`Fake Epic Games API running on port ${port}`);
+app.listen(port, host, () => {
+  console.log(`Fake Epic Games API running on ${host}:${port}`);
 });

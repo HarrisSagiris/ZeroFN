@@ -3,6 +3,8 @@
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
 
 class AMultiplayerGameMode : public AGameModeBase
 {
@@ -14,8 +16,20 @@ public:
         // Enable replication
         bReplicates = true;
         
-        // Set default port for dedicated server
+        // Set server port and IP
         DefaultPort = 7777;
+        
+        // Set server IP to 127.0.0.1 (localhost)
+        if (ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get())
+        {
+            TSharedPtr<FInternetAddr> Addr = SocketSubsystem->CreateInternetAddr();
+            bool bIsValid = false;
+            Addr->SetIp(TEXT("127.0.0.1"), bIsValid);
+            if (bIsValid)
+            {
+                DefaultIP = Addr->ToString(false);
+            }
+        }
     }
 
     virtual void BeginPlay() override
@@ -25,7 +39,7 @@ public:
         // Initialize server
         if (GetNetMode() == NM_DedicatedServer)
         {
-            UE_LOG(LogTemp, Log, TEXT("Dedicated Server Started"));
+            UE_LOG(LogTemp, Log, TEXT("Dedicated Server Started at %s:%d"), *DefaultIP, DefaultPort);
         }
     }
 
@@ -54,6 +68,8 @@ public:
     }
 
 protected:
+    FString DefaultIP;
+
     // Called when a new player connects
     virtual void OnPlayerConnected(APlayerController* NewPlayer)
     {

@@ -8,6 +8,7 @@
 #include <shlobj.h>
 #include <commdlg.h>
 #include <wininet.h>
+#include <tlhelp32.h>
 #pragma comment(lib, "wininet.lib")
 
 namespace fs = std::experimental::filesystem;
@@ -163,6 +164,42 @@ private:
         return L"";
     }
 
+    static void PatchFortniteProcess(DWORD processId) {
+        HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+        if (hProcess == NULL) {
+            logMessage("Failed to open Fortnite process for patching");
+            return;
+        }
+
+        // Pattern for connection check
+        unsigned char pattern[] = {0x75, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
+        unsigned char patch[] = {0xEB, 0x0F, 0x8B, 0x45, 0x08, 0x89, 0x45, 0xFC};
+
+        // Search and patch memory
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+        LPVOID address = sysInfo.lpMinimumApplicationAddress;
+        
+        while (address < sysInfo.lpMaximumApplicationAddress) {
+            MEMORY_BASIC_INFORMATION memInfo;
+            if (VirtualQueryEx(hProcess, address, &memInfo, sizeof(memInfo))) {
+                if (memInfo.State == MEM_COMMIT && memInfo.Protect == PAGE_EXECUTE_READ) {
+                    DWORD oldProtect;
+                    VirtualProtectEx(hProcess, memInfo.BaseAddress, memInfo.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+                    
+                    // Apply patch
+                    WriteProcessMemory(hProcess, memInfo.BaseAddress, patch, sizeof(patch), NULL);
+                    
+                    VirtualProtectEx(hProcess, memInfo.BaseAddress, memInfo.RegionSize, oldProtect, &oldProtect);
+                }
+                address = (LPVOID)((DWORD_PTR)memInfo.BaseAddress + memInfo.RegionSize);
+            }
+        }
+
+        CloseHandle(hProcess);
+        logMessage("Applied connection check bypass patch");
+    }
+
     static void StartServer() {
         logMessage("Starting server initialization...");
         
@@ -222,13 +259,13 @@ private:
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
 
-        // Custom launch parameters with proxy settings
-        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 -skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none -nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080";
+        // Enhanced launch parameters with connection bypass
+        std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 -skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none -nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 -FORCECONSOLE";
         
         WCHAR* cmdLinePtr = new WCHAR[cmdLine.length() + 1];
         wcscpy_s(cmdLinePtr, cmdLine.length() + 1, cmdLine.c_str());
 
-        logMessage("Launching with parameters: " + std::string(cmdLine.begin(), cmdLine.end()));
+        logMessage("Launching with enhanced parameters: " + std::string(cmdLine.begin(), cmdLine.end()));
         
         BOOL success = CreateProcessW(
             fortnitePath.c_str(),
@@ -254,6 +291,9 @@ private:
             return;
         }
 
+        // Apply connection check bypass patch
+        PatchFortniteProcess(piGame.dwProcessId);
+
         // Resume the process
         logMessage("Resuming Fortnite process...");
         ResumeThread(piGame.hThread);
@@ -265,7 +305,7 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully");
+        logMessage("Fortnite launched successfully with connection bypass");
         logMessage("Waiting for game to initialize...");
     }
 

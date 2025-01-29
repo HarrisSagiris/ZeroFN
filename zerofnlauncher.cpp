@@ -225,14 +225,19 @@ private:
         }
 
         // Known patterns for authentication checks
-        std::vector<std::pair<BYTE*, char*>> patterns = {
-            {(BYTE*)"\x74\x07\x8B\x45\x0C\x89\x45\xFC", "xxxxxxxx"},  // Connection check
-            {(BYTE*)"\x75\x0F\x8B\x45\x08\x89\x45\xFC", "xxxxxxxx"},  // Auth check
-            {(BYTE*)"\x0F\x84\x00\x00\x00\x00\x48\x8B", "xx????xx"},  // Login check
-            {(BYTE*)"\x74\x23\x48\x8B\x4B\x78", "xxxxxx"}            // Server check
+        struct Pattern {
+            const BYTE* bytes;
+            const char* mask;
         };
 
-        std::vector<BYTE*> patches = {
+        const Pattern patterns[] = {
+            {(BYTE*)"\x74\x07\x8B\x45\x0C\x89\x45\xFC", const_cast<const char*>("xxxxxxxx")},  // Connection check
+            {(BYTE*)"\x75\x0F\x8B\x45\x08\x89\x45\xFC", const_cast<const char*>("xxxxxxxx")},  // Auth check
+            {(BYTE*)"\x0F\x84\x00\x00\x00\x00\x48\x8B", const_cast<const char*>("xx????xx")},  // Login check
+            {(BYTE*)"\x74\x23\x48\x8B\x4B\x78", const_cast<const char*>("xxxxxx")}             // Server check
+        };
+
+        const BYTE* patches[] = {
             (BYTE*)"\xEB\x07\x8B\x45\x0C\x89\x45\xFC",  // Connection bypass
             (BYTE*)"\xEB\x0F\x8B\x45\x08\x89\x45\xFC",  // Auth bypass
             (BYTE*)"\xE9\x90\x90\x90\x90\x48\x8B",      // Login bypass
@@ -243,13 +248,13 @@ private:
             SYSTEM_INFO sysInfo;
             GetSystemInfo(&sysInfo);
             
-            for (size_t i = 0; i < patterns.size(); i++) {
+            for (size_t i = 0; i < sizeof(patterns)/sizeof(Pattern); i++) {
                 DWORD_PTR address = FindPattern(
                     hProcess,
                     (DWORD_PTR)sysInfo.lpMinimumApplicationAddress,
                     (DWORD_PTR)sysInfo.lpMaximumApplicationAddress,
-                    patterns[i].first,
-                    patterns[i].second
+                    patterns[i].bytes,
+                    patterns[i].mask
                 );
 
                 if (address) {

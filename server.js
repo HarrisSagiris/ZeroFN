@@ -30,6 +30,53 @@ const saveDatabase = () => {
   );
 };
 
+// Authentication endpoints
+app.get('/account/api/oauth/verify', (req, res) => {
+  res.json({
+    access_token: "zerofnaccesstoken",
+    expires_in: 28800,
+    token_type: "bearer",
+    refresh_token: "zerofnrefreshtoken",
+    refresh_expires: 115200,
+    account_id: "zerofnaccount",
+    client_id: "zerofnclient",
+    internal_client: true,
+    client_service: "fortnite",
+    displayName: "ZeroFN User",
+    app: "fortnite",
+    in_app_id: "zerofnaccount"
+  });
+});
+
+app.post('/account/api/oauth/token', (req, res) => {
+  res.json({
+    access_token: "zerofnaccesstoken",
+    expires_in: 28800,
+    token_type: "bearer",
+    refresh_token: "zerofnrefreshtoken",
+    refresh_expires: 115200,
+    account_id: "zerofnaccount",
+    client_id: "zerofnclient",
+    internal_client: true,
+    client_service: "fortnite",
+    displayName: "ZeroFN User",
+    app: "fortnite",
+    in_app_id: "zerofnaccount"
+  });
+});
+
+app.get('/account/api/public/account/:accountId', (req, res) => {
+  res.json({
+    id: "zerofnaccount",
+    displayName: "ZeroFN User",
+    externalAuths: {}
+  });
+});
+
+app.get('/fortnite/api/game/v2/enabled_features', (req, res) => {
+  res.json([]);
+});
+
 // Version check endpoints
 app.get('/fortnite/api/version', (req, res) => {
   res.json({

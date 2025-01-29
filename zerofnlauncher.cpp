@@ -4,7 +4,7 @@
 #include <iostream>
 #include <ctime>
 #include <sstream>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <shlobj.h>
 #include <commdlg.h>
 #include <wininet.h>
@@ -14,7 +14,7 @@
 #include <chrono>
 #pragma comment(lib, "wininet.lib")
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 
 // Pattern scanning helper functions
 bool CompareBytes(const BYTE* data, const BYTE* pattern, const char* mask) {
@@ -52,11 +52,16 @@ DWORD_PTR FindPattern(HANDLE process, DWORD_PTR start, DWORD_PTR end, const BYTE
 class ZeroFNLauncher {
 public:
     ZeroFNLauncher() {
+        // Initialize COM for folder browser
+        CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+
         // Create main window
         WNDCLASSEXW wc = {0};
         wc.cbSize = sizeof(WNDCLASSEXW);
         wc.lpfnWndProc = WindowProc;
         wc.hInstance = GetModuleHandle(NULL);
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
         wc.lpszClassName = L"ZeroFNLauncher";
         RegisterClassExW(&wc);
 
@@ -72,35 +77,41 @@ public:
             NULL
         );
 
-        // Create controls
-        CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD,
+        // Create controls with improved styling
+        CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
             10, 10, 80, 25, hwnd, (HMENU)1, NULL, NULL);
 
-        pathEdit = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER,
-            100, 10, 300, 25, hwnd, (HMENU)2, NULL, NULL);
+        pathEdit = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
+            100, 10, 580, 25, hwnd, (HMENU)2, NULL, NULL);
 
-        startButton = CreateWindowW(L"BUTTON", L"Launch Game", WS_VISIBLE | WS_CHILD,
+        startButton = CreateWindowW(L"BUTTON", L"Launch Game", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
             10, 45, 100, 30, hwnd, (HMENU)3, NULL, NULL);
 
-        stopButton = CreateWindowW(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD,
+        stopButton = CreateWindowW(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
             120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
         EnableWindow(stopButton, FALSE);
 
-        // Create console output with larger size and auto-scroll
+        // Create console output with improved styling
         consoleOutput = CreateWindowW(L"EDIT", L"", 
             WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
             10, 85, 760, 460, hwnd, (HMENU)5, NULL, NULL);
 
-        // Set console font for better readability
+        // Set modern font
         HFONT hFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-            DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas");
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        
+        SendMessage(pathEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
+        SendMessage(startButton, WM_SETFONT, (WPARAM)hFont, TRUE);
+        SendMessage(stopButton, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(consoleOutput, WM_SETFONT, (WPARAM)hFont, TRUE);
 
         // Load saved path
         LoadSavedPath();
         
         ShowWindow(hwnd, SW_SHOW);
+        UpdateWindow(hwnd);
+        
         logMessage("ZeroFN Launcher initialized successfully");
         logMessage("Waiting for user input...");
     }
@@ -121,6 +132,7 @@ public:
                 }
                 break;
             case WM_DESTROY:
+                CoUninitialize();
                 PostQuitMessage(0);
                 return 0;
         }
@@ -202,6 +214,24 @@ private:
 
     static void SetupProxy() {
         logMessage("Configuring system proxy settings...");
+        
+        // Reset any existing proxy settings first
+        INTERNET_PER_CONN_OPTION_LIST list;
+        INTERNET_PER_CONN_OPTION options[1];
+        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+
+        options[0].dwOption = INTERNET_PER_CONN_FLAGS;
+        options[0].Value.dwValue = PROXY_TYPE_DIRECT;
+
+        list.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+        list.pszConnection = NULL;
+        list.dwOptionCount = 1;
+        list.dwOptionError = 0;
+        list.pOptions = options;
+
+        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, listSize);
+        
+        // Now set our proxy
         INTERNET_PROXY_INFO proxyInfo;
         ZeroMemory(&proxyInfo, sizeof(proxyInfo));
 
@@ -210,6 +240,11 @@ private:
         proxyInfo.lpszProxyBypass = (LPCTSTR)"<local>";
 
         BOOL result = InternetSetOption(NULL, INTERNET_OPTION_PROXY, &proxyInfo, sizeof(proxyInfo));
+        
+        // Notify WinINET that settings have changed
+        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
+        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
+
         if(result) {
             logMessage("Proxy configuration set successfully to 127.0.0.1:8080");
         } else {
@@ -220,19 +255,42 @@ private:
     static void PatchFortnite(HANDLE hProcess) {
         logMessage("Starting auth bypass patching...");
         
-        // Auth bypass patterns
-        const BYTE authPattern[] = {0x74, 0x23, 0x48, 0x8B, 0x4B, 0x78};
-        const BYTE authPatch[] = {0xEB, 0x23, 0x48, 0x8B, 0x4B, 0x78};
+        // Multiple auth bypass patterns for different versions
+        const std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patterns = {
+            // Pattern 1
+            {{0x74, 0x23, 0x48, 0x8B, 0x4B, 0x78}, {0xEB, 0x23, 0x48, 0x8B, 0x4B, 0x78}},
+            // Pattern 2  
+            {{0x75, 0x1A, 0x48, 0x8B, 0x45, 0x70}, {0xEB, 0x1A, 0x48, 0x8B, 0x45, 0x70}},
+            // Pattern 3
+            {{0x74, 0x20, 0x48, 0x8B, 0x4B, 0x78}, {0xEB, 0x20, 0x48, 0x8B, 0x4B, 0x78}}
+        };
 
-        // Find and patch auth check
-        DWORD_PTR authAddr = FindPattern(hProcess, 0, (DWORD_PTR)-1, authPattern, "xxxxxx");
-        if (authAddr) {
-            DWORD oldProtect;
-            VirtualProtectEx(hProcess, (LPVOID)authAddr, sizeof(authPatch), PAGE_EXECUTE_READWRITE, &oldProtect);
-            WriteProcessMemory(hProcess, (LPVOID)authAddr, authPatch, sizeof(authPatch), NULL);
-            VirtualProtectEx(hProcess, (LPVOID)authAddr, sizeof(authPatch), oldProtect, &oldProtect);
-            logMessage("Auth bypass patch applied successfully");
-        } else {
+        bool patchSuccess = false;
+        for (const auto& pattern : patterns) {
+            DWORD_PTR authAddr = FindPattern(hProcess, 0, (DWORD_PTR)-1, 
+                pattern.first.data(), std::string(pattern.first.size(), 'x').c_str());
+                
+            if (authAddr) {
+                DWORD oldProtect;
+                if (VirtualProtectEx(hProcess, (LPVOID)authAddr, pattern.second.size(), 
+                    PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                    
+                    SIZE_T bytesWritten;
+                    if (WriteProcessMemory(hProcess, (LPVOID)authAddr, pattern.second.data(), 
+                        pattern.second.size(), &bytesWritten)) {
+                        
+                        VirtualProtectEx(hProcess, (LPVOID)authAddr, pattern.second.size(), 
+                            oldProtect, &oldProtect);
+                            
+                        patchSuccess = true;
+                        logMessage("Auth bypass patch applied successfully");
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!patchSuccess) {
             logMessage("WARNING: Could not find auth pattern to patch");
         }
     }
@@ -249,6 +307,9 @@ private:
         }
         logMessage("All required files found");
 
+        // Kill any existing processes first
+        StopServer();
+        
         // Setup proxy configuration
         SetupProxy();
 
@@ -257,11 +318,17 @@ private:
         PROCESS_INFORMATION pi = {0};
         si.cb = sizeof(si);
         si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_SHOW; // Show the server window
+        si.wShowWindow = SW_SHOW;
 
+        // Create server process with proper working directory
+        WCHAR currentDir[MAX_PATH];
+        GetCurrentDirectoryW(MAX_PATH, currentDir);
+        
         logMessage("Starting auth server on port 7777...");
         WCHAR nodeCmd[] = L"node server.js";
-        if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
+        if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, 
+            CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP, 
+            NULL, currentDir, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start auth server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start auth server!");
             return;
@@ -272,8 +339,10 @@ private:
 
         // Start proxy server for auth redirection
         logMessage("Starting proxy server on port 8080...");
-        WCHAR proxyCmd[] = L"mitmdump -s redirect.py --listen-port 8080";
-        if (!CreateProcessW(NULL, proxyCmd, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
+        WCHAR proxyCmd[] = L"mitmdump -s redirect.py --listen-port 8080 --set block_global=false";
+        if (!CreateProcessW(NULL, proxyCmd, NULL, NULL, FALSE, 
+            CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP,
+            NULL, currentDir, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start proxy server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start proxy server!");
             return;
@@ -283,7 +352,8 @@ private:
         logMessage("Proxy server started successfully");
 
         // Wait for servers to initialize
-        Sleep(2000); // Give servers time to start
+        logMessage("Waiting for services to initialize...");
+        Sleep(3000);
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -321,7 +391,7 @@ private:
             NULL,
             NULL,
             FALSE,
-            CREATE_SUSPENDED,  // Create suspended so we can patch before it runs
+            CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP,
             NULL,
             basePath.c_str(),
             &siGame,
@@ -341,7 +411,7 @@ private:
 
         logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
 
-        // Patch the process immediately
+        // Patch the process
         PatchFortnite(piGame.hProcess);
         
         // Resume the process
@@ -362,18 +432,47 @@ private:
     static void StopServer() {
         logMessage("Initiating shutdown sequence...");
 
-        // Kill processes
-        logMessage("Terminating auth server process...");
-        system("taskkill /F /IM node.exe");
-        logMessage("Auth server terminated");
-        
-        logMessage("Terminating proxy server process...");
-        system("taskkill /F /IM mitmdump.exe");
-        logMessage("Proxy server terminated");
-        
-        logMessage("Terminating Fortnite client...");
-        system("taskkill /F /IM FortniteClient-Win64-Shipping.exe");
-        logMessage("Fortnite client terminated");
+        // Kill processes more gracefully
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snapshot != INVALID_HANDLE_VALUE) {
+            PROCESSENTRY32W pe32;
+            pe32.dwSize = sizeof(pe32);
+
+            if (Process32FirstW(snapshot, &pe32)) {
+                do {
+                    if (wcscmp(pe32.szExeFile, L"node.exe") == 0 ||
+                        wcscmp(pe32.szExeFile, L"mitmdump.exe") == 0 ||
+                        wcscmp(pe32.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
+                        
+                        HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
+                        if (hProcess != NULL) {
+                            TerminateProcess(hProcess, 0);
+                            CloseHandle(hProcess);
+                            logMessage("Terminated process: " + std::wstring(pe32.szExeFile));
+                        }
+                    }
+                } while (Process32NextW(snapshot, &pe32));
+            }
+            CloseHandle(snapshot);
+        }
+
+        // Reset proxy settings
+        INTERNET_PER_CONN_OPTION_LIST list;
+        INTERNET_PER_CONN_OPTION options[1];
+        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+
+        options[0].dwOption = INTERNET_PER_CONN_FLAGS;
+        options[0].Value.dwValue = PROXY_TYPE_DIRECT;
+
+        list.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
+        list.pszConnection = NULL;
+        list.dwOptionCount = 1;
+        list.dwOptionError = 0;
+        list.pOptions = options;
+
+        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, listSize);
+        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
+        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
 
         EnableWindow(startButton, TRUE);
         EnableWindow(stopButton, FALSE);
@@ -384,20 +483,20 @@ private:
     }
 
     static void LoadSavedPath() {
-        std::ifstream file("path.txt");
+        std::wifstream file(L"path.txt");
         if (file.is_open()) {
-            std::string path;
+            std::wstring path;
             std::getline(file, path);
-            SetWindowTextA(pathEdit, path.c_str());
+            SetWindowTextW(pathEdit, path.c_str());
             file.close();
-            logMessage("Loaded saved Fortnite path: " + path);
+            logMessage("Loaded saved Fortnite path");
         } else {
             logMessage("No saved path found");
         }
     }
 
     static void SavePath(const WCHAR* path) {
-        std::wofstream file("path.txt");
+        std::wofstream file(L"path.txt");
         if (file.is_open()) {
             file << path;
             file.close();
@@ -418,6 +517,13 @@ private:
         SendMessageA(consoleOutput, EM_SETSEL, length, length);
         SendMessageA(consoleOutput, EM_REPLACESEL, FALSE, (LPARAM)logLine.c_str());
         SendMessage(consoleOutput, EM_SCROLLCARET, 0, 0);
+
+        // Also write to log file
+        std::ofstream logFile("launcher.log", std::ios::app);
+        if (logFile.is_open()) {
+            logFile << logLine;
+            logFile.close();
+        }
     }
 
     static HWND hwnd;

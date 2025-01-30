@@ -162,18 +162,18 @@ public:
         // Initialize COM for folder browser
         CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
-        // Create main window
+        // Create main window with dark theme
         WNDCLASSEXW wc = {0};
         wc.cbSize = sizeof(WNDCLASSEXW);
         wc.lpfnWndProc = WindowProc;
         wc.hInstance = GetModuleHandle(NULL);
         wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+        wc.hbrBackground = CreateSolidBrush(RGB(30, 30, 30)); // Dark background
         wc.lpszClassName = L"ZeroFNLauncher";
         RegisterClassExW(&wc);
 
         hwnd = CreateWindowExW(
-            0,
+            WS_EX_COMPOSITED, // Smooth drawing
             L"ZeroFNLauncher", 
             L"ZeroFN Launcher",
             WS_OVERLAPPEDWINDOW,
@@ -184,34 +184,39 @@ public:
             NULL
         );
 
-        // Create controls with improved styling
+        // Create modern styled controls
         CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            10, 10, 80, 25, hwnd, (HMENU)1, NULL, NULL);
+            10, 10, 80, 30, hwnd, (HMENU)1, NULL, NULL);
 
         pathEdit = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
-            100, 10, 580, 25, hwnd, (HMENU)2, NULL, NULL);
+            100, 10, 580, 30, hwnd, (HMENU)2, NULL, NULL);
 
         startButton = CreateWindowW(L"BUTTON", L"Launch Game", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            10, 45, 100, 30, hwnd, (HMENU)3, NULL, NULL);
+            10, 50, 120, 35, hwnd, (HMENU)3, NULL, NULL);
 
         stopButton = CreateWindowW(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
+            140, 50, 120, 35, hwnd, (HMENU)4, NULL, NULL);
         EnableWindow(stopButton, FALSE);
 
-        // Create console output with improved styling
         consoleOutput = CreateWindowW(L"EDIT", L"", 
             WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
-            10, 85, 760, 460, hwnd, (HMENU)5, NULL, NULL);
+            10, 95, 760, 450, hwnd, (HMENU)5, NULL, NULL);
 
-        // Set modern font
-        HFONT hFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        // Set modern font and colors
+        HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
             CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-        
-        SendMessage(pathEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-        SendMessage(startButton, WM_SETFONT, (WPARAM)hFont, TRUE);
-        SendMessage(stopButton, WM_SETFONT, (WPARAM)hFont, TRUE);
-        SendMessage(consoleOutput, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        // Apply dark theme colors and font to controls
+        auto styleControl = [&](HWND ctrl, COLORREF bgColor, COLORREF fgColor) {
+            SendMessage(ctrl, WM_SETFONT, (WPARAM)hFont, TRUE);
+            SetWindowSubclass(ctrl, ColorProc, 0, MAKELPARAM(bgColor, fgColor));
+        };
+
+        styleControl(pathEdit, RGB(45, 45, 45), RGB(240, 240, 240));
+        styleControl(startButton, RGB(60, 60, 60), RGB(240, 240, 240));
+        styleControl(stopButton, RGB(60, 60, 60), RGB(240, 240, 240));
+        styleControl(consoleOutput, RGB(20, 20, 20), RGB(0, 255, 0));
 
         // Load saved path
         LoadSavedPath();
@@ -223,8 +228,37 @@ public:
         logMessage("Waiting for user input...");
     }
 
+    static LRESULT CALLBACK ColorProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                    UINT_PTR id, DWORD_PTR data) {
+        static WNDPROC oldProc = (WNDPROC)GetWindowLongPtr(hwnd, GWLP_WNDPROC);
+        COLORREF bgColor = LOWORD(data);
+        COLORREF fgColor = HIWORD(data);
+
+        switch (msg) {
+            case WM_CTLCOLOREDIT:
+            case WM_CTLCOLORSTATIC: {
+                HDC hdc = (HDC)wp;
+                SetTextColor(hdc, fgColor);
+                SetBkColor(hdc, bgColor);
+                static HBRUSH hBrush = CreateSolidBrush(bgColor);
+                return (LRESULT)hBrush;
+            }
+            case WM_PAINT: {
+                PAINTSTRUCT ps;
+                HDC hdc = BeginPaint(hwnd, &ps);
+                FillRect(hdc, &ps.rcPaint, CreateSolidBrush(bgColor));
+                EndPaint(hwnd, &ps);
+                return 0;
+            }
+        }
+        return CallWindowProc(oldProc, hwnd, msg, wp, lp);
+    }
+
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         switch (uMsg) {
+            case WM_CTLCOLORBTN:
+                SetBkMode((HDC)wParam, TRANSPARENT);
+                return (LRESULT)CreateSolidBrush(RGB(60, 60, 60));
             case WM_COMMAND:
                 switch (LOWORD(wParam)) {
                     case 1: // Browse button

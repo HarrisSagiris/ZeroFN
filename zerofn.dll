@@ -32,7 +32,7 @@ tInternetConnectW originalInternetConnectW = nullptr;
 // Custom backend URL
 const char* BACKEND_URL = "127.0.0.1";
 const wchar_t* BACKEND_URL_W = L"127.0.0.1";
-const INTERNET_PORT BACKEND_PORT = 7777;
+const INTERNET_PORT BACKEND_PORT = 8080; 
 
 // Helper function to log requests
 void LogRequest(const char* type, const char* url) {
@@ -58,12 +58,14 @@ BOOL WINAPI HookedHttpSendRequestW(HINTERNET hRequest, LPCWSTR lpszHeaders, DWOR
 }
 
 HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
-    dwFlags &= ~(INTERNET_FLAG_SECURE | INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID);
+    dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+    dwFlags &= ~INTERNET_FLAG_SECURE;
     return originalHttpOpenRequestA(hConnect, lpszVerb, lpszObjectName, lpszVersion, lpszReferrer, lplpszAcceptTypes, dwFlags, dwContext);
 }
 
 HINTERNET WINAPI HookedHttpOpenRequestW(HINTERNET hConnect, LPCWSTR lpszVerb, LPCWSTR lpszObjectName, LPCWSTR lpszVersion, LPCWSTR lpszReferrer, LPCWSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
-    dwFlags &= ~(INTERNET_FLAG_SECURE | INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID);
+    dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+    dwFlags &= ~INTERNET_FLAG_SECURE;
     return originalHttpOpenRequestW(hConnect, lpszVerb, lpszObjectName, lpszVersion, lpszReferrer, lplpszAcceptTypes, dwFlags, dwContext);
 }
 
@@ -71,6 +73,7 @@ HINTERNET WINAPI HookedInternetConnectA(HINTERNET hInternet, LPCSTR lpszServerNa
     if (strstr(lpszServerName, "epicgames.com") || 
         strstr(lpszServerName, "fortnite.com") || 
         strstr(lpszServerName, "ol.epicgames.com")) {
+        LogRequest("Redirecting", lpszServerName);
         return originalInternetConnectA(hInternet, BACKEND_URL, BACKEND_PORT, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
     }
     return originalInternetConnectA(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
@@ -93,19 +96,20 @@ extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
 
 // Helper function to wait for Fortnite process to be fully initialized
 void WaitForFortniteInit() {
-    Sleep(5000); // Initial wait
+    Sleep(2000); // Reduced initial wait
     
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetCurrentProcessId());
     if (snapshot != INVALID_HANDLE_VALUE) {
         MODULEENTRY32W me32;
         me32.dwSize = sizeof(MODULEENTRY32W);
         
-        for (int i = 0; i < 30 && Module32FirstW(snapshot, &me32); i++) { // Try for 30 seconds
-            if (wcsstr(me32.szModule, L"FortniteClient-Win64-Shipping.exe")) {
-                CloseHandle(snapshot);
-                return;
-            }
-            Sleep(1000);
+        if (Module32FirstW(snapshot, &me32)) {
+            do {
+                if (wcsstr(me32.szModule, L"FortniteClient-Win64-Shipping.exe")) {
+                    CloseHandle(snapshot);
+                    return;
+                }
+            } while (Module32NextW(snapshot, &me32));
         }
         CloseHandle(snapshot);
     }
@@ -125,21 +129,14 @@ extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul
             freopen_s(&f, "CONOUT$", "w", stdout);
             std::cout << "ZeroFN DLL Injection Started..." << std::endl;
 
-            // Load wininet.dll with retry mechanism
-            HMODULE hWininet = nullptr;
-            for (int i = 0; i < 5 && !hWininet; i++) {
-                hWininet = GetModuleHandleA("wininet.dll");
-                if (!hWininet) {
-                    Sleep(1000);
-                }
-            }
-
+            // Load wininet.dll
+            HMODULE hWininet = LoadLibraryA("wininet.dll");
             if (!hWininet) {
-                std::cout << "Failed to get wininet.dll handle after retries" << std::endl;
+                std::cout << "Failed to load wininet.dll" << std::endl;
                 return FALSE;
             }
 
-            // Get function addresses with verification
+            // Get function addresses
             originalHttpSendRequestA = (tHttpSendRequestA)GetProcAddress(hWininet, "HttpSendRequestA");
             originalHttpOpenRequestA = (tHttpOpenRequestA)GetProcAddress(hWininet, "HttpOpenRequestA");
             originalInternetConnectA = (tInternetConnectA)GetProcAddress(hWininet, "InternetConnectA");
@@ -149,31 +146,24 @@ extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul
 
             if (!originalHttpSendRequestA || !originalHttpOpenRequestA || !originalInternetConnectA ||
                 !originalHttpSendRequestW || !originalHttpOpenRequestW || !originalInternetConnectW) {
-                std::cout << "Failed to get all required function addresses" << std::endl;
+                std::cout << "Failed to get function addresses" << std::endl;
                 return FALSE;
             }
 
-            // Attach hooks with retry mechanism
-            LONG error = -1;
-            for (int i = 0; i < 3 && error != NO_ERROR; i++) {
-                DetourTransactionBegin();
-                DetourUpdateThread(GetCurrentThread());
+            // Attach hooks
+            DetourTransactionBegin();
+            DetourUpdateThread(GetCurrentThread());
 
-                DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
-                DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
-                DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
-                DetourAttach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
-                DetourAttach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
-                DetourAttach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
+            DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
+            DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
+            DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
+            DetourAttach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
+            DetourAttach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
+            DetourAttach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
 
-                error = DetourTransactionCommit();
-                if (error != NO_ERROR) {
-                    Sleep(1000);
-                }
-            }
-
+            LONG error = DetourTransactionCommit();
             if (error != NO_ERROR) {
-                std::cout << "Failed to attach hooks after retries: " << error << std::endl;
+                std::cout << "Failed to attach hooks: " << error << std::endl;
                 return FALSE;
             }
 
@@ -181,7 +171,7 @@ extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul
             break;
         }
 
-        case DLL_PROCESS_DETACH:
+        case DLL_PROCESS_DETACH: {
             // Clean up hooks
             DetourTransactionBegin();
             DetourUpdateThread(GetCurrentThread());
@@ -195,6 +185,7 @@ extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul
 
             DetourTransactionCommit();
             break;
+        }
     }
     return TRUE;
 }

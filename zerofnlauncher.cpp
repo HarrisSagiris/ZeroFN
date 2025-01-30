@@ -12,6 +12,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <functional>
 #include <userenv.h> // Add this for CreateEnvironmentBlock
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib") // Add this for CreateEnvironmentBlock
@@ -19,7 +20,7 @@
 namespace fs = std::experimental::filesystem;
 
 // Helper function to inject DLL with improved error handling and logging
-bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, std::function<void(const std::string&)> logCallback) {
+bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)(const std::string&)) {
     logCallback("Starting DLL injection process...");
     logCallback("DLL Path: " + std::string(dllPath.begin(), dllPath.end()));
 
@@ -434,9 +435,7 @@ private:
         bool injectionSuccess = false;
         for (int attempt = 1; attempt <= 3 && !injectionSuccess; attempt++) {
             logMessage("DLL injection attempt " + std::to_string(attempt) + "...");
-            injectionSuccess = InjectDLL(piGame.hProcess, dllPath, [](const std::string& msg) {
-                ZeroFNLauncher::logMessage(msg);
-            });
+            injectionSuccess = InjectDLL(piGame.hProcess, dllPath, logMessage);
             
             if (!injectionSuccess && attempt < 3) {
                 logMessage("Injection failed, waiting before retry...");

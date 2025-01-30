@@ -1,6 +1,7 @@
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
+import express from "express"
+import fs from "fs"
+import path from "path"
+
 const app = express();
 const port = 7777;
 const host = '127.0.0.1';
@@ -11,7 +12,7 @@ app.use(express.json());
 // Load database
 let database = {
   users: {},
-  cosmetics: []
+  cosmetics: [] as any[]
 };
 
 console.log('Initializing ZeroFN Backend...');
@@ -42,7 +43,7 @@ app.get('/account/api/oauth/verify', (req, res) => {
   res.json({
     access_token: "eg1~-*",
     expires_in: 28800,
-    token_type: "bearer", 
+    token_type: "bearer",
     refresh_token: "eg1~-*",
     refresh_expires: 115200,
     account_id: "ninja",
@@ -63,7 +64,7 @@ app.post('/account/api/oauth/token', (req, res) => {
     access_token: "eg1~-*",
     expires_in: 28800,
     token_type: "bearer",
-    refresh_token: "eg1~-*", 
+    refresh_token: "eg1~-*",
     refresh_expires: 115200,
     account_id: "ninja",
     client_id: "3446cd72694c4a4485d81b77adbb2141",
@@ -160,23 +161,23 @@ app.get('/fortnite/api/storefront/v2/catalog', (req, res) => {
 app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) => {
   const { accountId, command } = req.params;
   const profileId = req.query.profileId || 'athena';
-  
+
   console.log(`Client ${accountId} requesting profile command: ${command}`);
 
   const baseResponse = {
     profileRevision: 1,
     profileId: profileId,
     profileChangesBaseRevision: 1,
-    profileChanges: [],
+    profileChanges: [] as any[],
     serverTime: new Date().toISOString(),
     responseVersion: 1
   };
 
-  switch(command) {
+  switch (command) {
     case 'QueryProfile':
       console.log('Processing QueryProfile request...');
       // Add default cosmetic items
-      const items = {
+      const items: any = {
         // Default character
         "CID_Default": {
           "templateId": "AthenaCharacter:CID_001_Athena_Commando_F_Default",
@@ -302,7 +303,7 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
     default:
       console.log(`Warning: Unknown command received: ${command}`);
   }
-  
+
   res.json(baseResponse);
   console.log(`Response sent for command: ${command}`);
 });

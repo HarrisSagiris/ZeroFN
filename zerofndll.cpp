@@ -164,35 +164,35 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
             // Hook functions by writing jump instructions
             DWORD oldProtect;
-            VirtualProtect(originalHttpSendRequestA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
+            VirtualProtect((LPVOID)originalHttpSendRequestA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
             *(BYTE*)originalHttpSendRequestA = 0xE9;
             *(DWORD*)((BYTE*)originalHttpSendRequestA + 1) = (DWORD)((BYTE*)HookedHttpSendRequestA - (BYTE*)originalHttpSendRequestA - 5);
-            VirtualProtect(originalHttpSendRequestA, 5, oldProtect, &oldProtect);
+            VirtualProtect((LPVOID)originalHttpSendRequestA, 5, oldProtect, &oldProtect);
 
-            VirtualProtect(originalHttpOpenRequestA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
+            VirtualProtect((LPVOID)originalHttpOpenRequestA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
             *(BYTE*)originalHttpOpenRequestA = 0xE9;
             *(DWORD*)((BYTE*)originalHttpOpenRequestA + 1) = (DWORD)((BYTE*)HookedHttpOpenRequestA - (BYTE*)originalHttpOpenRequestA - 5);
-            VirtualProtect(originalHttpOpenRequestA, 5, oldProtect, &oldProtect);
+            VirtualProtect((LPVOID)originalHttpOpenRequestA, 5, oldProtect, &oldProtect);
 
-            VirtualProtect(originalInternetConnectA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
+            VirtualProtect((LPVOID)originalInternetConnectA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
             *(BYTE*)originalInternetConnectA = 0xE9;
             *(DWORD*)((BYTE*)originalInternetConnectA + 1) = (DWORD)((BYTE*)HookedInternetConnectA - (BYTE*)originalInternetConnectA - 5);
-            VirtualProtect(originalInternetConnectA, 5, oldProtect, &oldProtect);
+            VirtualProtect((LPVOID)originalInternetConnectA, 5, oldProtect, &oldProtect);
 
-            VirtualProtect(originalHttpSendRequestW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
+            VirtualProtect((LPVOID)originalHttpSendRequestW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
             *(BYTE*)originalHttpSendRequestW = 0xE9;
             *(DWORD*)((BYTE*)originalHttpSendRequestW + 1) = (DWORD)((BYTE*)HookedHttpSendRequestW - (BYTE*)originalHttpSendRequestW - 5);
-            VirtualProtect(originalHttpSendRequestW, 5, oldProtect, &oldProtect);
+            VirtualProtect((LPVOID)originalHttpSendRequestW, 5, oldProtect, &oldProtect);
 
-            VirtualProtect(originalHttpOpenRequestW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
+            VirtualProtect((LPVOID)originalHttpOpenRequestW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
             *(BYTE*)originalHttpOpenRequestW = 0xE9;
             *(DWORD*)((BYTE*)originalHttpOpenRequestW + 1) = (DWORD)((BYTE*)HookedHttpOpenRequestW - (BYTE*)originalHttpOpenRequestW - 5);
-            VirtualProtect(originalHttpOpenRequestW, 5, oldProtect, &oldProtect);
+            VirtualProtect((LPVOID)originalHttpOpenRequestW, 5, oldProtect, &oldProtect);
 
-            VirtualProtect(originalInternetConnectW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
+            VirtualProtect((LPVOID)originalInternetConnectW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
             *(BYTE*)originalInternetConnectW = 0xE9;
             *(DWORD*)((BYTE*)originalInternetConnectW + 1) = (DWORD)((BYTE*)HookedInternetConnectW - (BYTE*)originalInternetConnectW - 5);
-            VirtualProtect(originalInternetConnectW, 5, oldProtect, &oldProtect);
+            VirtualProtect((LPVOID)originalInternetConnectW, 5, oldProtect, &oldProtect);
 
             std::cout << "ZeroFN 64-bit DLL Injection Complete!" << std::endl;
             break;

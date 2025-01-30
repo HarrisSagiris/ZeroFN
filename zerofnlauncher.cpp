@@ -694,12 +694,12 @@ private:
             logFile.close();
         }
     }
-
     static HWND hwnd;
     static HWND pathEdit;
     static HWND startButton;
     static HWND stopButton;
     static HWND consoleOutput;
+    static HWND downloadButton;
 };
 
 HWND ZeroFNLauncher::hwnd = NULL;

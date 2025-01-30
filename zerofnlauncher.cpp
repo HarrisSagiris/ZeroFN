@@ -44,9 +44,6 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
     }
     logCallback("Successfully got LoadLibraryW address");
 
-    // Wait longer for process to be ready for injection
-    Sleep(15000); // Increased wait time to 15 seconds
-
     // Check if process is 64-bit
     BOOL isWow64 = FALSE;
     IsWow64Process(hProcess, &isWow64);
@@ -437,8 +434,7 @@ private:
         }
         logMessage("Fortnite executable found");
 
-        // Launch Fortnite with auth redirection
-        logMessage("Launching Fortnite...");
+        // Create suspended Fortnite process
         STARTUPINFOW siGame = {0};
         PROCESS_INFORMATION piGame = {0};
         siGame.cb = sizeof(siGame);
@@ -450,24 +446,14 @@ private:
             L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
             L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -NOFORCECONNECT";
 
-        // Create process with environment block
-        HANDLE hToken;
-        LPVOID envBlock = NULL;
-        if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
-            if (!CreateEnvironmentBlock(&envBlock, hToken, FALSE)) {
-                logMessage("WARNING: Failed to create environment block");
-            }
-            CloseHandle(hToken);
-        }
-
-        // Run as administrator
+        // Create process suspended
         SHELLEXECUTEINFOW shExInfo = {0};
         shExInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
         shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
         shExInfo.hwnd = NULL;
         shExInfo.lpVerb = L"runas";  // Request elevation
         shExInfo.lpFile = fortnitePath.c_str();
-        shExInfo.lpParameters = cmdLine.c_str() + fortnitePath.length() + 3; // Skip past the quoted executable path
+        shExInfo.lpParameters = cmdLine.c_str() + fortnitePath.length() + 3;
         shExInfo.lpDirectory = basePath.c_str();
         shExInfo.nShow = SW_SHOW;
 
@@ -481,13 +467,11 @@ private:
         }
 
         piGame.hProcess = shExInfo.hProcess;
-        logMessage("Fortnite process created successfully with elevated privileges");
 
-        // Inject DLL immediately
+        // Inject DLL before resuming process
         std::wstring dllPath = std::wstring(currentDir) + L"\\zerofn.dll";
-        logMessage("Starting DLL injection process...");
+        logMessage("Injecting DLL before process start...");
         
-        // Verify DLL exists
         if (!fs::exists(dllPath)) {
             logMessage("ERROR: zerofn.dll not found at: " + std::string(dllPath.begin(), dllPath.end()));
             TerminateProcess(piGame.hProcess, 0);
@@ -495,12 +479,7 @@ private:
             return;
         }
 
-        // Wait for process to be fully initialized before injection
-        Sleep(5000);
-
-        // Single injection attempt with proper process initialization wait
         bool injectionSuccess = InjectDLL(piGame.hProcess, dllPath, logMessage);
-
         if (!injectionSuccess) {
             logMessage("ERROR: DLL injection failed");
             TerminateProcess(piGame.hProcess, 0);
@@ -508,7 +487,8 @@ private:
             return;
         }
 
-        logMessage("DLL injection successful");
+        logMessage("DLL injection successful - resuming Fortnite process");
+
         CloseHandle(piGame.hProcess);
 
         EnableWindow(startButton, FALSE);

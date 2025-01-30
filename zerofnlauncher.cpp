@@ -259,7 +259,7 @@ public:
             120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
 
         // Add download button
-        downloadButton = CreateWindowW(L"BUTTON", L"Download Fortnite", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+        downloadButtonHandle = CreateWindowW(L"BUTTON", L"Download Fortnite", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
             230, 45, 120, 30, hwnd, (HMENU)5, NULL, NULL);
 
         EnableWindow(stopButton, FALSE);
@@ -277,7 +277,7 @@ public:
         SendMessage(pathEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(startButton, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(stopButton, WM_SETFONT, (WPARAM)hFont, TRUE);
-        SendMessage(downloadButton, WM_SETFONT, (WPARAM)hFont, TRUE);
+        SendMessage(downloadButtonHandle, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(consoleOutput, WM_SETFONT, (WPARAM)hFont, TRUE);
 
         // Load saved path
@@ -591,7 +591,7 @@ private:
         EnableWindow(startButton, FALSE);
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
-        EnableWindow(downloadButton, FALSE);
+        EnableWindow(downloadButtonHandle, FALSE);
         
         logMessage("Fortnite launched successfully with ZeroFN DLL");
     }
@@ -645,7 +645,7 @@ private:
         EnableWindow(startButton, TRUE);
         EnableWindow(stopButton, FALSE);
         EnableWindow(pathEdit, TRUE);
-        EnableWindow(downloadButton, TRUE);
+        EnableWindow(downloadButtonHandle, TRUE);
         
         logMessage("All services stopped successfully");
         logMessage("System ready for next session");

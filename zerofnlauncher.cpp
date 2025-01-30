@@ -15,11 +15,88 @@
 #include <functional>
 #include <userenv.h>
 #include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
+#include <urlmon.h> // For URLDownloadToFile
+#include <zip.h> // For zip extraction
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "psapi.lib") // Added for psapi functions
+#pragma comment(lib, "urlmon.lib") // For URLDownloadToFile
 
 namespace fs = std::experimental::filesystem;
+
+// Helper function to download and extract Fortnite
+bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCallback)(const std::string&)) {
+    logCallback("Starting Fortnite download...");
+
+    std::wstring zipPath = downloadPath + L"\\fortnite.zip";
+    std::wstring extractPath = downloadPath + L"\\ZeroFN-Gamefiles";
+
+    // Create extraction directory if it doesn't exist
+    if (!fs::exists(extractPath)) {
+        fs::create_directories(extractPath);
+    }
+
+    // Download the zip file
+    HRESULT hr = URLDownloadToFileW(NULL, L"https://public.simplyblk.xyz/1.11.zip", 
+        zipPath.c_str(), 0, NULL);
+
+    if (FAILED(hr)) {
+        logCallback("ERROR: Failed to download Fortnite");
+        return false;
+    }
+
+    logCallback("Download complete. Extracting files...");
+
+    // Extract the zip file
+    int err = 0;
+    zip* z = zip_open(std::string(zipPath.begin(), zipPath.end()).c_str(), 0, &err);
+    if (!z) {
+        logCallback("ERROR: Failed to open zip file");
+        return false;
+    }
+
+    struct zip_stat st;
+    struct zip_file* zf;
+    char buf[100];
+    zip_int64_t sum;
+
+    for (int i = 0; i < zip_get_num_entries(z, 0); i++) {
+        if (zip_stat_index(z, i, 0, &st) == 0) {
+            zf = zip_fopen_index(z, i, 0);
+            if (!zf) {
+                continue;
+            }
+
+            std::string fullPath = std::string(extractPath.begin(), extractPath.end()) + "\\" + st.name;
+            
+            // Create directories in path if needed
+            size_t pos = 0;
+            while ((pos = fullPath.find('/', pos + 1)) != std::string::npos) {
+                std::string dir = fullPath.substr(0, pos);
+                if (!fs::exists(dir)) {
+                    fs::create_directories(dir);
+                }
+            }
+
+            // Extract file
+            FILE* fp = fopen(fullPath.c_str(), "wb");
+            if (fp) {
+                while (sum = zip_fread(zf, buf, 100)) {
+                    fwrite(buf, 1, sum, fp);
+                }
+                fclose(fp);
+            }
+            zip_fclose(zf);
+        }
+    }
+    zip_close(z);
+
+    // Delete the zip file
+    DeleteFileW(zipPath.c_str());
+
+    logCallback("Extraction complete!");
+    return true;
+}
 
 // Helper function to inject DLL with improved error handling and logging
 bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)(const std::string&)) {
@@ -196,12 +273,17 @@ public:
 
         stopButton = CreateWindowW(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
             120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
+
+        // Add download button
+        downloadButton = CreateWindowW(L"BUTTON", L"Download Fortnite", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+            230, 45, 120, 30, hwnd, (HMENU)5, NULL, NULL);
+
         EnableWindow(stopButton, FALSE);
 
         // Create console output with improved styling
         consoleOutput = CreateWindowW(L"EDIT", L"", 
             WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
-            10, 85, 760, 460, hwnd, (HMENU)5, NULL, NULL);
+            10, 85, 760, 460, hwnd, (HMENU)6, NULL, NULL);
 
         // Set modern font
         HFONT hFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
@@ -211,6 +293,7 @@ public:
         SendMessage(pathEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(startButton, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(stopButton, WM_SETFONT, (WPARAM)hFont, TRUE);
+        SendMessage(downloadButton, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(consoleOutput, WM_SETFONT, (WPARAM)hFont, TRUE);
 
         // Load saved path
@@ -236,6 +319,9 @@ public:
                     case 4: // Stop button
                         StopServer();
                         break;
+                    case 5: // Download button
+                        DownloadFortnite();
+                        break;
                 }
                 break;
             case WM_DESTROY:
@@ -244,6 +330,33 @@ public:
                 return 0;
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+
+    static void DownloadFortnite() {
+        // Open folder browser to select download location
+        BROWSEINFOW bi = {0};
+        bi.hwndOwner = hwnd;
+        bi.lpszTitle = L"Select Download Location";
+        bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+
+        LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
+        if (pidl) {
+            WCHAR path[MAX_PATH];
+            if (SHGetPathFromIDListW(pidl, path)) {
+                std::wstring downloadPath(path);
+                
+                // Start download in a separate thread
+                std::thread downloadThread([downloadPath]() {
+                    if (DownloadAndExtractFortnite(downloadPath, logMessage)) {
+                        logMessage("Fortnite downloaded and extracted successfully!");
+                        SetWindowTextW(pathEdit, (downloadPath + L"\\ZeroFN-Gamefiles").c_str());
+                        SavePath((downloadPath + L"\\ZeroFN-Gamefiles").c_str());
+                    }
+                });
+                downloadThread.detach();
+            }
+            CoTaskMemFree(pidl);
+        }
     }
 
     void Run() {
@@ -494,6 +607,7 @@ private:
         EnableWindow(startButton, FALSE);
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
+        EnableWindow(downloadButton, FALSE);
         
         logMessage("Fortnite launched successfully with ZeroFN DLL");
     }
@@ -547,6 +661,7 @@ private:
         EnableWindow(startButton, TRUE);
         EnableWindow(stopButton, FALSE);
         EnableWindow(pathEdit, TRUE);
+        EnableWindow(downloadButton, TRUE);
         
         logMessage("All services stopped successfully");
         logMessage("System ready for next session");

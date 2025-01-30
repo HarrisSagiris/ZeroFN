@@ -16,7 +16,6 @@
 #include <userenv.h>
 #include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
 #include <urlmon.h> // For URLDownloadToFile
-#include <zip.h> // For zip extraction
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "psapi.lib") // Added for psapi functions
@@ -47,52 +46,37 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
 
     logCallback("Download complete. Extracting files...");
 
-    // Extract the zip file
-    int err = 0;
-    zip* z = zip_open(std::string(zipPath.begin(), zipPath.end()).c_str(), 0, &err);
-    if (!z) {
-        logCallback("ERROR: Failed to open zip file");
+    // Extract using PowerShell instead of zip.h
+    std::wstring psCommand = L"powershell.exe -Command \"Expand-Archive -Path '" + 
+                            zipPath + L"' -DestinationPath '" + extractPath + L"' -Force\"";
+
+    STARTUPINFOW si = {0};
+    PROCESS_INFORMATION pi = {0};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+
+    if (!CreateProcessW(NULL, (LPWSTR)psCommand.c_str(), NULL, NULL, FALSE,
+                       CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        logCallback("ERROR: Failed to start extraction process");
+        DeleteFileW(zipPath.c_str());
         return false;
     }
 
-    struct zip_stat st;
-    struct zip_file* zf;
-    char buf[100];
-    zip_int64_t sum;
+    // Wait for extraction to complete
+    WaitForSingleObject(pi.hProcess, INFINITE);
 
-    for (int i = 0; i < zip_get_num_entries(z, 0); i++) {
-        if (zip_stat_index(z, i, 0, &st) == 0) {
-            zf = zip_fopen_index(z, i, 0);
-            if (!zf) {
-                continue;
-            }
-
-            std::string fullPath = std::string(extractPath.begin(), extractPath.end()) + "\\" + st.name;
-            
-            // Create directories in path if needed
-            size_t pos = 0;
-            while ((pos = fullPath.find('/', pos + 1)) != std::string::npos) {
-                std::string dir = fullPath.substr(0, pos);
-                if (!fs::exists(dir)) {
-                    fs::create_directories(dir);
-                }
-            }
-
-            // Extract file
-            FILE* fp = fopen(fullPath.c_str(), "wb");
-            if (fp) {
-                while (sum = zip_fread(zf, buf, 100)) {
-                    fwrite(buf, 1, sum, fp);
-                }
-                fclose(fp);
-            }
-            zip_fclose(zf);
-        }
-    }
-    zip_close(z);
+    // Cleanup
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 
     // Delete the zip file
     DeleteFileW(zipPath.c_str());
+
+    if (!fs::exists(extractPath)) {
+        logCallback("ERROR: Extraction failed - target directory not found");
+        return false;
+    }
 
     logCallback("Extraction complete!");
     return true;

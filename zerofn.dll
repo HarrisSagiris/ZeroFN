@@ -85,44 +85,30 @@ HINTERNET WINAPI HookedInternetConnectW(HINTERNET hInternet, LPCWSTR lpszServerN
     return originalInternetConnectW(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
 }
 
+// Export a function that can be called from the launcher to verify injection
+extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
+    return TRUE;
+}
+
 extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
 
-            // Increased wait time for process initialization
-            Sleep(5000);
-
-            // Create console with retry mechanism
-            int maxRetries = 5; // Increased retries
-            for (int i = 0; i < maxRetries; i++) {
-                if (AllocConsole()) {
-                    break;
-                }
-                Sleep(2000); // Increased sleep between retries
-                if (i == maxRetries - 1) {
-                    // Don't show warning, just continue
-                }
-            }
-
+            // Create console for logging
+            AllocConsole();
             FILE* f;
             freopen_s(&f, "CONOUT$", "w", stdout);
             std::cout << "ZeroFN DLL Injection Started..." << std::endl;
-            
-            // Get function addresses with increased retry mechanism
-            HMODULE hWininet = NULL;
-            for (int i = 0; i < maxRetries; i++) {
-                hWininet = LoadLibraryA("wininet.dll"); // Use LoadLibrary instead of GetModuleHandle
-                if (hWininet) break;
-                Sleep(2000);
-            }
 
+            // Load wininet.dll
+            HMODULE hWininet = GetModuleHandleA("wininet.dll");
             if (!hWininet) {
-                // Continue anyway - the DLL might load later
-                std::cout << "Warning: wininet.dll not loaded yet, will retry in hooks" << std::endl;
+                std::cout << "Failed to get wininet.dll handle" << std::endl;
+                return FALSE;
             }
 
-            // Get all required function addresses
+            // Get function addresses
             originalHttpSendRequestA = (tHttpSendRequestA)GetProcAddress(hWininet, "HttpSendRequestA");
             originalHttpOpenRequestA = (tHttpOpenRequestA)GetProcAddress(hWininet, "HttpOpenRequestA");
             originalInternetConnectA = (tInternetConnectA)GetProcAddress(hWininet, "InternetConnectA");
@@ -130,47 +116,46 @@ extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul
             originalHttpOpenRequestW = (tHttpOpenRequestW)GetProcAddress(hWininet, "HttpOpenRequestW");
             originalInternetConnectW = (tInternetConnectW)GetProcAddress(hWininet, "InternetConnectW");
 
-            // Don't check for null pointers - continue anyway
-
-            // Attach hooks with increased retry mechanism
-            LONG error = -1;
-            for (int i = 0; i < maxRetries; i++) {
-                DetourTransactionBegin();
-                DetourUpdateThread(GetCurrentThread());
-                
-                if(originalHttpSendRequestA) DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
-                if(originalHttpOpenRequestA) DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
-                if(originalInternetConnectA) DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
-                if(originalHttpSendRequestW) DetourAttach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
-                if(originalHttpOpenRequestW) DetourAttach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
-                if(originalInternetConnectW) DetourAttach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
-                
-                error = DetourTransactionCommit();
-                if (error == NO_ERROR) {
-                    std::cout << "Hooks attached successfully on attempt " << (i+1) << std::endl;
-                    break;
-                }
-                
-                Sleep(2000);
+            // Verify all functions were found
+            if (!originalHttpSendRequestA || !originalHttpOpenRequestA || !originalInternetConnectA ||
+                !originalHttpSendRequestW || !originalHttpOpenRequestW || !originalInternetConnectW) {
+                std::cout << "Failed to get all required function addresses" << std::endl;
+                return FALSE;
             }
 
-            // Even if hooks failed, continue anyway
+            // Attach hooks
+            DetourTransactionBegin();
+            DetourUpdateThread(GetCurrentThread());
+
+            DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
+            DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
+            DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
+            DetourAttach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
+            DetourAttach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
+            DetourAttach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
+
+            LONG error = DetourTransactionCommit();
+            if (error != NO_ERROR) {
+                std::cout << "Failed to attach hooks: " << error << std::endl;
+                return FALSE;
+            }
+
             std::cout << "ZeroFN DLL Injection Complete!" << std::endl;
             break;
         }
 
         case DLL_PROCESS_DETACH:
-            // Clean up hooks only if they were attached
+            // Clean up hooks
             DetourTransactionBegin();
             DetourUpdateThread(GetCurrentThread());
-            
-            if(originalHttpSendRequestA) DetourDetach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
-            if(originalHttpOpenRequestA) DetourDetach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
-            if(originalInternetConnectA) DetourDetach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
-            if(originalHttpSendRequestW) DetourDetach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
-            if(originalHttpOpenRequestW) DetourDetach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
-            if(originalInternetConnectW) DetourDetach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
-            
+
+            DetourDetach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
+            DetourDetach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
+            DetourDetach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
+            DetourDetach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
+            DetourDetach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
+            DetourDetach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
+
             DetourTransactionCommit();
             break;
     }

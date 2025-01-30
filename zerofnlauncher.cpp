@@ -451,7 +451,7 @@ private:
         logMessage("Fortnite process created successfully with elevated privileges");
 
         // Wait longer before injecting to ensure process is fully initialized
-        Sleep(10000); // Increased wait time before injection
+        Sleep(20000); // Increased wait time before injection
 
         // Inject DLL with improved error handling
         std::wstring dllPath = std::wstring(currentDir) + L"\\zerofn.dll";
@@ -467,13 +467,13 @@ private:
 
         // Attempt DLL injection with more retries and longer waits
         bool injectionSuccess = false;
-        for (int attempt = 1; attempt <= 10 && !injectionSuccess; attempt++) { // Increased max attempts
+        for (int attempt = 1; attempt <= 15 && !injectionSuccess; attempt++) { // Increased max attempts
             logMessage("DLL injection attempt " + std::to_string(attempt) + "...");
             injectionSuccess = InjectDLL(piGame.hProcess, dllPath, logMessage);
             
-            if (!injectionSuccess && attempt < 10) {
+            if (!injectionSuccess && attempt < 15) {
                 logMessage("Injection failed, waiting before retry...");
-                Sleep(3000); // Increased wait time between attempts
+                Sleep(5000); // Increased wait time between attempts
             }
         }
 

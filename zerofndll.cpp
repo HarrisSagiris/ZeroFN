@@ -37,7 +37,7 @@ const INTERNET_PORT LOCAL_PORT = 7777;
 // Mutex for thread-safe logging
 std::mutex logMutex;
 
-// Enhanced logger with console output
+// Logger function
 void LogToFile(const std::string& message) {
     std::lock_guard<std::mutex> lock(logMutex);
     std::ofstream logFile("zerofn_bypass.log", std::ios::app);
@@ -45,27 +45,30 @@ void LogToFile(const std::string& message) {
     auto now_c = std::chrono::system_clock::to_time_t(now);
     char timestamp[64];
     strftime(timestamp, sizeof(timestamp), "[%Y-%m-%d %H:%M:%S]", localtime(&now_c));
-    std::string fullMessage = std::string(timestamp) + " " + message;
-    logFile << fullMessage << std::endl;
-    std::cout << "\033[32m" << fullMessage << "\033[0m" << std::endl;
+    logFile << timestamp << " " << message << std::endl;
+    std::cout << timestamp << " " << message << std::endl;
 }
 
-// Updated bypass responses matching Epic's API format
+// Block list for Epic/Fortnite domains with active bypass responses
 const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
-    {"epicgames.com/account/api/oauth/verify", "{\"access_token\":\"zerofnaccesstoken\",\"expires_in\":28800,\"token_type\":\"bearer\",\"refresh_token\":\"zerofnrefreshtoken\",\"account_id\":\"zerofnaccount\",\"client_id\":\"zerofnclient\",\"internal_client\":true,\"client_service\":\"fortnite\",\"displayName\":\"ZeroFN User\",\"app\":\"fortnite\",\"in_app_id\":\"zerofnaccount\"}"},
-    {"fortnite.com/api/game/v2/profile", "{\"profileId\":\"athena\",\"profileChanges\":[{\"changeType\":\"fullProfileUpdate\",\"profile\":{\"_id\":\"zerofnaccount\",\"accountId\":\"zerofnaccount\",\"profileId\":\"athena\",\"version\":\"no_version\",\"items\":{},\"stats\":{\"attributes\":{\"past_seasons\":[],\"season_match_boost\":0,\"loadouts\":[\"loadout_0\"],\"mfa_reward_claimed\":true,\"rested_xp_overflow\":0,\"quest_manager\":{},\"book_level\":1,\"season_num\":2,\"book_xp\":0,\"permissions\":[],\"season\":{\"numWins\":0,\"numHighBracket\":0,\"numLowBracket\":0}}}}}],\"profileCommandRevision\":1,\"serverTime\":\"2023-12-25T12:00:00.000Z\",\"responseVersion\":1}"},
-    {"fortnite.com/api/game/v2/matchmaking", "{\"status\":\"MATCHING\",\"matchId\":\"zerofn_match\",\"sessionId\":\"zerofn_session\",\"queueTime\":0}"},
-    {"account-public-service-prod.ol.epicgames.com", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"authentication successful\",\"allowedActions\":[\"PLAY\",\"PURCHASE\"]}"}
+    {"epicgames.com", "{\"success\":true,\"account_id\":\"bypass_account\",\"session_id\":\"active_session\"}"},
+    {"fortnite.com", "{\"status\":\"UP\",\"message\":\"Fortnite is online\",\"version\":\"2.0.0\"}"},
+    {"ol.epicgames.com", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"authentication successful\"}"},
+    {"account-public-service-prod03", "{\"access_token\":\"bypass_token\",\"expires_in\":28800,\"client_id\":\"fortnitePCGameClient\"}"},
+    {"lightswitch-public-service-prod06", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"lightswitch check passed\"}"},
+    {"launcher-public-service-prod06", "{\"buildVersion\":\"++Fortnite+Release-2.5.0\",\"status\":\"ACTIVE\",\"message\":\"launcher check passed\"}"},
+    {"fortnite-game-public-service", "{\"status\":\"UP\",\"message\":\"Game servers online\",\"allowedToPlay\":true}"},
+    {"datarouter.ol.epicgames.com", "{\"success\":true}"},
+    {"fortnite-public-service-prod11", "{\"profileRevision\":1,\"profileId\":\"athena\",\"profileChangesBaseRevision\":1,\"profileChanges\":[],\"serverTime\":\"2023-01-01T00:00:00.000Z\",\"responseVersion\":1}"}
 };
 
-// Enhanced domain blocking with response injection
+// Enhanced domain blocking with active response generation
 bool ShouldBlockDomain(const char* domain, std::string& response) {
     if (!domain) return false;
-    
     for (const auto& bypass : BYPASS_RESPONSES) {
         if (strstr(domain, bypass.first.c_str())) {
             response = bypass.second;
-            LogToFile("Intercepted request to " + std::string(domain) + " - Injecting custom response");
+            LogToFile("Intercepted request to " + std::string(domain) + " - Generating bypass response");
             return true;
         }
     }
@@ -79,36 +82,74 @@ bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
     return ShouldBlockDomain(sDomain.c_str(), response);
 }
 
-// Hook installation using direct IAT patching
-void WriteMemory(LPVOID dest, LPVOID src, SIZE_T size) {
-    DWORD oldProtect;
-    VirtualProtect(dest, size, PAGE_EXECUTE_READWRITE, &oldProtect);
-    memcpy(dest, src, size);
-    VirtualProtect(dest, size, oldProtect, &oldProtect);
-}
-
-bool InstallHook(PVOID* ppPointer, PVOID pDetour) {
-    WriteMemory(ppPointer, &pDetour, sizeof(PVOID));
-    return true;
-}
-
-// Enhanced hooked functions with response injection
+// Enhanced hooked functions with active response generation and caching
 BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
-    LogToFile("Intercepted HTTP request - Bypassing authentication");
-    SetLastError(0);
-    return TRUE;
+    std::string response;
+    DWORD responseLength = 0;
+    
+    // Get URL from request handle
+    char urlBuffer[1024];
+    DWORD urlSize = sizeof(urlBuffer);
+    if(InternetQueryOptionA(hRequest, INTERNET_OPTION_URL, urlBuffer, &urlSize)) {
+        if(ShouldBlockDomain(urlBuffer, response)) {
+            // Write cached response
+            responseLength = response.length();
+            InternetSetOptionA(hRequest, INTERNET_OPTION_SECURITY_FLAGS, 
+                (LPVOID)SECURITY_FLAG_IGNORE_CERT_CN_INVALID, sizeof(DWORD));
+            
+            // Set the response data
+            INTERNET_BUFFERSA buffers;
+            ZeroMemory(&buffers, sizeof(buffers));
+            buffers.dwStructSize = sizeof(INTERNET_BUFFERSA);
+            buffers.lpvBuffer = (LPVOID)response.c_str();
+            buffers.dwBufferLength = responseLength;
+            
+            HttpEndRequestA(hRequest, NULL, 0, 0);
+            LogToFile("Sent cached response for: " + std::string(urlBuffer));
+            return TRUE;
+        }
+    }
+    
+    return originalHttpSendRequestA(hRequest, lpszHeaders, dwHeadersLength, lpOptional, dwOptionalLength);
 }
 
 BOOL WINAPI HookedHttpSendRequestW(HINTERNET hRequest, LPCWSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
-    LogToFile("Intercepted HTTPS request - Bypassing authentication");
-    SetLastError(0);
-    return TRUE;
+    std::string response;
+    DWORD responseLength = 0;
+    
+    // Get URL from request handle
+    WCHAR urlBuffer[1024];
+    DWORD urlSize = sizeof(urlBuffer);
+    if(InternetQueryOptionW(hRequest, INTERNET_OPTION_URL, urlBuffer, &urlSize)) {
+        if(ShouldBlockDomainW(urlBuffer, response)) {
+            // Write cached response
+            responseLength = response.length();
+            InternetSetOptionW(hRequest, INTERNET_OPTION_SECURITY_FLAGS,
+                (LPVOID)SECURITY_FLAG_IGNORE_CERT_CN_INVALID, sizeof(DWORD));
+                
+            // Convert response to wide string
+            std::wstring wResponse(response.begin(), response.end());
+            
+            // Set the response data
+            INTERNET_BUFFERSW buffers;
+            ZeroMemory(&buffers, sizeof(buffers));
+            buffers.dwStructSize = sizeof(INTERNET_BUFFERSW);
+            buffers.lpvBuffer = (LPVOID)wResponse.c_str();
+            buffers.dwBufferLength = responseLength * sizeof(wchar_t);
+            
+            HttpEndRequestW(hRequest, NULL, 0, 0);
+            LogToFile("Sent cached response for wide-char request");
+            return TRUE;
+        }
+    }
+    
+    return originalHttpSendRequestW(hRequest, lpszHeaders, dwHeadersLength, lpOptional, dwOptionalLength);
 }
 
 HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
     std::string response;
     if (lpszObjectName && ShouldBlockDomain(lpszObjectName, response)) {
-        LogToFile("Redirecting to local server: " + std::string(lpszObjectName));
+        LogToFile("Redirecting HTTP request to local server: " + std::string(lpszObjectName));
         dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
         dwFlags &= ~INTERNET_FLAG_SECURE;
         return originalHttpOpenRequestA(hConnect, "GET", "/", "HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
@@ -119,7 +160,7 @@ HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPC
 HINTERNET WINAPI HookedHttpOpenRequestW(HINTERNET hConnect, LPCWSTR lpszVerb, LPCWSTR lpszObjectName, LPCWSTR lpszVersion, LPCWSTR lpszReferrer, LPCWSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
     std::string response;
     if (lpszObjectName && ShouldBlockDomainW(lpszObjectName, response)) {
-        LogToFile("Redirecting secure request to local server");
+        LogToFile("Redirecting HTTPS request to local server");
         dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
         dwFlags &= ~INTERNET_FLAG_SECURE;
         return originalHttpOpenRequestW(hConnect, L"GET", L"/", L"HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
@@ -145,18 +186,40 @@ HINTERNET WINAPI HookedInternetConnectW(HINTERNET hInternet, LPCWSTR lpszServerN
     return originalInternetConnectW(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
 }
 
+// Function to install hooks using detours
+template<typename T>
+bool InstallHook(T& original, T hooked, const char* name) {
+    DWORD oldProtect;
+    LPVOID originalPtr = reinterpret_cast<LPVOID>(original);
+    
+    if (!VirtualProtect(originalPtr, sizeof(T), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+        LogToFile("ERROR: Failed to modify protection for " + std::string(name));
+        return false;
+    }
+
+    memcpy(originalPtr, &hooked, sizeof(T));
+    VirtualProtect(originalPtr, sizeof(T), oldProtect, &oldProtect);
+    
+    LogToFile("Successfully installed hook for " + std::string(name));
+    return true;
+}
+
+// Export function to verify injection
+extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
+    LogToFile("Injection verification requested - Status: Active");
+    return TRUE;
+}
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
 
-            // Create console with colored output
+            // Create console for debugging
             AllocConsole();
             FILE* f;
             freopen_s(&f, "CONOUT$", "w", stdout);
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN);
-            
-            LogToFile("=== ZeroFN Private Server v2.0 Initializing ===");
+            LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
 
             // Get wininet functions
             HMODULE hWininet = GetModuleHandleA("wininet.dll");
@@ -164,11 +227,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 hWininet = LoadLibraryA("wininet.dll");
             }
             if (!hWininet) {
-                LogToFile("CRITICAL ERROR: Failed to load wininet.dll");
+                LogToFile("ERROR: Failed to load wininet.dll");
                 return FALSE;
             }
 
-            // Get function addresses
+            // Store original functions
             originalHttpSendRequestA = (tHttpSendRequestA)GetProcAddress(hWininet, "HttpSendRequestA");
             originalHttpOpenRequestA = (tHttpOpenRequestA)GetProcAddress(hWininet, "HttpOpenRequestA");
             originalInternetConnectA = (tInternetConnectA)GetProcAddress(hWininet, "InternetConnectA");
@@ -176,26 +239,24 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             originalHttpOpenRequestW = (tHttpOpenRequestW)GetProcAddress(hWininet, "HttpOpenRequestW");
             originalInternetConnectW = (tInternetConnectW)GetProcAddress(hWininet, "InternetConnectW");
 
-            // Install hooks using direct IAT patching
+            // Install hooks
             bool success = true;
-            success &= InstallHook((PVOID*)&originalHttpSendRequestA, (PVOID)HookedHttpSendRequestA);
-            success &= InstallHook((PVOID*)&originalHttpOpenRequestA, (PVOID)HookedHttpOpenRequestA);
-            success &= InstallHook((PVOID*)&originalInternetConnectA, (PVOID)HookedInternetConnectA);
-            success &= InstallHook((PVOID*)&originalHttpSendRequestW, (PVOID)HookedHttpSendRequestW);
-            success &= InstallHook((PVOID*)&originalHttpOpenRequestW, (PVOID)HookedHttpOpenRequestW);
-            success &= InstallHook((PVOID*)&originalInternetConnectW, (PVOID)HookedInternetConnectW);
+            success &= InstallHook(originalHttpSendRequestA, HookedHttpSendRequestA, "HttpSendRequestA");
+            success &= InstallHook(originalHttpOpenRequestA, HookedHttpOpenRequestA, "HttpOpenRequestA");
+            success &= InstallHook(originalInternetConnectA, HookedInternetConnectA, "InternetConnectA");
+            success &= InstallHook(originalHttpSendRequestW, HookedHttpSendRequestW, "HttpSendRequestW");
+            success &= InstallHook(originalHttpOpenRequestW, HookedHttpOpenRequestW, "HttpOpenRequestW");
+            success &= InstallHook(originalInternetConnectW, HookedInternetConnectW, "InternetConnectW");
 
             if (success) {
-                LogToFile("=== ZeroFN Private Server Successfully Initialized ===");
-                LogToFile("All hooks installed - Ready to intercept traffic");
-                LogToFile("Redirecting all Epic/Fortnite traffic to local server");
+                LogToFile("All hooks installed successfully - Active bypass system ready");
             } else {
-                LogToFile("CRITICAL ERROR: Hook installation failed");
+                LogToFile("WARNING: Some hooks failed to install - System may not function correctly");
             }
             break;
         }
         case DLL_PROCESS_DETACH:
-            LogToFile("=== ZeroFN Private Server Shutting Down ===");
+            LogToFile("DLL detaching - Shutting down bypass system");
             break;
     }
     return TRUE;

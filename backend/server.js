@@ -131,6 +131,91 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
 
   switch(command) {
     case 'QueryProfile':
+      // Add default cosmetic items
+      const items = {
+        // Default character
+        "CID_Default": {
+          "templateId": "AthenaCharacter:CID_001_Athena_Commando_F_Default",
+          "attributes": {
+            "favorite": false,
+            "item_seen": true,
+            "level": 1,
+            "variants": [],
+            "xp": 0
+          },
+          "quantity": 1
+        },
+        // Default pickaxe
+        "DefaultPickaxe": {
+          "templateId": "AthenaPickaxe:DefaultPickaxe",
+          "attributes": {
+            "favorite": false,
+            "item_seen": true,
+            "level": 1,
+            "variants": [],
+            "xp": 0
+          },
+          "quantity": 1
+        },
+        // Default backpack
+        "BID_Default": {
+          "templateId": "AthenaBackpack:BID_001_Default",
+          "attributes": {
+            "favorite": false,
+            "item_seen": true,
+            "level": 1,
+            "variants": [],
+            "xp": 0
+          },
+          "quantity": 1
+        }
+      };
+
+      // Add any loaded cosmetics from database
+      database.cosmetics.forEach(cosmetic => {
+        items[cosmetic.id] = {
+          templateId: cosmetic.templateId,
+          attributes: {
+            favorite: false,
+            item_seen: true,
+            level: 1,
+            variants: [],
+            xp: 0
+          },
+          quantity: 1
+        };
+      });
+
+      baseResponse.profileChanges.push({
+        changeType: 'fullProfileUpdate',
+        profile: {
+          _id: accountId,
+          accountId: accountId,
+          profileId: profileId,
+          version: 'no_version',
+          items: items,
+          stats: {
+            attributes: {
+              past_seasons: [],
+              season_match_boost: 0,
+              loadouts: ["loadout_0"],
+              mfa_reward_claimed: true,
+              rested_xp_overflow: 0,
+              quest_manager: {},
+              book_level: 1,
+              season_num: 20,
+              book_xp: 0,
+              permissions: [],
+              season: {
+                numWins: 0,
+                numHighBracket: 0,
+                numLowBracket: 0
+              }
+            }
+          }
+        }
+      });
+      break;
     case 'ClientQuestLogin':
     case 'RefreshExpeditions':
     case 'SetMtxPlatform':

@@ -29,7 +29,6 @@ logging.basicConfig(
     ]
 )
 
-<<<<<<< Updated upstream
 print("Logging system initialized...")
 
 # Start mitmproxy in a new window
@@ -114,18 +113,6 @@ class FortniteServer:
         self.clients_lock = threading.Lock()
         
         print("Initializing matchmaking system...")
-=======
-class FortniteAuthServer:
-    def __init__(self, host='0.0.0.0', port=7777):
-        self.host = host
-        self.port = port
-        self.running = True
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.auth_tokens = {}
-        self.cosmetics = self.load_cosmetics()
-        self.active_sessions = {}
->>>>>>> Stashed changes
         self.matchmaking_queue = []
         self.match_lock = threading.Lock()
         

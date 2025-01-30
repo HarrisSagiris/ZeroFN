@@ -17,7 +17,7 @@ public:
         bReplicates = true;
         
         // Set server port and IP
-        DefaultPort = 7777;
+        DefaultPort = 5595;
         
         // Set server IP to 127.0.0.1 (localhost)
         if (ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get())

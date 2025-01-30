@@ -27,7 +27,7 @@ def request(flow: http.HTTPFlow) -> None:
         
         # Redirect to local server
         flow.request.host = "127.0.0.1"
-        flow.request.port = 7777
+        flow.request.port = 5595
         flow.request.scheme = "http"
         
         # Keep the original path
@@ -36,7 +36,7 @@ def request(flow: http.HTTPFlow) -> None:
         # Add headers needed for auth
         flow.request.headers["Authorization"] = "bearer test"  # Default test token
         
-        ctx.log.info(f"Redirecting {flow.request.pretty_url} to 127.0.0.1:7777")
+        ctx.log.info(f"Redirecting {flow.request.pretty_url} to 127.0.0.1:5595")
     else:
         # Let all other traffic pass through normally
         pass

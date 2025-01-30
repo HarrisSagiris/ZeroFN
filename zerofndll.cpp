@@ -35,7 +35,7 @@ tInternetConnectW originalInternetConnectW = nullptr;
 // Local server configuration
 const char* LOCAL_SERVER = "127.0.0.1";
 const wchar_t* LOCAL_SERVER_W = L"127.0.0.1";
-const INTERNET_PORT LOCAL_PORT = 7777;
+const INTERNET_PORT LOCAL_PORT = 5595;
 
 // Mutex for thread-safe logging
 std::mutex logMutex;

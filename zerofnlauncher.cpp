@@ -389,7 +389,7 @@ private:
         GetCurrentDirectoryW(MAX_PATH, currentDir);
         std::wstring backendDir = std::wstring(currentDir) + L"\\backend";
         
-        logMessage("Starting auth server on port 7777...");
+        logMessage("Starting auth server on port 5595...");
         WCHAR nodeCmd[] = L"node server.js";
         if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, 
             CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP, 
@@ -443,7 +443,7 @@ private:
 
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
-            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
+            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:5595 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
             L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -NOFORCECONNECT";
 
         // Create process suspended

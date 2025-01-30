@@ -46,7 +46,7 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
 
     // Check if process is 64-bit
     BOOL isWow64 = FALSE;
-    IsWow64Process(hProcess, &isWow64);
+    IsWow64Process(GetCurrentProcess(), &isWow64);
     BOOL is64BitProcess = !isWow64;
 
     // Check if DLL matches process architecture
@@ -152,7 +152,7 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
         }
     }
 
-    logCallback("ERROR: Could not verify DLL was loaded");
+    logMessage("ERROR: Could not verify DLL was loaded");
     return false;
 }
 

@@ -13,10 +13,11 @@
 #pragma comment(lib, "urlmon.lib")
 #pragma comment(lib, "detours.lib")
 
+// Only include the correct architecture library
 #ifdef _WIN64
 #pragma comment(lib, "detours_x64.lib")
 #else
-#pragma comment(lib, "detours_x86.lib") 
+#pragma comment(lib, "detours_x86.lib")
 #endif
 
 // Function pointer types for hooks
@@ -139,17 +140,20 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             // Verify process architecture matches DLL
             BOOL isWow64 = FALSE;
             IsWow64Process(GetCurrentProcess(), &isWow64);
+            
+            // Check if we're running in a 64-bit process
+            BOOL is64BitProcess = FALSE;
             #ifdef _WIN64
-            if (isWow64) {
-                MessageBoxA(NULL, "Cannot inject 64-bit DLL into 32-bit process", "Architecture Mismatch", MB_OK | MB_ICONERROR);
-                return FALSE;
-            }
+                is64BitProcess = TRUE;
             #else
-            if (!isWow64) {
-                MessageBoxA(NULL, "Cannot inject 32-bit DLL into 64-bit process", "Architecture Mismatch", MB_OK | MB_ICONERROR);
+                is64BitProcess = FALSE;
+            #endif
+
+            // Check if process architecture matches DLL architecture
+            if (is64BitProcess != !isWow64) {
+                // Architecture mismatch
                 return FALSE;
             }
-            #endif
 
             // Attach to parent Fortnite process
             AttachToFortniteProcess();

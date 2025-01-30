@@ -96,12 +96,11 @@ extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
 
 // Helper function to wait for Fortnite process to be fully initialized
 void WaitForFortniteInit() {
-    // Initial wait to let process start
-    Sleep(2000);
+    Sleep(5000); // Increased initial wait time
     
-    // Wait for main module to be loaded
-    while (true) {
-        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetCurrentProcessId());
+    DWORD processId = GetCurrentProcessId();
+    for (int attempts = 0; attempts < 30; attempts++) { // Added retry limit
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, processId);
         if (snapshot != INVALID_HANDLE_VALUE) {
             MODULEENTRY32W me32;
             me32.dwSize = sizeof(MODULEENTRY32W);
@@ -109,7 +108,7 @@ void WaitForFortniteInit() {
             bool found = false;
             if (Module32FirstW(snapshot, &me32)) {
                 do {
-                    if (wcsstr(me32.szModule, L"FortniteClient-Win64-Shipping.exe")) {
+                    if (_wcsicmp(me32.szModule, L"FortniteClient-Win64-Shipping.exe") == 0) {
                         found = true;
                         break;
                     }
@@ -117,92 +116,85 @@ void WaitForFortniteInit() {
             }
             CloseHandle(snapshot);
             
-            if (found) break;
+            if (found) {
+                return;
+            }
         }
-        Sleep(100);
+        Sleep(1000);
     }
 }
 
-// DLL entry point with SEH exception handling
-BOOL WINAPI DllMainCRTStartup(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
-    __try {
-        switch (ul_reason_for_call) {
-            case DLL_PROCESS_ATTACH: {
-                DisableThreadLibraryCalls(hModule);
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH: {
+            DisableThreadLibraryCalls(hModule);
 
-                // Wait for Fortnite to initialize
-                WaitForFortniteInit();
+            // Wait for Fortnite to initialize
+            WaitForFortniteInit();
 
-                // Create console for logging
-                AllocConsole();
-                FILE* f;
-                freopen_s(&f, "CONOUT$", "w", stdout);
-                std::cout << "ZeroFN DLL Injection Started..." << std::endl;
+            // Create console for logging
+            AllocConsole();
+            FILE* f;
+            freopen_s(&f, "CONOUT$", "w", stdout);
+            std::cout << "ZeroFN DLL Injection Started..." << std::endl;
 
-                // Load wininet.dll
-                HMODULE hWininet = GetModuleHandleA("wininet.dll");
-                if (!hWininet) {
-                    hWininet = LoadLibraryA("wininet.dll");
-                    if (!hWininet) {
-                        std::cout << "Failed to load wininet.dll" << std::endl;
-                        return TRUE;
-                    }
-                }
-
-                // Get function addresses
-                originalHttpSendRequestA = (tHttpSendRequestA)GetProcAddress(hWininet, "HttpSendRequestA");
-                originalHttpOpenRequestA = (tHttpOpenRequestA)GetProcAddress(hWininet, "HttpOpenRequestA");
-                originalInternetConnectA = (tInternetConnectA)GetProcAddress(hWininet, "InternetConnectA");
-                originalHttpSendRequestW = (tHttpSendRequestW)GetProcAddress(hWininet, "HttpSendRequestW");
-                originalHttpOpenRequestW = (tHttpOpenRequestW)GetProcAddress(hWininet, "HttpOpenRequestW");
-                originalInternetConnectW = (tInternetConnectW)GetProcAddress(hWininet, "InternetConnectW");
-
-                if (!originalHttpSendRequestA || !originalHttpOpenRequestA || !originalInternetConnectA ||
-                    !originalHttpSendRequestW || !originalHttpOpenRequestW || !originalInternetConnectW) {
-                    std::cout << "Failed to get function addresses" << std::endl;
-                    return TRUE;
-                }
-
-                // Attach hooks
-                DetourTransactionBegin();
-                DetourUpdateThread(GetCurrentThread());
-
-                DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
-                DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
-                DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
-                DetourAttach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
-                DetourAttach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
-                DetourAttach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
-
-                LONG error = DetourTransactionCommit();
-                if (error != NO_ERROR) {
-                    std::cout << "Failed to attach hooks: " << error << std::endl;
-                    return TRUE;
-                }
-
-                std::cout << "ZeroFN DLL Injection Complete!" << std::endl;
-                break;
+            // Load wininet.dll
+            HMODULE hWininet = LoadLibraryA("wininet.dll");
+            if (!hWininet) {
+                std::cout << "Failed to load wininet.dll" << std::endl;
+                return FALSE;
             }
 
-            case DLL_PROCESS_DETACH: {
-                // Clean up hooks
-                DetourTransactionBegin();
-                DetourUpdateThread(GetCurrentThread());
+            // Get function addresses
+            originalHttpSendRequestA = (tHttpSendRequestA)GetProcAddress(hWininet, "HttpSendRequestA");
+            originalHttpOpenRequestA = (tHttpOpenRequestA)GetProcAddress(hWininet, "HttpOpenRequestA");
+            originalInternetConnectA = (tInternetConnectA)GetProcAddress(hWininet, "InternetConnectA");
+            originalHttpSendRequestW = (tHttpSendRequestW)GetProcAddress(hWininet, "HttpSendRequestW");
+            originalHttpOpenRequestW = (tHttpOpenRequestW)GetProcAddress(hWininet, "HttpOpenRequestW");
+            originalInternetConnectW = (tInternetConnectW)GetProcAddress(hWininet, "InternetConnectW");
 
-                DetourDetach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
-                DetourDetach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
-                DetourDetach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
-                DetourDetach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
-                DetourDetach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
-                DetourDetach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
-
-                DetourTransactionCommit();
-                break;
+            if (!originalHttpSendRequestA || !originalHttpOpenRequestA || !originalInternetConnectA ||
+                !originalHttpSendRequestW || !originalHttpOpenRequestW || !originalInternetConnectW) {
+                std::cout << "Failed to get function addresses" << std::endl;
+                return FALSE;
             }
+
+            // Attach hooks
+            DetourTransactionBegin();
+            DetourUpdateThread(GetCurrentThread());
+
+            DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
+            DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
+            DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
+            DetourAttach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
+            DetourAttach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
+            DetourAttach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
+
+            LONG error = DetourTransactionCommit();
+            if (error != NO_ERROR) {
+                std::cout << "Failed to attach hooks: " << error << std::endl;
+                return FALSE;
+            }
+
+            std::cout << "ZeroFN DLL Injection Complete!" << std::endl;
+            break;
         }
-        return TRUE;
+
+        case DLL_PROCESS_DETACH: {
+            // Clean up hooks
+            DetourTransactionBegin();
+            DetourUpdateThread(GetCurrentThread());
+
+            DetourDetach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
+            DetourDetach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
+            DetourDetach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
+            DetourDetach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
+            DetourDetach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
+            DetourDetach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
+
+            DetourTransactionCommit();
+            break;
+        }
     }
-    __except(EXCEPTION_EXECUTE_HANDLER) {
-        return FALSE;
-    }
+    return TRUE;
 }

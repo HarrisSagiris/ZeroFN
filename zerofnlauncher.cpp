@@ -45,7 +45,42 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
     logCallback("Successfully got LoadLibraryW address");
 
     // Wait longer for process to be ready for injection
-    Sleep(10000); // Increased wait time to 10 seconds
+    Sleep(15000); // Increased wait time to 15 seconds
+
+    // Check if process is 64-bit
+    BOOL isWow64 = FALSE;
+    IsWow64Process(hProcess, &isWow64);
+    BOOL is64BitProcess = !isWow64;
+
+    // Check if DLL matches process architecture
+    HANDLE hFile = CreateFileW(fullDllPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        logCallback("ERROR: Could not open DLL file");
+        return false;
+    }
+
+    IMAGE_DOS_HEADER dosHeader;
+    DWORD bytesRead;
+    if (!ReadFile(hFile, &dosHeader, sizeof(IMAGE_DOS_HEADER), &bytesRead, NULL)) {
+        CloseHandle(hFile);
+        logCallback("ERROR: Could not read DOS header");
+        return false;
+    }
+
+    SetFilePointer(hFile, dosHeader.e_lfanew, NULL, FILE_BEGIN);
+    IMAGE_NT_HEADERS ntHeaders;
+    if (!ReadFile(hFile, &ntHeaders, sizeof(IMAGE_NT_HEADERS), &bytesRead, NULL)) {
+        CloseHandle(hFile);
+        logCallback("ERROR: Could not read NT headers");
+        return false;
+    }
+    CloseHandle(hFile);
+
+    bool isDll64Bit = (ntHeaders.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64);
+    if (is64BitProcess != isDll64Bit) {
+        logCallback("ERROR: DLL architecture mismatch with process");
+        return false;
+    }
 
     // Allocate memory in Fortnite process
     SIZE_T pathSize = (wcslen(fullDllPath) + 1) * sizeof(WCHAR);
@@ -89,7 +124,10 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
     DWORD exitCode = 0;
     GetExitCodeThread(hThread, &exitCode);
     if (exitCode == 0) {
-        logCallback("ERROR: LoadLibrary returned 0");
+        DWORD lastError = GetLastError();
+        std::stringstream ss;
+        ss << "ERROR: LoadLibrary failed with error code: 0x" << std::hex << lastError;
+        logCallback(ss.str());
         CloseHandle(hThread);
         VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
         return false;

@@ -130,32 +130,18 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
 
-            // Verify process architecture matches DLL
-            BOOL isWow64 = FALSE;
-            IsWow64Process(GetCurrentProcess(), &isWow64);
-            
-            // Check if target process is 64-bit
-            BOOL targetIs64Bit = !isWow64;
-
-            // Check if DLL is 64-bit
-            #ifdef _WIN64
-                BOOL dllIs64Bit = TRUE;
-            #else
-                BOOL dllIs64Bit = FALSE;
+            // Only allow 64-bit processes
+            #ifndef _WIN64
+            MessageBoxA(NULL, "This DLL is for 64-bit Fortnite only", "Architecture Error", MB_OK | MB_ICONERROR);
+            return FALSE;
             #endif
-
-            // Check if architectures match
-            if (targetIs64Bit != dllIs64Bit) {
-                MessageBoxA(NULL, "Architecture mismatch between DLL and target process", "Error", MB_OK | MB_ICONERROR);
-                return FALSE;
-            }
 
             // Attach to parent Fortnite process
             AttachToFortniteProcess();
 
             FILE* f;
             freopen_s(&f, "CONOUT$", "w", stdout);
-            std::cout << "ZeroFN DLL Injection Started..." << std::endl;
+            std::cout << "ZeroFN 64-bit DLL Injection Started..." << std::endl;
 
             // Load wininet.dll
             HMODULE hWininet = LoadLibraryA("wininet.dll");
@@ -195,7 +181,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 return FALSE;
             }
 
-            std::cout << "ZeroFN DLL Injection Complete!" << std::endl;
+            std::cout << "ZeroFN 64-bit DLL Injection Complete!" << std::endl;
             break;
         }
 

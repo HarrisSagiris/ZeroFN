@@ -1,0 +1,80 @@
+#include <Windows.h>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <wininet.h>
+#include <urlmon.h>
+#include <detours.h>
+
+#pragma comment(lib, "wininet.lib")
+#pragma comment(lib, "urlmon.lib")
+#pragma comment(lib, "detours.lib")
+
+// Function pointer types for hooks
+typedef BOOL(WINAPI* tHttpSendRequestA)(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength);
+typedef HINTERNET(WINAPI* tHttpOpenRequestA)(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext);
+typedef HINTERNET(WINAPI* tInternetConnectA)(HINTERNET hInternet, LPCSTR lpszServerName, INTERNET_PORT nServerPort, LPCSTR lpszUserName, LPCSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext);
+
+// Original function pointers
+tHttpSendRequestA originalHttpSendRequestA = nullptr;
+tHttpOpenRequestA originalHttpOpenRequestA = nullptr;
+tInternetConnectA originalInternetConnectA = nullptr;
+
+// Custom backend URL
+const char* BACKEND_URL = "http://127.0.0.1:7777"; // Change this to your backend URL
+
+// Hooked functions
+BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
+    // Modify request headers or body here if needed
+    return originalHttpSendRequestA(hRequest, lpszHeaders, dwHeadersLength, lpOptional, dwOptionalLength);
+}
+
+HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
+    // Modify request parameters here if needed
+    return originalHttpOpenRequestA(hConnect, lpszVerb, lpszObjectName, lpszVersion, lpszReferrer, lplpszAcceptTypes, dwFlags, dwContext);
+}
+
+HINTERNET WINAPI HookedInternetConnectA(HINTERNET hInternet, LPCSTR lpszServerName, INTERNET_PORT nServerPort, LPCSTR lpszUserName, LPCSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext) {
+    // Redirect all Fortnite server connections to our backend
+    if (strstr(lpszServerName, "epicgames.com") || strstr(lpszServerName, "fortnite.com")) {
+        return originalInternetConnectA(hInternet, BACKEND_URL, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
+    }
+    return originalInternetConnectA(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
+}
+
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH:
+            DisableThreadLibraryCalls(hModule);
+            
+            // Initialize hooks
+            originalHttpSendRequestA = (tHttpSendRequestA)GetProcAddress(GetModuleHandleA("wininet.dll"), "HttpSendRequestA");
+            originalHttpOpenRequestA = (tHttpOpenRequestA)GetProcAddress(GetModuleHandleA("wininet.dll"), "HttpOpenRequestA");
+            originalInternetConnectA = (tInternetConnectA)GetProcAddress(GetModuleHandleA("wininet.dll"), "InternetConnectA");
+
+            // Attach hooks
+            DetourTransactionBegin();
+            DetourUpdateThread(GetCurrentThread());
+            
+            DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
+            DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
+            DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
+            
+            DetourTransactionCommit();
+            break;
+
+        case DLL_PROCESS_DETACH:
+            // Clean up hooks
+            DetourTransactionBegin();
+            DetourUpdateThread(GetCurrentThread());
+            
+            DetourDetach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
+            DetourDetach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
+            DetourDetach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
+            
+            DetourTransactionCommit();
+            break;
+    }
+    return TRUE;
+}
+

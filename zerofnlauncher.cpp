@@ -18,37 +18,39 @@
 
 namespace fs = std::experimental::filesystem;
 
-// Pattern scanning helper functions
-bool CompareBytes(const BYTE* data, const BYTE* pattern, const char* mask) {
-    for (; *mask; ++mask, ++data, ++pattern) {
-        if (*mask == 'x' && *data != *pattern)
-            return false;
-    }
-    return (*mask) == 0;
-}
+// Helper function to inject DLL
+bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath) {
+    // Allocate memory for DLL path
+    void* loadLibAddr = (void*)GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryW");
+    if (!loadLibAddr) return false;
 
-DWORD_PTR FindPattern(HANDLE process, DWORD_PTR start, DWORD_PTR end, const BYTE* pattern, const char* mask) {
-    BYTE* buffer = new BYTE[4096];
-    DWORD_PTR pos = start;
-    SIZE_T bytesRead;
+    void* dllPathAddr = VirtualAllocEx(hProcess, 0, (dllPath.size() + 1) * sizeof(wchar_t), 
+        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!dllPathAddr) return false;
 
-    while (pos < end) {
-        if (!ReadProcessMemory(process, (LPCVOID)pos, buffer, 4096, &bytesRead)) {
-            pos += 4096;
-            continue;
-        }
-
-        for (DWORD_PTR i = 0; i < bytesRead; i++) {
-            if (CompareBytes(buffer + i, pattern, mask)) {
-                delete[] buffer;
-                return pos + i;
-            }
-        }
-        pos += bytesRead;
+    // Write DLL path
+    if (!WriteProcessMemory(hProcess, dllPathAddr, dllPath.c_str(), 
+        (dllPath.size() + 1) * sizeof(wchar_t), nullptr)) {
+        VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
+        return false;
     }
 
-    delete[] buffer;
-    return 0;
+    // Create remote thread to load DLL
+    HANDLE hThread = CreateRemoteThread(hProcess, nullptr, 0,
+        (LPTHREAD_START_ROUTINE)loadLibAddr, dllPathAddr, 0, nullptr);
+    if (!hThread) {
+        VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
+        return false;
+    }
+
+    // Wait for thread completion
+    WaitForSingleObject(hThread, INFINITE);
+    
+    // Cleanup
+    CloseHandle(hThread);
+    VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
+    
+    return true;
 }
 
 class ZeroFNLauncher {
@@ -254,57 +256,14 @@ private:
         }
     }
 
-    static void PatchFortnite(HANDLE hProcess) {
-        logMessage("Starting auth bypass patching...");
-        
-        // Multiple auth bypass patterns for different versions
-        const std::vector<std::pair<std::vector<BYTE>, std::vector<BYTE>>> patterns = {
-            // Pattern 1
-            {{0x74, 0x23, 0x48, 0x8B, 0x4B, 0x78}, {0xEB, 0x23, 0x48, 0x8B, 0x4B, 0x78}},
-            // Pattern 2  
-            {{0x75, 0x1A, 0x48, 0x8B, 0x45, 0x70}, {0xEB, 0x1A, 0x48, 0x8B, 0x45, 0x70}},
-            // Pattern 3
-            {{0x74, 0x20, 0x48, 0x8B, 0x4B, 0x78}, {0xEB, 0x20, 0x48, 0x8B, 0x4B, 0x78}}
-        };
-
-        bool patchSuccess = false;
-        for (const auto& pattern : patterns) {
-            DWORD_PTR authAddr = FindPattern(hProcess, 0, (DWORD_PTR)-1, 
-                pattern.first.data(), std::string(pattern.first.size(), 'x').c_str());
-                
-            if (authAddr) {
-                DWORD oldProtect;
-                if (VirtualProtectEx(hProcess, (LPVOID)authAddr, pattern.second.size(), 
-                    PAGE_EXECUTE_READWRITE, &oldProtect)) {
-                    
-                    SIZE_T bytesWritten;
-                    if (WriteProcessMemory(hProcess, (LPVOID)authAddr, pattern.second.data(), 
-                        pattern.second.size(), &bytesWritten)) {
-                        
-                        VirtualProtectEx(hProcess, (LPVOID)authAddr, pattern.second.size(), 
-                            oldProtect, &oldProtect);
-                            
-                        patchSuccess = true;
-                        logMessage("Auth bypass patch applied successfully");
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!patchSuccess) {
-            logMessage("WARNING: Could not find auth pattern to patch");
-        }
-    }
-
     static void StartServer() {
         logMessage("Starting server initialization sequence...");
         
         // Check required files
         logMessage("Checking required server files...");
-        if (!fs::exists("server.js") || !fs::exists("redirect.py")) {
-            MessageBoxW(NULL, L"Required server files are missing!", L"Error", MB_OK | MB_ICONERROR);
-            logMessage("ERROR: Missing required server files!");
+        if (!fs::exists("backend/server.js") || !fs::exists("backend/redirect.py") || !fs::exists("zerofn.dll")) {
+            MessageBoxW(NULL, L"Required server files or DLL are missing!", L"Error", MB_OK | MB_ICONERROR);
+            logMessage("ERROR: Missing required files!");
             return;
         }
         logMessage("All required files found");
@@ -325,12 +284,13 @@ private:
         // Create server process with proper working directory
         WCHAR currentDir[MAX_PATH];
         GetCurrentDirectoryW(MAX_PATH, currentDir);
+        std::wstring backendDir = std::wstring(currentDir) + L"\\backend";
         
         logMessage("Starting auth server on port 7777...");
         WCHAR nodeCmd[] = L"node server.js";
         if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, 
             CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP, 
-            NULL, currentDir, &si, &pi)) {
+            NULL, backendDir.c_str(), &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start auth server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start auth server!");
             return;
@@ -344,7 +304,7 @@ private:
         WCHAR proxyCmd[] = L"mitmdump -s redirect.py --listen-port 8080 --set block_global=false";
         if (!CreateProcessW(NULL, proxyCmd, NULL, NULL, FALSE, 
             CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP,
-            NULL, currentDir, &si, &pi)) {
+            NULL, backendDir.c_str(), &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start proxy server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start proxy server!");
             return;
@@ -422,11 +382,21 @@ private:
 
         logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
 
-        // Wait a moment before patching
+        // Wait a moment before injecting
         Sleep(2000);
 
-        // Patch the process
-        PatchFortnite(piGame.hProcess);
+        // Inject DLL
+        std::wstring dllPath = std::wstring(currentDir) + L"\\zerofn.dll";
+        logMessage("Injecting ZeroFN DLL...");
+        if (InjectDLL(piGame.hProcess, dllPath)) {
+            logMessage("DLL injection successful");
+        } else {
+            logMessage("ERROR: Failed to inject DLL");
+            TerminateProcess(piGame.hProcess, 0);
+            CloseHandle(piGame.hProcess);
+            CloseHandle(piGame.hThread);
+            return;
+        }
         
         // Resume the process
         logMessage("Starting Fortnite...");
@@ -440,7 +410,7 @@ private:
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
         
-        logMessage("Fortnite launched successfully with auth bypass enabled");
+        logMessage("Fortnite launched successfully with ZeroFN DLL");
     }
 
     static void StopServer() {

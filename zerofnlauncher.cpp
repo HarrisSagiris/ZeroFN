@@ -44,8 +44,8 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
     }
     logCallback("Successfully got LoadLibraryW address");
 
-    // Wait for process to be ready for injection
-    Sleep(2000);
+    // Wait longer for process to be ready for injection
+    Sleep(10000); // Increased wait time to 10 seconds
 
     // Allocate memory in Fortnite process
     SIZE_T pathSize = (wcslen(fullDllPath) + 1) * sizeof(WCHAR);
@@ -77,16 +77,30 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
     }
     logCallback("Successfully created remote thread");
 
-    // Wait for injection to complete
-    WaitForSingleObject(hThread, INFINITE);
+    // Wait for injection to complete with timeout
+    if (WaitForSingleObject(hThread, 30000) == WAIT_TIMEOUT) { // 30 second timeout
+        logCallback("ERROR: DLL injection timed out");
+        CloseHandle(hThread);
+        VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
+        return false;
+    }
 
     // Get injection result
     DWORD exitCode = 0;
     GetExitCodeThread(hThread, &exitCode);
+    if (exitCode == 0) {
+        logCallback("ERROR: LoadLibrary returned 0");
+        CloseHandle(hThread);
+        VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
+        return false;
+    }
 
     // Cleanup
     CloseHandle(hThread);
     VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
+
+    // Wait for DLL to fully load
+    Sleep(5000);
 
     // Verify DLL is loaded
     HMODULE hModules[1024];
@@ -103,7 +117,7 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
         }
     }
 
-    logCallback("DLL injection appears to have failed");
+    logCallback("ERROR: Could not verify DLL was loaded");
     return false;
 }
 

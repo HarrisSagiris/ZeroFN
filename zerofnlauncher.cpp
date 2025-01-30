@@ -393,24 +393,18 @@ private:
             CloseHandle(hToken);
         }
 
-        BOOL success = CreateProcessW(
-            fortnitePath.c_str(),
-            (LPWSTR)cmdLine.c_str(),
-            NULL,
-            NULL,
-            FALSE,
-            CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP | CREATE_UNICODE_ENVIRONMENT,
-            envBlock,
-            basePath.c_str(),
-            &siGame,
-            &piGame
-        );
+        // Run as administrator
+        SHELLEXECUTEINFOW shExInfo = {0};
+        shExInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
+        shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+        shExInfo.hwnd = NULL;
+        shExInfo.lpVerb = L"runas";  // Request elevation
+        shExInfo.lpFile = fortnitePath.c_str();
+        shExInfo.lpParameters = cmdLine.c_str() + fortnitePath.length() + 3; // Skip past the quoted executable path
+        shExInfo.lpDirectory = basePath.c_str();
+        shExInfo.nShow = SW_SHOW;
 
-        if (envBlock) {
-            DestroyEnvironmentBlock(envBlock);
-        }
-
-        if (!success) {
+        if (!ShellExecuteExW(&shExInfo)) {
             DWORD error = GetLastError();
             WCHAR errorMsg[256];
             swprintf_s(errorMsg, L"Failed to launch Fortnite. Error code: %d", error);
@@ -419,7 +413,8 @@ private:
             return;
         }
 
-        logMessage("Fortnite process created successfully (PID: " + std::to_string(piGame.dwProcessId) + ")");
+        piGame.hProcess = shExInfo.hProcess;
+        logMessage("Fortnite process created successfully with elevated privileges");
 
         // Wait a moment before injecting
         Sleep(2000);
@@ -433,7 +428,6 @@ private:
             logMessage("ERROR: zerofn.dll not found at: " + std::string(dllPath.begin(), dllPath.end()));
             TerminateProcess(piGame.hProcess, 0);
             CloseHandle(piGame.hProcess);
-            CloseHandle(piGame.hThread);
             return;
         }
 
@@ -453,17 +447,11 @@ private:
             logMessage("ERROR: All DLL injection attempts failed");
             TerminateProcess(piGame.hProcess, 0);
             CloseHandle(piGame.hProcess);
-            CloseHandle(piGame.hThread);
             return;
         }
 
-        // Resume the process
-        logMessage("DLL injection successful, resuming Fortnite...");
-        ResumeThread(piGame.hThread);
-        logMessage("Fortnite process resumed");
-
+        logMessage("DLL injection successful");
         CloseHandle(piGame.hProcess);
-        CloseHandle(piGame.hThread);
 
         EnableWindow(startButton, FALSE);
         EnableWindow(stopButton, TRUE);

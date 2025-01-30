@@ -18,37 +18,69 @@
 
 namespace fs = std::experimental::filesystem;
 
-// Helper function to inject DLL
-bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath) {
-    // Allocate memory for DLL path
-    void* loadLibAddr = (void*)GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryW");
-    if (!loadLibAddr) return false;
+// Helper function to inject DLL with improved error handling and logging
+bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, std::function<void(const std::string&)> logCallback) {
+    logCallback("Starting DLL injection process...");
+    logCallback("DLL Path: " + std::string(dllPath.begin(), dllPath.end()));
 
+    // Get LoadLibraryW address
+    void* loadLibAddr = (void*)GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryW");
+    if (!loadLibAddr) {
+        logCallback("ERROR: Failed to get LoadLibraryW address");
+        return false;
+    }
+    logCallback("LoadLibraryW address obtained successfully");
+
+    // Allocate memory for DLL path
     void* dllPathAddr = VirtualAllocEx(hProcess, 0, (dllPath.size() + 1) * sizeof(wchar_t), 
         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!dllPathAddr) return false;
+    if (!dllPathAddr) {
+        logCallback("ERROR: Failed to allocate memory in target process");
+        return false;
+    }
+    logCallback("Memory allocated successfully in target process");
 
     // Write DLL path
     if (!WriteProcessMemory(hProcess, dllPathAddr, dllPath.c_str(), 
         (dllPath.size() + 1) * sizeof(wchar_t), nullptr)) {
+        logCallback("ERROR: Failed to write DLL path to target process memory");
         VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
         return false;
     }
+    logCallback("DLL path written to target process memory");
 
     // Create remote thread to load DLL
+    logCallback("Creating remote thread for DLL injection...");
     HANDLE hThread = CreateRemoteThread(hProcess, nullptr, 0,
         (LPTHREAD_START_ROUTINE)loadLibAddr, dllPathAddr, 0, nullptr);
     if (!hThread) {
+        logCallback("ERROR: Failed to create remote thread");
         VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
         return false;
     }
+    logCallback("Remote thread created successfully");
 
-    // Wait for thread completion
-    WaitForSingleObject(hThread, INFINITE);
+    // Wait for thread completion with timeout
+    DWORD waitResult = WaitForSingleObject(hThread, 10000); // 10 second timeout
+    if (waitResult == WAIT_TIMEOUT) {
+        logCallback("ERROR: DLL injection timed out");
+        CloseHandle(hThread);
+        VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
+        return false;
+    }
     
+    // Get thread exit code
+    DWORD exitCode;
+    if (GetExitCodeThread(hThread, &exitCode) && exitCode != 0) {
+        logCallback("DLL successfully loaded. Module handle: 0x" + std::to_string(exitCode));
+    } else {
+        logCallback("WARNING: DLL may not have loaded correctly");
+    }
+
     // Cleanup
     CloseHandle(hThread);
     VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
+    logCallback("DLL injection completed");
     
     return true;
 }
@@ -385,23 +417,45 @@ private:
         // Wait a moment before injecting
         Sleep(2000);
 
-        // Inject DLL
+        // Inject DLL with improved error handling
         std::wstring dllPath = std::wstring(currentDir) + L"\\zerofn.dll";
-        logMessage("Injecting ZeroFN DLL...");
-        if (InjectDLL(piGame.hProcess, dllPath)) {
-            logMessage("DLL injection successful");
-        } else {
-            logMessage("ERROR: Failed to inject DLL");
+        logMessage("Starting DLL injection process...");
+        
+        // Verify DLL exists
+        if (!fs::exists(dllPath)) {
+            logMessage("ERROR: zerofn.dll not found at: " + std::string(dllPath.begin(), dllPath.end()));
             TerminateProcess(piGame.hProcess, 0);
             CloseHandle(piGame.hProcess);
             CloseHandle(piGame.hThread);
             return;
         }
-        
+
+        // Attempt DLL injection with retries
+        bool injectionSuccess = false;
+        for (int attempt = 1; attempt <= 3 && !injectionSuccess; attempt++) {
+            logMessage("DLL injection attempt " + std::to_string(attempt) + "...");
+            injectionSuccess = InjectDLL(piGame.hProcess, dllPath, [](const std::string& msg) {
+                ZeroFNLauncher::logMessage(msg);
+            });
+            
+            if (!injectionSuccess && attempt < 3) {
+                logMessage("Injection failed, waiting before retry...");
+                Sleep(1000);
+            }
+        }
+
+        if (!injectionSuccess) {
+            logMessage("ERROR: All DLL injection attempts failed");
+            TerminateProcess(piGame.hProcess, 0);
+            CloseHandle(piGame.hProcess);
+            CloseHandle(piGame.hThread);
+            return;
+        }
+
         // Resume the process
-        logMessage("Starting Fortnite...");
+        logMessage("DLL injection successful, resuming Fortnite...");
         ResumeThread(piGame.hThread);
-        logMessage("Fortnite process started");
+        logMessage("Fortnite process resumed");
 
         CloseHandle(piGame.hProcess);
         CloseHandle(piGame.hThread);

@@ -178,12 +178,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
             // Install hooks using direct IAT patching
             bool success = true;
-            success &= InstallHook((PVOID*)&originalHttpSendRequestA, HookedHttpSendRequestA);
-            success &= InstallHook((PVOID*)&originalHttpOpenRequestA, HookedHttpOpenRequestA);
-            success &= InstallHook((PVOID*)&originalInternetConnectA, HookedInternetConnectA);
-            success &= InstallHook((PVOID*)&originalHttpSendRequestW, HookedHttpSendRequestW);
-            success &= InstallHook((PVOID*)&originalHttpOpenRequestW, HookedHttpOpenRequestW);
-            success &= InstallHook((PVOID*)&originalInternetConnectW, HookedInternetConnectW);
+            success &= InstallHook((PVOID*)&originalHttpSendRequestA, (PVOID)HookedHttpSendRequestA);
+            success &= InstallHook((PVOID*)&originalHttpOpenRequestA, (PVOID)HookedHttpOpenRequestA);
+            success &= InstallHook((PVOID*)&originalInternetConnectA, (PVOID)HookedInternetConnectA);
+            success &= InstallHook((PVOID*)&originalHttpSendRequestW, (PVOID)HookedHttpSendRequestW);
+            success &= InstallHook((PVOID*)&originalHttpOpenRequestW, (PVOID)HookedHttpOpenRequestW);
+            success &= InstallHook((PVOID*)&originalInternetConnectW, (PVOID)HookedInternetConnectW);
 
             if (success) {
                 LogToFile("=== ZeroFN Private Server Successfully Initialized ===");

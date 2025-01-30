@@ -14,8 +14,10 @@
 #include <chrono>
 #include <functional>
 #include <userenv.h>
+#include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
+#pragma comment(lib, "psapi.lib") // Added for psapi functions
 
 namespace fs = std::experimental::filesystem;
 

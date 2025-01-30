@@ -1,3 +1,5 @@
+#include <WinSock2.h> // Must come before Windows.h
+#include <ws2tcpip.h>
 #include <Windows.h>
 #include <iostream>
 #include <string>
@@ -9,8 +11,6 @@
 #include <TlHelp32.h>
 #include <mutex>
 #include <chrono>
-#include <WinSock2.h>
-#include <ws2tcpip.h>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
@@ -117,7 +117,6 @@ bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
     std::string sDomain(wDomain.begin(), wDomain.end());
     return ShouldBlockDomain(sDomain.c_str(), response);
 }
-
 // Enhanced hooked functions with active response generation and caching
 BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
     std::string response;

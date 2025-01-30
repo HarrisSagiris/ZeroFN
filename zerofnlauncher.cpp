@@ -152,7 +152,7 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
         }
     }
 
-    logMessage("ERROR: Could not verify DLL was loaded");
+    logCallback("ERROR: Could not verify DLL was loaded");
     return false;
 }
 

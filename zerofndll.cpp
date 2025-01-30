@@ -9,9 +9,12 @@
 #include <TlHelp32.h>
 #include <mutex>
 #include <chrono>
+#include <WinSock2.h>
+#include <ws2tcpip.h>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 // Function pointer types for hooks
 typedef BOOL(WINAPI* tHttpSendRequestA)(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength);
@@ -36,6 +39,31 @@ const INTERNET_PORT LOCAL_PORT = 7777;
 
 // Mutex for thread-safe logging
 std::mutex logMutex;
+
+// Check if server is listening
+bool IsServerListening() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        return false;
+    }
+
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        WSACleanup();
+        return false;
+    }
+
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(LOCAL_PORT);
+    inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
+
+    bool isListening = (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0);
+    
+    closesocket(sock);
+    WSACleanup();
+    return isListening;
+}
 
 // Logger function
 void LogToFile(const std::string& message) {
@@ -65,6 +93,14 @@ const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
 // Enhanced domain blocking with active response generation
 bool ShouldBlockDomain(const char* domain, std::string& response) {
     if (!domain) return false;
+    
+    // First check if our local server is running
+    if (!IsServerListening()) {
+        LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+        MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+        return false;
+    }
+
     for (const auto& bypass : BYPASS_RESPONSES) {
         if (strstr(domain, bypass.first.c_str())) {
             response = bypass.second;

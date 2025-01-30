@@ -707,6 +707,7 @@ HWND ZeroFNLauncher::pathEdit = NULL;
 HWND ZeroFNLauncher::startButton = NULL;
 HWND ZeroFNLauncher::stopButton = NULL;
 HWND ZeroFNLauncher::consoleOutput = NULL;
+HWND ZeroFNLauncher::downloadButton = NULL;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     ZeroFNLauncher launcher;

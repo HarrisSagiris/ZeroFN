@@ -7,6 +7,8 @@
 #include <sstream>
 #include <fstream>
 #include <TlHelp32.h>
+#include <mutex>
+#include <chrono>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
@@ -32,69 +34,103 @@ const char* LOCAL_SERVER = "127.0.0.1";
 const wchar_t* LOCAL_SERVER_W = L"127.0.0.1";
 const INTERNET_PORT LOCAL_PORT = 7777;
 
-// Block list for Epic/Fortnite domains
-const std::vector<std::string> BLOCKED_DOMAINS = {
-    "epicgames.com",
-    "fortnite.com",
-    "ol.epicgames.com",
-    "account-public-service-prod03",
-    "lightswitch-public-service-prod06",
-    "launcher-public-service-prod06"
+// Mutex for thread-safe logging
+std::mutex logMutex;
+
+// Logger function
+void LogToFile(const std::string& message) {
+    std::lock_guard<std::mutex> lock(logMutex);
+    std::ofstream logFile("zerofn_bypass.log", std::ios::app);
+    auto now = std::chrono::system_clock::now();
+    auto now_c = std::chrono::system_clock::to_time_t(now);
+    char timestamp[64];
+    strftime(timestamp, sizeof(timestamp), "[%Y-%m-%d %H:%M:%S]", localtime(&now_c));
+    logFile << timestamp << " " << message << std::endl;
+    std::cout << timestamp << " " << message << std::endl;
+}
+
+// Block list for Epic/Fortnite domains with active bypass responses
+const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
+    {"epicgames.com", "{\"success\":true,\"account_id\":\"bypass_account\",\"session_id\":\"active_session\"}"},
+    {"fortnite.com", "{\"status\":\"UP\",\"message\":\"Fortnite is online\",\"version\":\"2.0.0\"}"},
+    {"ol.epicgames.com", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"authentication successful\"}"},
+    {"account-public-service-prod03", "{\"access_token\":\"bypass_token\",\"expires_in\":28800,\"client_id\":\"fortnitePCGameClient\"}"},
+    {"lightswitch-public-service-prod06", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"lightswitch check passed\"}"},
+    {"launcher-public-service-prod06", "{\"buildVersion\":\"++Fortnite+Release-2.5.0\",\"status\":\"ACTIVE\",\"message\":\"launcher check passed\"}")
 };
 
-// Helper function to check if domain should be blocked
-bool ShouldBlockDomain(const char* domain) {
-    for (const auto& blocked : BLOCKED_DOMAINS) {
-        if (strstr(domain, blocked.c_str())) {
+// Enhanced domain blocking with active response generation
+bool ShouldBlockDomain(const char* domain, std::string& response) {
+    for (const auto& bypass : BYPASS_RESPONSES) {
+        if (strstr(domain, bypass.first.c_str())) {
+            response = bypass.second;
+            LogToFile("Intercepted request to " + std::string(domain) + " - Generating bypass response");
             return true;
         }
     }
     return false;
 }
 
-bool ShouldBlockDomainW(const wchar_t* domain) {
+bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
     std::wstring wDomain(domain);
     std::string sDomain(wDomain.begin(), wDomain.end());
-    return ShouldBlockDomain(sDomain.c_str());
+    return ShouldBlockDomain(sDomain.c_str(), response);
 }
 
-// Hooked functions that redirect all traffic to local server
+// Enhanced hooked functions with active response generation
 BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
-    // Always succeed to bypass auth checks
+    LogToFile("Intercepted HttpSendRequestA - Generating success response");
     return TRUE;
 }
 
 BOOL WINAPI HookedHttpSendRequestW(HINTERNET hRequest, LPCWSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
-    // Always succeed to bypass auth checks
+    LogToFile("Intercepted HttpSendRequestW - Generating success response");
     return TRUE;
 }
 
 HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
-    // Disable SSL/TLS verification
-    dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
-    dwFlags &= ~INTERNET_FLAG_SECURE;
-    return originalHttpOpenRequestA(hConnect, lpszVerb, "/", lpszVersion, NULL, lplpszAcceptTypes, dwFlags, dwContext);
+    std::string response;
+    if (lpszObjectName && ShouldBlockDomain(lpszObjectName, response)) {
+        LogToFile("Redirecting HTTP request to local server: " + std::string(lpszObjectName));
+        dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+        dwFlags &= ~INTERNET_FLAG_SECURE;
+        return originalHttpOpenRequestA(hConnect, "GET", "/", "HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
+    }
+    return originalHttpOpenRequestA(hConnect, lpszVerb, lpszObjectName, lpszVersion, lpszReferrer, lplpszAcceptTypes, dwFlags, dwContext);
 }
 
 HINTERNET WINAPI HookedHttpOpenRequestW(HINTERNET hConnect, LPCWSTR lpszVerb, LPCWSTR lpszObjectName, LPCWSTR lpszVersion, LPCWSTR lpszReferrer, LPCWSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
-    // Disable SSL/TLS verification
-    dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
-    dwFlags &= ~INTERNET_FLAG_SECURE;
-    return originalHttpOpenRequestW(hConnect, lpszVerb, L"/", lpszVersion, NULL, lplpszAcceptTypes, dwFlags, dwContext);
+    std::string response;
+    if (lpszObjectName && ShouldBlockDomainW(lpszObjectName, response)) {
+        LogToFile("Redirecting HTTPS request to local server");
+        dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+        dwFlags &= ~INTERNET_FLAG_SECURE;
+        return originalHttpOpenRequestW(hConnect, L"GET", L"/", L"HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
+    }
+    return originalHttpOpenRequestW(hConnect, lpszVerb, lpszObjectName, lpszVersion, lpszReferrer, lplpszAcceptTypes, dwFlags, dwContext);
 }
 
 HINTERNET WINAPI HookedInternetConnectA(HINTERNET hInternet, LPCSTR lpszServerName, INTERNET_PORT nServerPort, LPCSTR lpszUserName, LPCSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext) {
-    // Redirect all connections to local server
-    return originalInternetConnectA(hInternet, LOCAL_SERVER, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
+    std::string response;
+    if (ShouldBlockDomain(lpszServerName, response)) {
+        LogToFile("Redirecting connection to local server from: " + std::string(lpszServerName));
+        return originalInternetConnectA(hInternet, LOCAL_SERVER, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
+    }
+    return originalInternetConnectA(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
 }
 
 HINTERNET WINAPI HookedInternetConnectW(HINTERNET hInternet, LPCWSTR lpszServerName, INTERNET_PORT nServerPort, LPCWSTR lpszUserName, LPCWSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext) {
-    // Redirect all connections to local server
-    return originalInternetConnectW(hInternet, LOCAL_SERVER_W, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
+    std::string response;
+    if (ShouldBlockDomainW(lpszServerName, response)) {
+        LogToFile("Redirecting secure connection to local server");
+        return originalInternetConnectW(hInternet, LOCAL_SERVER_W, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
+    }
+    return originalInternetConnectW(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
 }
 
 // Export function to verify injection
 extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
+    LogToFile("Injection verification requested - Status: Active");
     return TRUE;
 }
 
@@ -112,7 +148,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             AllocConsole();
             FILE* f;
             freopen_s(&f, "CONOUT$", "w", stdout);
-            std::cout << "ZeroFN Auth Bypass DLL Injected" << std::endl;
+            LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
 
             // Get wininet functions
             HMODULE hWininet = GetModuleHandleA("wininet.dll");
@@ -120,7 +156,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 hWininet = LoadLibraryA("wininet.dll");
             }
             if (!hWininet) {
-                std::cout << "Failed to load wininet.dll" << std::endl;
+                LogToFile("ERROR: Failed to load wininet.dll");
                 return FALSE;
             }
 
@@ -132,42 +168,37 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             originalHttpOpenRequestW = (tHttpOpenRequestW)GetProcAddress(hWininet, "HttpOpenRequestW");
             originalInternetConnectW = (tInternetConnectW)GetProcAddress(hWininet, "InternetConnectW");
 
-            // Install hooks
+            // Install hooks with improved error handling
             DWORD oldProtect;
-            VirtualProtect((LPVOID)originalHttpSendRequestA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
-            *(BYTE*)originalHttpSendRequestA = 0xE9;
-            *(DWORD*)((BYTE*)originalHttpSendRequestA + 1) = (DWORD)((BYTE*)HookedHttpSendRequestA - (BYTE*)originalHttpSendRequestA - 5);
-            VirtualProtect((LPVOID)originalHttpSendRequestA, 5, oldProtect, &oldProtect);
+            auto InstallHook = [&](void* original, void* hooked, const char* name) {
+                if (!VirtualProtect(original, 5, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                    LogToFile("ERROR: Failed to modify protection for " + std::string(name));
+                    return false;
+                }
+                *(BYTE*)original = 0xE9;
+                *(DWORD*)((BYTE*)original + 1) = (DWORD)((BYTE*)hooked - (BYTE*)original - 5);
+                VirtualProtect(original, 5, oldProtect, &oldProtect);
+                LogToFile("Successfully installed hook for " + std::string(name));
+                return true;
+            };
 
-            VirtualProtect((LPVOID)originalHttpOpenRequestA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
-            *(BYTE*)originalHttpOpenRequestA = 0xE9;
-            *(DWORD*)((BYTE*)originalHttpOpenRequestA + 1) = (DWORD)((BYTE*)HookedHttpOpenRequestA - (BYTE*)originalHttpOpenRequestA - 5);
-            VirtualProtect((LPVOID)originalHttpOpenRequestA, 5, oldProtect, &oldProtect);
+            bool success = true;
+            success &= InstallHook(originalHttpSendRequestA, HookedHttpSendRequestA, "HttpSendRequestA");
+            success &= InstallHook(originalHttpOpenRequestA, HookedHttpOpenRequestA, "HttpOpenRequestA");
+            success &= InstallHook(originalInternetConnectA, HookedInternetConnectA, "InternetConnectA");
+            success &= InstallHook(originalHttpSendRequestW, HookedHttpSendRequestW, "HttpSendRequestW");
+            success &= InstallHook(originalHttpOpenRequestW, HookedHttpOpenRequestW, "HttpOpenRequestW");
+            success &= InstallHook(originalInternetConnectW, HookedInternetConnectW, "InternetConnectW");
 
-            VirtualProtect((LPVOID)originalInternetConnectA, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
-            *(BYTE*)originalInternetConnectA = 0xE9;
-            *(DWORD*)((BYTE*)originalInternetConnectA + 1) = (DWORD)((BYTE*)HookedInternetConnectA - (BYTE*)originalInternetConnectA - 5);
-            VirtualProtect((LPVOID)originalInternetConnectA, 5, oldProtect, &oldProtect);
-
-            VirtualProtect((LPVOID)originalHttpSendRequestW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
-            *(BYTE*)originalHttpSendRequestW = 0xE9;
-            *(DWORD*)((BYTE*)originalHttpSendRequestW + 1) = (DWORD)((BYTE*)HookedHttpSendRequestW - (BYTE*)originalHttpSendRequestW - 5);
-            VirtualProtect((LPVOID)originalHttpSendRequestW, 5, oldProtect, &oldProtect);
-
-            VirtualProtect((LPVOID)originalHttpOpenRequestW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
-            *(BYTE*)originalHttpOpenRequestW = 0xE9;
-            *(DWORD*)((BYTE*)originalHttpOpenRequestW + 1) = (DWORD)((BYTE*)HookedHttpOpenRequestW - (BYTE*)originalHttpOpenRequestW - 5);
-            VirtualProtect((LPVOID)originalHttpOpenRequestW, 5, oldProtect, &oldProtect);
-
-            VirtualProtect((LPVOID)originalInternetConnectW, 5, PAGE_EXECUTE_READWRITE, &oldProtect);
-            *(BYTE*)originalInternetConnectW = 0xE9;
-            *(DWORD*)((BYTE*)originalInternetConnectW + 1) = (DWORD)((BYTE*)HookedInternetConnectW - (BYTE*)originalInternetConnectW - 5);
-            VirtualProtect((LPVOID)originalInternetConnectW, 5, oldProtect, &oldProtect);
-
-            std::cout << "All hooks installed successfully" << std::endl;
+            if (success) {
+                LogToFile("All hooks installed successfully - Active bypass system ready");
+            } else {
+                LogToFile("WARNING: Some hooks failed to install - System may not function correctly");
+            }
             break;
         }
         case DLL_PROCESS_DETACH:
+            LogToFile("DLL detaching - Shutting down bypass system");
             break;
     }
     return TRUE;

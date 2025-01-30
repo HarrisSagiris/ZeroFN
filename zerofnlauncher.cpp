@@ -13,76 +13,82 @@
 #include <thread>
 #include <chrono>
 #include <functional>
-#include <userenv.h> // Add this for CreateEnvironmentBlock
+#include <userenv.h>
 #pragma comment(lib, "wininet.lib")
-#pragma comment(lib, "userenv.lib") // Add this for CreateEnvironmentBlock
+#pragma comment(lib, "userenv.lib")
 
 namespace fs = std::experimental::filesystem;
 
 // Helper function to inject DLL with improved error handling and logging
 bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)(const std::string&)) {
-    logCallback("Starting DLL injection process...");
-    logCallback("DLL Path: " + std::string(dllPath.begin(), dllPath.end()));
+    logCallback("Starting DLL injection into Fortnite process...");
+
+    // Get the full path to zerofn.dll
+    WCHAR fullDllPath[MAX_PATH];
+    GetFullPathNameW(dllPath.c_str(), MAX_PATH, fullDllPath, nullptr);
+    logCallback("Full DLL Path: " + std::string(dllPath.begin(), dllPath.end()));
 
     // Get LoadLibraryW address
-    void* loadLibAddr = (void*)GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryW");
-    if (!loadLibAddr) {
-        logCallback("ERROR: Failed to get LoadLibraryW address");
-        return false;
-    }
-    logCallback("LoadLibraryW address obtained successfully");
-
-    // Allocate memory for DLL path
-    void* dllPathAddr = VirtualAllocEx(hProcess, 0, (dllPath.size() + 1) * sizeof(wchar_t), 
-        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!dllPathAddr) {
-        logCallback("ERROR: Failed to allocate memory in target process");
-        return false;
-    }
-    logCallback("Memory allocated successfully in target process");
-
-    // Write DLL path
-    if (!WriteProcessMemory(hProcess, dllPathAddr, dllPath.c_str(), 
-        (dllPath.size() + 1) * sizeof(wchar_t), nullptr)) {
-        logCallback("ERROR: Failed to write DLL path to target process memory");
-        VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
-        return false;
-    }
-    logCallback("DLL path written to target process memory");
-
-    // Create remote thread to load DLL
-    logCallback("Creating remote thread for DLL injection...");
-    HANDLE hThread = CreateRemoteThread(hProcess, nullptr, 0,
-        (LPTHREAD_START_ROUTINE)loadLibAddr, dllPathAddr, 0, nullptr);
-    if (!hThread) {
-        logCallback("ERROR: Failed to create remote thread");
-        VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
-        return false;
-    }
-    logCallback("Remote thread created successfully");
-
-    // Wait for thread completion with timeout
-    DWORD waitResult = WaitForSingleObject(hThread, 10000); // 10 second timeout
-    if (waitResult == WAIT_TIMEOUT) {
-        logCallback("ERROR: DLL injection timed out");
-        CloseHandle(hThread);
-        VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
+    HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
+    if (!hKernel32) {
+        logCallback("ERROR: Could not get kernel32.dll handle");
         return false;
     }
     
-    // Get thread exit code
-    DWORD exitCode;
-    if (GetExitCodeThread(hThread, &exitCode) && exitCode != 0) {
-        logCallback("DLL successfully loaded. Module handle: 0x" + std::to_string(exitCode));
-    } else {
-        logCallback("WARNING: DLL may not have loaded correctly");
+    FARPROC loadLibraryAddr = GetProcAddress(hKernel32, "LoadLibraryW");
+    if (!loadLibraryAddr) {
+        logCallback("ERROR: Could not get LoadLibraryW address");
+        return false;
     }
+    logCallback("Successfully got LoadLibraryW address");
+
+    // Allocate memory in Fortnite process
+    SIZE_T pathSize = (wcslen(fullDllPath) + 1) * sizeof(WCHAR);
+    LPVOID remoteMem = VirtualAllocEx(hProcess, NULL, pathSize, 
+        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    
+    if (!remoteMem) {
+        logCallback("ERROR: Could not allocate memory in Fortnite process");
+        return false;
+    }
+    logCallback("Successfully allocated memory in Fortnite process");
+
+    // Write DLL path to Fortnite process memory
+    if (!WriteProcessMemory(hProcess, remoteMem, fullDllPath, pathSize, NULL)) {
+        logCallback("ERROR: Could not write to Fortnite process memory");
+        VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
+        return false;
+    }
+    logCallback("Successfully wrote DLL path to Fortnite process memory");
+
+    // Create remote thread to load DLL
+    HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0,
+        (LPTHREAD_START_ROUTINE)loadLibraryAddr, remoteMem, 0, NULL);
+        
+    if (!hThread) {
+        logCallback("ERROR: Could not create remote thread in Fortnite");
+        VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
+        return false;
+    }
+    logCallback("Successfully created remote thread");
+
+    // Wait for injection to complete
+    WaitForSingleObject(hThread, INFINITE);
+
+    // Get injection result
+    DWORD exitCode = 0;
+    GetExitCodeThread(hThread, &exitCode);
 
     // Cleanup
     CloseHandle(hThread);
-    VirtualFreeEx(hProcess, dllPathAddr, 0, MEM_RELEASE);
-    logCallback("DLL injection completed");
-    
+    VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
+
+    if (exitCode == 0) {
+        logCallback("ERROR: DLL injection failed");
+        return false;
+    }
+
+    logCallback("Successfully injected ZeroFN DLL into Fortnite!");
     return true;
 }
 

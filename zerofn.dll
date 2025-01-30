@@ -13,6 +13,12 @@
 #pragma comment(lib, "urlmon.lib")
 #pragma comment(lib, "detours.lib")
 
+#ifdef _WIN64
+#pragma comment(lib, "detours_x64.lib")
+#else
+#pragma comment(lib, "detours_x86.lib") 
+#endif
+
 // Function pointer types for hooks
 typedef BOOL(WINAPI* tHttpSendRequestA)(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength);
 typedef HINTERNET(WINAPI* tHttpOpenRequestA)(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext);
@@ -128,6 +134,21 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
+
+            // Verify process architecture matches DLL
+            BOOL isWow64 = FALSE;
+            IsWow64Process(GetCurrentProcess(), &isWow64);
+            #ifdef _WIN64
+            if (isWow64) {
+                MessageBoxA(NULL, "Cannot inject 64-bit DLL into 32-bit process", "Architecture Mismatch", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+            #else
+            if (!isWow64) {
+                MessageBoxA(NULL, "Cannot inject 32-bit DLL into 64-bit process", "Architecture Mismatch", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+            #endif
 
             // Wait for Fortnite to initialize
             WaitForFortniteInit();

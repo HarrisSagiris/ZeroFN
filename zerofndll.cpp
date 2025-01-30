@@ -56,11 +56,12 @@ const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
     {"ol.epicgames.com", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"authentication successful\"}"},
     {"account-public-service-prod03", "{\"access_token\":\"bypass_token\",\"expires_in\":28800,\"client_id\":\"fortnitePCGameClient\"}"},
     {"lightswitch-public-service-prod06", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"lightswitch check passed\"}"},
-    {"launcher-public-service-prod06", "{\"buildVersion\":\"++Fortnite+Release-2.5.0\",\"status\":\"ACTIVE\",\"message\":\"launcher check passed\"}")
+    {"launcher-public-service-prod06", "{\"buildVersion\":\"++Fortnite+Release-2.5.0\",\"status\":\"ACTIVE\",\"message\":\"launcher check passed\"}"}
 };
 
 // Enhanced domain blocking with active response generation
 bool ShouldBlockDomain(const char* domain, std::string& response) {
+    if (!domain) return false;
     for (const auto& bypass : BYPASS_RESPONSES) {
         if (strstr(domain, bypass.first.c_str())) {
             response = bypass.second;
@@ -72,6 +73,7 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
 }
 
 bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
+    if (!domain) return false;
     std::wstring wDomain(domain);
     std::string sDomain(wDomain.begin(), wDomain.end());
     return ShouldBlockDomain(sDomain.c_str(), response);
@@ -80,11 +82,13 @@ bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
 // Enhanced hooked functions with active response generation
 BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
     LogToFile("Intercepted HttpSendRequestA - Generating success response");
+    SetLastError(0);
     return TRUE;
 }
 
 BOOL WINAPI HookedHttpSendRequestW(HINTERNET hRequest, LPCWSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
     LogToFile("Intercepted HttpSendRequestW - Generating success response");
+    SetLastError(0);
     return TRUE;
 }
 
@@ -128,6 +132,24 @@ HINTERNET WINAPI HookedInternetConnectW(HINTERNET hInternet, LPCWSTR lpszServerN
     return originalInternetConnectW(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
 }
 
+// Function to install hooks using detours
+template<typename T>
+bool InstallHook(T& original, T hooked, const char* name) {
+    DWORD oldProtect;
+    LPVOID originalPtr = reinterpret_cast<LPVOID>(original);
+    
+    if (!VirtualProtect(originalPtr, sizeof(T), PAGE_EXECUTE_READWRITE, &oldProtect)) {
+        LogToFile("ERROR: Failed to modify protection for " + std::string(name));
+        return false;
+    }
+
+    memcpy(originalPtr, &hooked, sizeof(T));
+    VirtualProtect(originalPtr, sizeof(T), oldProtect, &oldProtect);
+    
+    LogToFile("Successfully installed hook for " + std::string(name));
+    return true;
+}
+
 // Export function to verify injection
 extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
     LogToFile("Injection verification requested - Status: Active");
@@ -138,11 +160,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
-
-            // Only allow 64-bit processes
-            #ifndef _WIN64
-            return FALSE;
-            #endif
 
             // Create console for debugging
             AllocConsole();
@@ -168,20 +185,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             originalHttpOpenRequestW = (tHttpOpenRequestW)GetProcAddress(hWininet, "HttpOpenRequestW");
             originalInternetConnectW = (tInternetConnectW)GetProcAddress(hWininet, "InternetConnectW");
 
-            // Install hooks with improved error handling
-            DWORD oldProtect;
-            auto InstallHook = [&](void* original, void* hooked, const char* name) {
-                if (!VirtualProtect(original, 5, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-                    LogToFile("ERROR: Failed to modify protection for " + std::string(name));
-                    return false;
-                }
-                *(BYTE*)original = 0xE9;
-                *(DWORD*)((BYTE*)original + 1) = (DWORD)((BYTE*)hooked - (BYTE*)original - 5);
-                VirtualProtect(original, 5, oldProtect, &oldProtect);
-                LogToFile("Successfully installed hook for " + std::string(name));
-                return true;
-            };
-
+            // Install hooks
             bool success = true;
             success &= InstallHook(originalHttpSendRequestA, HookedHttpSendRequestA, "HttpSendRequestA");
             success &= InstallHook(originalHttpOpenRequestA, HookedHttpOpenRequestA, "HttpOpenRequestA");

@@ -7,6 +7,7 @@
 #include <detours.h>
 #include <sstream>
 #include <fstream>
+#include <TlHelp32.h>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
@@ -90,10 +91,33 @@ extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
     return TRUE;
 }
 
+// Helper function to wait for Fortnite process to be fully initialized
+void WaitForFortniteInit() {
+    Sleep(5000); // Initial wait
+    
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetCurrentProcessId());
+    if (snapshot != INVALID_HANDLE_VALUE) {
+        MODULEENTRY32W me32;
+        me32.dwSize = sizeof(MODULEENTRY32W);
+        
+        for (int i = 0; i < 30 && Module32FirstW(snapshot, &me32); i++) { // Try for 30 seconds
+            if (wcsstr(me32.szModule, L"FortniteClient-Win64-Shipping.exe")) {
+                CloseHandle(snapshot);
+                return;
+            }
+            Sleep(1000);
+        }
+        CloseHandle(snapshot);
+    }
+}
+
 extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
+
+            // Wait for Fortnite to initialize
+            WaitForFortniteInit();
 
             // Create console for logging
             AllocConsole();
@@ -101,14 +125,21 @@ extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul
             freopen_s(&f, "CONOUT$", "w", stdout);
             std::cout << "ZeroFN DLL Injection Started..." << std::endl;
 
-            // Load wininet.dll
-            HMODULE hWininet = GetModuleHandleA("wininet.dll");
+            // Load wininet.dll with retry mechanism
+            HMODULE hWininet = nullptr;
+            for (int i = 0; i < 5 && !hWininet; i++) {
+                hWininet = GetModuleHandleA("wininet.dll");
+                if (!hWininet) {
+                    Sleep(1000);
+                }
+            }
+
             if (!hWininet) {
-                std::cout << "Failed to get wininet.dll handle" << std::endl;
+                std::cout << "Failed to get wininet.dll handle after retries" << std::endl;
                 return FALSE;
             }
 
-            // Get function addresses
+            // Get function addresses with verification
             originalHttpSendRequestA = (tHttpSendRequestA)GetProcAddress(hWininet, "HttpSendRequestA");
             originalHttpOpenRequestA = (tHttpOpenRequestA)GetProcAddress(hWininet, "HttpOpenRequestA");
             originalInternetConnectA = (tInternetConnectA)GetProcAddress(hWininet, "InternetConnectA");
@@ -116,27 +147,33 @@ extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul
             originalHttpOpenRequestW = (tHttpOpenRequestW)GetProcAddress(hWininet, "HttpOpenRequestW");
             originalInternetConnectW = (tInternetConnectW)GetProcAddress(hWininet, "InternetConnectW");
 
-            // Verify all functions were found
             if (!originalHttpSendRequestA || !originalHttpOpenRequestA || !originalInternetConnectA ||
                 !originalHttpSendRequestW || !originalHttpOpenRequestW || !originalInternetConnectW) {
                 std::cout << "Failed to get all required function addresses" << std::endl;
                 return FALSE;
             }
 
-            // Attach hooks
-            DetourTransactionBegin();
-            DetourUpdateThread(GetCurrentThread());
+            // Attach hooks with retry mechanism
+            LONG error = -1;
+            for (int i = 0; i < 3 && error != NO_ERROR; i++) {
+                DetourTransactionBegin();
+                DetourUpdateThread(GetCurrentThread());
 
-            DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
-            DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
-            DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
-            DetourAttach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
-            DetourAttach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
-            DetourAttach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
+                DetourAttach(&(PVOID&)originalHttpSendRequestA, HookedHttpSendRequestA);
+                DetourAttach(&(PVOID&)originalHttpOpenRequestA, HookedHttpOpenRequestA);
+                DetourAttach(&(PVOID&)originalInternetConnectA, HookedInternetConnectA);
+                DetourAttach(&(PVOID&)originalHttpSendRequestW, HookedHttpSendRequestW);
+                DetourAttach(&(PVOID&)originalHttpOpenRequestW, HookedHttpOpenRequestW);
+                DetourAttach(&(PVOID&)originalInternetConnectW, HookedInternetConnectW);
 
-            LONG error = DetourTransactionCommit();
+                error = DetourTransactionCommit();
+                if (error != NO_ERROR) {
+                    Sleep(1000);
+                }
+            }
+
             if (error != NO_ERROR) {
-                std::cout << "Failed to attach hooks: " << error << std::endl;
+                std::cout << "Failed to attach hooks after retries: " << error << std::endl;
                 return FALSE;
             }
 

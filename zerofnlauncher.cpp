@@ -45,7 +45,7 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
     // Allocate memory in Fortnite process with retry logic
     SIZE_T pathSize = (wcslen(fullDllPath) + 1) * sizeof(WCHAR);
     LPVOID remoteMem = nullptr;
-    int maxRetries = 3;
+    int maxRetries = 5; // Increased retries
     
     for(int i = 0; i < maxRetries && remoteMem == nullptr; i++) {
         remoteMem = VirtualAllocEx(hProcess, NULL, pathSize, 
@@ -53,7 +53,7 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
             
         if(!remoteMem) {
             logCallback("Memory allocation attempt " + std::to_string(i+1) + " failed, retrying...");
-            Sleep(1000); // Wait before retry
+            Sleep(2000); // Increased wait time
         }
     }
     
@@ -69,7 +69,7 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
         writeSuccess = WriteProcessMemory(hProcess, remoteMem, fullDllPath, pathSize, NULL);
         if(!writeSuccess) {
             logCallback("Write memory attempt " + std::to_string(i+1) + " failed, retrying...");
-            Sleep(1000);
+            Sleep(2000); // Increased wait time
         }
     }
 
@@ -88,7 +88,7 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
             
         if(!hThread) {
             logCallback("Thread creation attempt " + std::to_string(i+1) + " failed, retrying...");
-            Sleep(1000);
+            Sleep(2000); // Increased wait time
         }
     }
         
@@ -99,8 +99,8 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
     }
     logCallback("Successfully created remote thread");
 
-    // Wait for injection to complete with timeout
-    DWORD waitResult = WaitForSingleObject(hThread, 10000); // 10 second timeout
+    // Wait for injection to complete with increased timeout
+    DWORD waitResult = WaitForSingleObject(hThread, 30000); // 30 second timeout
     if(waitResult != WAIT_OBJECT_0) {
         logCallback("ERROR: Thread wait timeout or error");
         CloseHandle(hThread);
@@ -117,8 +117,9 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
     VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
 
     if (exitCode == 0) {
-        logCallback("ERROR: DLL injection failed");
-        return false;
+        logCallback("ERROR: DLL injection failed - retrying injection process");
+        Sleep(5000); // Wait before retry
+        return InjectDLL(hProcess, dllPath, logCallback); // Recursive retry
     }
 
     logCallback("Successfully injected ZeroFN DLL into Fortnite!");
@@ -450,7 +451,7 @@ private:
         logMessage("Fortnite process created successfully with elevated privileges");
 
         // Wait longer before injecting to ensure process is fully initialized
-        Sleep(5000);
+        Sleep(10000); // Increased wait time before injection
 
         // Inject DLL with improved error handling
         std::wstring dllPath = std::wstring(currentDir) + L"\\zerofn.dll";
@@ -466,13 +467,13 @@ private:
 
         // Attempt DLL injection with more retries and longer waits
         bool injectionSuccess = false;
-        for (int attempt = 1; attempt <= 5 && !injectionSuccess; attempt++) {
+        for (int attempt = 1; attempt <= 10 && !injectionSuccess; attempt++) { // Increased max attempts
             logMessage("DLL injection attempt " + std::to_string(attempt) + "...");
             injectionSuccess = InjectDLL(piGame.hProcess, dllPath, logMessage);
             
-            if (!injectionSuccess && attempt < 5) {
+            if (!injectionSuccess && attempt < 10) {
                 logMessage("Injection failed, waiting before retry...");
-                Sleep(2000); // Increased wait time between attempts
+                Sleep(3000); // Increased wait time between attempts
             }
         }
 

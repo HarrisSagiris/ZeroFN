@@ -32,7 +32,7 @@ tInternetConnectW originalInternetConnectW = nullptr;
 // Custom backend URL
 const char* BACKEND_URL = "127.0.0.1";
 const wchar_t* BACKEND_URL_W = L"127.0.0.1";
-const INTERNET_PORT BACKEND_PORT = 8080; 
+const INTERNET_PORT BACKEND_PORT = 8080;
 
 // Helper function to log requests
 void LogRequest(const char* type, const char* url) {
@@ -96,23 +96,34 @@ extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
 
 // Helper function to wait for Fortnite process to be fully initialized
 void WaitForFortniteInit() {
-    Sleep(2000); // Reduced initial wait
+    // Wait for Fortnite to fully initialize
+    Sleep(5000); // Increased initial wait time
     
-    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetCurrentProcessId());
-    if (snapshot != INVALID_HANDLE_VALUE) {
-        MODULEENTRY32W me32;
-        me32.dwSize = sizeof(MODULEENTRY32W);
-        
-        if (Module32FirstW(snapshot, &me32)) {
-            do {
-                if (wcsstr(me32.szModule, L"FortniteClient-Win64-Shipping.exe")) {
-                    CloseHandle(snapshot);
-                    return;
-                }
-            } while (Module32NextW(snapshot, &me32));
+    // Wait for main module to be loaded
+    while (true) {
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetCurrentProcessId());
+        if (snapshot != INVALID_HANDLE_VALUE) {
+            MODULEENTRY32W me32;
+            me32.dwSize = sizeof(MODULEENTRY32W);
+            
+            bool found = false;
+            if (Module32FirstW(snapshot, &me32)) {
+                do {
+                    if (wcsstr(me32.szModule, L"FortniteClient-Win64-Shipping.exe")) {
+                        found = true;
+                        break;
+                    }
+                } while (Module32NextW(snapshot, &me32));
+            }
+            CloseHandle(snapshot);
+            
+            if (found) break;
         }
-        CloseHandle(snapshot);
+        Sleep(100);
     }
+    
+    // Additional wait to ensure process is ready
+    Sleep(2000);
 }
 
 extern "C" __declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {

@@ -132,7 +132,8 @@ bool InstallHook(LPVOID target, LPVOID detour, LPVOID* original) {
     
     *original = target;
     BYTE jmpCode[] = {0xE9, 0x00, 0x00, 0x00, 0x00};
-    *(DWORD*)(jmpCode + 1) = (DWORD)detour - ((DWORD)target + 5);
+    UINT_PTR relativeAddress = (UINT_PTR)detour - ((UINT_PTR)target + 5);
+    *(UINT_PTR*)(jmpCode + 1) = relativeAddress;
     memcpy(target, jmpCode, 5);
     
     VirtualProtect(target, 5, oldProtect, &oldProtect);
@@ -159,22 +160,22 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             }
 
             // Get function addresses and install hooks
-            void* functions[] = {
-                GetProcAddress(hWininet, "HttpSendRequestA"),
-                GetProcAddress(hWininet, "HttpOpenRequestA"),
-                GetProcAddress(hWininet, "InternetConnectA"),
-                GetProcAddress(hWininet, "HttpSendRequestW"),
-                GetProcAddress(hWininet, "HttpOpenRequestW"),
-                GetProcAddress(hWininet, "InternetConnectW")
+            LPVOID functions[] = {
+                (LPVOID)GetProcAddress(hWininet, "HttpSendRequestA"),
+                (LPVOID)GetProcAddress(hWininet, "HttpOpenRequestA"),
+                (LPVOID)GetProcAddress(hWininet, "InternetConnectA"),
+                (LPVOID)GetProcAddress(hWininet, "HttpSendRequestW"),
+                (LPVOID)GetProcAddress(hWininet, "HttpOpenRequestW"),
+                (LPVOID)GetProcAddress(hWininet, "InternetConnectW")
             };
 
-            void* hooks[] = {
-                (void*)HookedHttpSendRequestA,
-                (void*)HookedHttpOpenRequestA,
-                (void*)HookedInternetConnectA,
-                (void*)HookedHttpSendRequestW,
-                (void*)HookedHttpOpenRequestW,
-                (void*)HookedInternetConnectW
+            LPVOID hooks[] = {
+                (LPVOID)HookedHttpSendRequestA,
+                (LPVOID)HookedHttpOpenRequestA,
+                (LPVOID)HookedInternetConnectA,
+                (LPVOID)HookedHttpSendRequestW,
+                (LPVOID)HookedHttpOpenRequestW,
+                (LPVOID)HookedInternetConnectW
             };
 
             void** originals[] = {

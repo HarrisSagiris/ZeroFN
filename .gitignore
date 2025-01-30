@@ -8,4 +8,5 @@ node_modules
 g++
 launcher.log
 zerofn.o
+__pycache__
 dist

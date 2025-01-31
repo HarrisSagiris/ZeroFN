@@ -239,24 +239,8 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
     
     std::cout << "[ZeroFN] Checking domain: " << domain << std::endl;
     
-    // First check if our local server is running
-    if (!IsServerListening()) {
-        std::cout << "[ZeroFN] ERROR: Local server is not listening on " << LOCAL_SERVER << ":" << LOCAL_PORT << std::endl;
-        LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
-        MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
-        return false;
-    }
-
-    for (const auto& bypass : BYPASS_RESPONSES) {
-        if (strstr(domain, bypass.first.c_str())) {
-            response = bypass.second;
-            LogAuthDetails(domain, response);
-            LogToFile("Intercepted request to " + std::string(domain) + " - Generating bypass response");
-            return true;
-        }
-    }
-    std::cout << "[ZeroFN] Domain not in block list: " << domain << std::endl;
-    return false;
+    // Always redirect to local server
+    return true;
 }
 
 bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
@@ -264,158 +248,42 @@ bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
     std::wstring wDomain(domain);
     std::string sDomain(wDomain.begin(), wDomain.end());
     std::cout << "[ZeroFN] Checking wide-char domain: " << sDomain << std::endl;
-    return ShouldBlockDomain(sDomain.c_str(), response);
+    return true; // Always redirect to local server
 }
 
 // Enhanced hooked functions with active response generation and caching
 BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
-    std::string response;
-    DWORD responseLength = 0;
-    
-    // Get URL from request handle
-    char urlBuffer[1024];
-    DWORD urlSize = sizeof(urlBuffer);
-    
-    std::cout << "[ZeroFN] Intercepted HttpSendRequestA" << std::endl;
-    
-    if(InternetQueryOptionA(hRequest, INTERNET_OPTION_URL, urlBuffer, &urlSize)) {
-        std::cout << "[ZeroFN] Request URL: " << urlBuffer << std::endl;
-        
-        if(ShouldBlockDomain(urlBuffer, response)) {
-            // Write cached response
-            responseLength = response.length();
-            InternetSetOptionA(hRequest, INTERNET_OPTION_SECURITY_FLAGS, 
-                (LPVOID)SECURITY_FLAG_IGNORE_CERT_CN_INVALID, sizeof(DWORD));
-            
-            // Set the response data
-            INTERNET_BUFFERSA buffers;
-            ZeroMemory(&buffers, sizeof(buffers));
-            buffers.dwStructSize = sizeof(INTERNET_BUFFERSA);
-            buffers.lpvBuffer = (LPVOID)response.c_str();
-            buffers.dwBufferLength = responseLength;
-            
-            HttpEndRequestA(hRequest, NULL, 0, 0);
-            std::cout << "[ZeroFN] Sent cached response for: " << urlBuffer << std::endl;
-            LogToFile("Sent cached response for: " + std::string(urlBuffer));
-            return TRUE;
-        }
-    }
-    
-    std::cout << "[ZeroFN] Passing request to original handler" << std::endl;
+    std::cout << "[ZeroFN] Intercepted HttpSendRequestA - Redirecting to local server" << std::endl;
     return originalHttpSendRequestA(hRequest, lpszHeaders, dwHeadersLength, lpOptional, dwOptionalLength);
 }
 
 BOOL WINAPI HookedHttpSendRequestW(HINTERNET hRequest, LPCWSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
-    std::string response;
-    DWORD responseLength = 0;
-    
-    std::cout << "[ZeroFN] Intercepted HttpSendRequestW" << std::endl;
-    
-    // Get URL from request handle
-    WCHAR urlBuffer[1024];
-    DWORD urlSize = sizeof(urlBuffer);
-    if(InternetQueryOptionW(hRequest, INTERNET_OPTION_URL, urlBuffer, &urlSize)) {
-        std::wstring wUrl(urlBuffer);
-        std::string url(wUrl.begin(), wUrl.end());
-        std::cout << "[ZeroFN] Request URL: " << url << std::endl;
-        
-        if(ShouldBlockDomainW(urlBuffer, response)) {
-            // Write cached response
-            responseLength = response.length();
-            InternetSetOptionW(hRequest, INTERNET_OPTION_SECURITY_FLAGS,
-                (LPVOID)SECURITY_FLAG_IGNORE_CERT_CN_INVALID, sizeof(DWORD));
-                
-            // Convert response to wide string
-            std::wstring wResponse(response.begin(), response.end());
-            
-            // Set the response data
-            INTERNET_BUFFERSW buffers;
-            ZeroMemory(&buffers, sizeof(buffers));
-            buffers.dwStructSize = sizeof(INTERNET_BUFFERSW);
-            buffers.lpvBuffer = (LPVOID)wResponse.c_str();
-            buffers.dwBufferLength = responseLength * sizeof(wchar_t);
-            
-            HttpEndRequestW(hRequest, NULL, 0, 0);
-            std::cout << "[ZeroFN] Sent cached response for wide-char request" << std::endl;
-            LogToFile("Sent cached response for wide-char request");
-            return TRUE;
-        }
-    }
-    
-    std::cout << "[ZeroFN] Passing request to original handler" << std::endl;
+    std::cout << "[ZeroFN] Intercepted HttpSendRequestW - Redirecting to local server" << std::endl;
     return originalHttpSendRequestW(hRequest, lpszHeaders, dwHeadersLength, lpOptional, dwOptionalLength);
 }
 
 HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
-    std::string response;
-    
-    std::cout << "[ZeroFN] Intercepted HttpOpenRequestA" << std::endl;
-    if (lpszObjectName) {
-        std::cout << "[ZeroFN] Request object: " << lpszObjectName << std::endl;
-    }
-    
-    if (lpszObjectName && ShouldBlockDomain(lpszObjectName, response)) {
-        std::cout << "[ZeroFN] Redirecting HTTP request to local server: " << lpszObjectName << std::endl;
-        LogToFile("Redirecting HTTP request to local server: " + std::string(lpszObjectName));
-        dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
-        dwFlags &= ~INTERNET_FLAG_SECURE;
-        return originalHttpOpenRequestA(hConnect, "GET", "/", "HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
-    }
-    return originalHttpOpenRequestA(hConnect, lpszVerb, lpszObjectName, lpszVersion, lpszReferrer, lplpszAcceptTypes, dwFlags, dwContext);
+    std::cout << "[ZeroFN] Intercepted HttpOpenRequestA - Redirecting to local server" << std::endl;
+    dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+    dwFlags &= ~INTERNET_FLAG_SECURE;
+    return originalHttpOpenRequestA(hConnect, "GET", "/", "HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
 }
 
 HINTERNET WINAPI HookedHttpOpenRequestW(HINTERNET hConnect, LPCWSTR lpszVerb, LPCWSTR lpszObjectName, LPCWSTR lpszVersion, LPCWSTR lpszReferrer, LPCWSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
-    std::string response;
-    
-    std::cout << "[ZeroFN] Intercepted HttpOpenRequestW" << std::endl;
-    if (lpszObjectName) {
-        std::wstring wObj(lpszObjectName);
-        std::string obj(wObj.begin(), wObj.end());
-        std::cout << "[ZeroFN] Request object: " << obj << std::endl;
-    }
-    
-    if (lpszObjectName && ShouldBlockDomainW(lpszObjectName, response)) {
-        std::cout << "[ZeroFN] Redirecting HTTPS request to local server" << std::endl;
-        LogToFile("Redirecting HTTPS request to local server");
-        dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
-        dwFlags &= ~INTERNET_FLAG_SECURE;
-        return originalHttpOpenRequestW(hConnect, L"GET", L"/", L"HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
-    }
-    return originalHttpOpenRequestW(hConnect, lpszVerb, lpszObjectName, lpszVersion, lpszReferrer, lplpszAcceptTypes, dwFlags, dwContext);
+    std::cout << "[ZeroFN] Intercepted HttpOpenRequestW - Redirecting to local server" << std::endl;
+    dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+    dwFlags &= ~INTERNET_FLAG_SECURE;
+    return originalHttpOpenRequestW(hConnect, L"GET", L"/", L"HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
 }
 
 HINTERNET WINAPI HookedInternetConnectA(HINTERNET hInternet, LPCSTR lpszServerName, INTERNET_PORT nServerPort, LPCSTR lpszUserName, LPCSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext) {
-    std::string response;
-    
-    std::cout << "[ZeroFN] Intercepted InternetConnectA" << std::endl;
-    if (lpszServerName) {
-        std::cout << "[ZeroFN] Server name: " << lpszServerName << std::endl;
-    }
-    
-    if (ShouldBlockDomain(lpszServerName, response)) {
-        std::cout << "[ZeroFN] Redirecting connection to local server from: " << lpszServerName << std::endl;
-        LogToFile("Redirecting connection to local server from: " + std::string(lpszServerName));
-        return originalInternetConnectA(hInternet, LOCAL_SERVER, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
-    }
-    return originalInternetConnectA(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
+    std::cout << "[ZeroFN] Intercepted InternetConnectA - Redirecting to local server" << std::endl;
+    return originalInternetConnectA(hInternet, LOCAL_SERVER, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
 }
 
 HINTERNET WINAPI HookedInternetConnectW(HINTERNET hInternet, LPCWSTR lpszServerName, INTERNET_PORT nServerPort, LPCWSTR lpszUserName, LPCWSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext) {
-    std::string response;
-    
-    std::cout << "[ZeroFN] Intercepted InternetConnectW" << std::endl;
-    if (lpszServerName) {
-        std::wstring wServer(lpszServerName);
-        std::string server(wServer.begin(), wServer.end());
-        std::cout << "[ZeroFN] Server name: " << server << std::endl;
-    }
-    
-    if (ShouldBlockDomainW(lpszServerName, response)) {
-        std::cout << "[ZeroFN] Redirecting secure connection to local server" << std::endl;
-        LogToFile("Redirecting secure connection to local server");
-        return originalInternetConnectW(hInternet, LOCAL_SERVER_W, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
-    }
-    return originalInternetConnectW(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
+    std::cout << "[ZeroFN] Intercepted InternetConnectW - Redirecting to local server" << std::endl;
+    return originalInternetConnectW(hInternet, LOCAL_SERVER_W, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
 }
 
 // Function to install hooks using detours

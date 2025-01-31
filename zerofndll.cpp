@@ -95,7 +95,13 @@ const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
     {"fortnite-public-service-prod.ol.epicgames.com", "{\"status\":\"UP\",\"message\":\"Game servers online\",\"allowedToPlay\":true}"},
     {"entitlement-public-service-prod08.ol.epicgames.com", "{\"entitlements\":[{\"appId\":\"Fortnite\",\"catalogItemId\":\"access\",\"entitlementName\":\"Fortnite Access\"}]}"},
     {"eulatracking-public-service-prod06.ol.epicgames.com", "{\"accepted\":true}"},
-    {"friends-public-service-prod06.ol.epicgames.com", "{\"friends\":[],\"incoming\":[],\"outgoing\":[],\"blocklist\":[]}"}
+    {"friends-public-service-prod06.ol.epicgames.com", "{\"friends\":[],\"incoming\":[],\"outgoing\":[],\"blocklist\":[]}"},
+    // Added new authentication endpoints
+    {"xmpp-service-prod.ol.epicgames.com", "{\"status\":\"UP\"}"},
+    {"fortnite-matchmaking-public-service-live-prod.ol.epicgames.com", "{\"status\":\"UP\"}"},
+    {"party-service-prod.ol.epicgames.com", "{\"status\":\"UP\"}"},
+    // Added endpoint to bypass "unable to login" message
+    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/game/v2/enabled", "{\"status\":true,\"message\":\"\",\"allowed\":true}"}
 };
 
 // Enhanced domain blocking with active response generation

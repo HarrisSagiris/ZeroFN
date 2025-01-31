@@ -176,6 +176,25 @@ const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
         "\"account_id\":\"" + GenerateRandomString(32) + "\","
         "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\"}"
     },
+    {"account-public-service-prod.ol.epicgames.com/account/api/public/account",
+        "{\"id\":\"" + GenerateRandomString(32) + "\","
+        "\"displayName\":\"ZeroFN_Player\","
+        "\"email\":\"player@zerofn.dev\","
+        "\"failedLoginAttempts\":0,"
+        "\"lastLogin\":\"" + std::to_string(std::time(nullptr)) + "\","
+        "\"numberOfDisplayNameChanges\":0,"
+        "\"ageGroup\":\"UNKNOWN\","
+        "\"headless\":false,"
+        "\"country\":\"US\","
+        "\"preferredLanguage\":\"en\","
+        "\"lastDisplayNameChange\":\"2023-01-01T00:00:00.000Z\","
+        "\"canUpdateDisplayName\":true,"
+        "\"tfaEnabled\":false,"
+        "\"emailVerified\":true,"
+        "\"minorVerified\":false,"
+        "\"minorExpected\":false,"
+        "\"minorStatus\":\"UNKNOWN\"}"
+    },
     {"lightswitch-public-service-prod.ol.epicgames.com",
         "{\"serviceInstanceId\":\"fortnite\","
         "\"status\":\"UP\","
@@ -188,8 +207,30 @@ const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
         "{\"accountId\":\"" + GenerateRandomString(32) + "\","
         "\"matches\":[{\"sessionId\":\"" + GenerateRandomString(32) + "\","
         "\"matchId\":\"" + GenerateRandomString(32) + "\"}]}"
+    },
+    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/cloudstorage/system",
+        "{\"uniqueFilename\":\"DefaultGame.ini\","
+        "\"filename\":\"DefaultGame.ini\","
+        "\"hash\":\"" + GenerateRandomString(32) + "\","
+        "\"hash256\":\"" + GenerateRandomString(64) + "\","
+        "\"length\":1234,"
+        "\"contentType\":\"application/octet-stream\","
+        "\"uploaded\":\"2023-01-01T00:00:00.000Z\","
+        "\"storageType\":\"S3\","
+        "\"doNotCache\":false}"
+    },
+    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/game/v2/matchmakingservice/ticket/player",
+        "{\"serviceUrl\":\"wss://matchmaking-public-service-prod.ol.epicgames.com\","
+        "\"ticketType\":\"mms-player\","
+        "\"payload\":\"" + GenerateRandomString(64) + "\","
+        "\"signature\":\"" + GenerateRandomString(128) + "\"}"
+    },
+    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/storefront/v2/catalog",
+        "{\"refreshIntervalHrs\":24,"
+        "\"dailyPurchaseHrs\":24,"
+        "\"expiration\":\"" + std::to_string(std::time(nullptr) + 86400) + "\","
+        "\"storefronts\":[]}"
     }
-    // Additional endpoints can be added here as needed
 };
 
 // Enhanced domain blocking with active response generation

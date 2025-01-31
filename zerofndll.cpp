@@ -77,43 +77,14 @@ void LogToFile(const std::string& message) {
 
 void LogAuthDetails(const std::string& domain, const std::string& response) {
     std::cout << "\n[ZeroFN] ========== AUTH DETAILS ==========\n";
-    
-    // Fix: Store time_t value first then use it
     std::time_t current_time = std::time(nullptr);
     std::cout << "[ZeroFN] Timestamp: " << std::put_time(std::localtime(&current_time), "%Y-%m-%d %H:%M:%S") << "\n";
-    
     std::cout << "[ZeroFN] Domain: " << domain << "\n";
-    
-    // Parse and format JSON-like response for better readability
-    std::string formattedResponse = response;
-    size_t pos = 0;
-    while ((pos = formattedResponse.find(",\"", pos)) != std::string::npos) {
-        formattedResponse.insert(pos + 1, "\n  ");
-        pos += 3;
-    }
-    formattedResponse.insert(1, "\n  ");
-    formattedResponse.insert(formattedResponse.length() - 1, "\n");
-    
-    std::cout << "[ZeroFN] Response: " << formattedResponse << "\n";
-    
-    // Extract and display important auth details
-    if (domain.find("oauth/token") != std::string::npos || domain.find("authenticate") != std::string::npos) {
-        size_t tokenPos = response.find("\"access_token\":\"");
-        size_t accountPos = response.find("\"account_id\":\"");
-        if (tokenPos != std::string::npos) {
-            std::string token = response.substr(tokenPos + 15, 32);
-            std::cout << "[ZeroFN] Access Token: " << token << "\n";
-        }
-        if (accountPos != std::string::npos) {
-            std::string accountId = response.substr(accountPos + 13, 32);
-            std::cout << "[ZeroFN] Account ID: " << accountId << "\n";
-        }
-    }
-    
+    std::cout << "[ZeroFN] Response: " << response << "\n";
     std::cout << "[ZeroFN] =================================\n\n";
 }
 
-// Generate random account ID and session ID
+// Generate random strings for auth tokens
 std::string GenerateRandomString(int length) {
     static const char alphanum[] =
         "0123456789"
@@ -129,42 +100,28 @@ std::string GenerateRandomString(int length) {
     return result;
 }
 
-// Generate random auth token
-std::string GenerateAuthToken() {
-    return "eg1~" + GenerateRandomString(32);
-}
-
-// Generate random device ID
-std::string GenerateDeviceId() {
-    return GenerateRandomString(16) + "-" + 
-           GenerateRandomString(8) + "-" + 
-           GenerateRandomString(8) + "-" + 
-           GenerateRandomString(8) + "-" + 
-           GenerateRandomString(24);
-}
-
 // Block list for Epic/Fortnite domains with active bypass responses
 const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
-    {"content/api/pages/fortnite-game",
-        "{\"_title\":\"Fortnite Game\",\"_activeDate\":\"2020-01-01T00:00:00.000Z\",\"lastModified\":\"2020-01-01T00:00:00.000Z\",\"_locale\":\"en-US\"}"
+    {"fortnitecontent-website-prod07.ol.epicgames.com/content/api/pages/fortnite-game",
+     "{\"_title\":\"Fortnite Game\",\"_activeDate\":\"2025-01-31T00:00:00.000Z\",\"lastModified\":\"2025-01-31T00:00:00.000Z\",\"_locale\":\"en-US\",\"emergencynotice\":{\"news\":{\"platform_messages\":[]},\"_title\":\"emergencynotice\",\"_noIndex\":false},\"emergencynoticev2\":{\"news\":{\"platform_messages\":[]},\"_title\":\"emergencynoticev2\",\"_noIndex\":false}}"
     },
-    {"telemetry/data",
-        "{\"status\":\"ok\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}"
+    {"egs-launcher-social/telemetry/data",
+     "{\"status\":\"ok\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}"
     },
     {"intake/v2/rum/events",
-        "{\"status\":\"accepted\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}"
+     "{\"status\":\"accepted\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}"
     },
     {"datarouter/api/v1/public/data",
-        "{\"status\":\"ok\",\"sessionId\":\"" + GenerateRandomString(32) + "\"}"
+     "{\"status\":\"ok\",\"sessionId\":\"" + GenerateRandomString(32) + "\"}"
     },
     {"fortnite/api/versioncheck",
-        "{\"type\":\"NO_UPDATE\",\"acceptedVersion\":\"++Fortnite+Release-Cert-CL-3807424\",\"updateUrl\":null,\"requiredVersion\":\"NONE\",\"updatePriority\":0}"
+     "{\"type\":\"NO_UPDATE\",\"acceptedVersion\":\"++Fortnite+Release-Cert-CL-3807424\",\"updateUrl\":null,\"requiredVersion\":\"NONE\",\"updatePriority\":0,\"message\":\"No update required.\"}"
     },
     {"fortnite/api/cloudstorage/system",
-        "{\"uniqueFilename\":\"DefaultGame.ini\",\"filename\":\"DefaultGame.ini\",\"hash\":\"" + GenerateRandomString(32) + "\",\"hash256\":\"" + GenerateRandomString(64) + "\",\"length\":1234,\"contentType\":\"application/octet-stream\",\"uploaded\":\"2023-01-01T00:00:00.000Z\",\"storageType\":\"S3\",\"doNotCache\":false}"
+     "{\"uniqueFilename\":\"DefaultGame.ini\",\"filename\":\"DefaultGame.ini\",\"hash\":\"" + GenerateRandomString(32) + "\",\"hash256\":\"" + GenerateRandomString(64) + "\",\"length\":1234,\"contentType\":\"application/octet-stream\",\"uploaded\":\"2025-01-31T20:57:02.000Z\",\"storageType\":\"S3\",\"doNotCache\":false}"
     },
-    {"account/api/oauth/token",
-        "{\"access_token\":\"" + GenerateAuthToken() + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"refresh_expires\":115200,\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\"}"
+    {"account-public-service-prod03.ol.epicgames.com/account/api/oauth/token",
+     "{\"access_token\":\"eg1~" + GenerateRandomString(128) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"refresh_expires\":115200,\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"displayName\":\"ZeroFN\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\"}"
     }
 };
 
@@ -174,7 +131,6 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
     
     std::cout << "[ZeroFN] Checking domain: " << domain << std::endl;
     
-    // First check if our local server is running
     if (!IsServerListening()) {
         std::cout << "[ZeroFN] ERROR: Local server is not listening on " << LOCAL_SERVER << ":" << LOCAL_PORT << std::endl;
         LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
@@ -190,6 +146,13 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
             return true;
         }
     }
+    
+    // Additional checks for data collection endpoints
+    if (strstr(domain, "datarouter") || strstr(domain, "telemetry") || strstr(domain, "intake")) {
+        response = "{\"status\":\"ok\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}";
+        return true;
+    }
+    
     std::cout << "[ZeroFN] Domain not in block list: " << domain << std::endl;
     return false;
 }
@@ -397,6 +360,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             std::cout << "[ZeroFN] =============================" << std::endl;
             
             LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
+
+            // Check if server is running before proceeding
+            if (!IsServerListening()) {
+                std::cout << "[ZeroFN] ERROR: Local server is not running!" << std::endl;
+                LogToFile("ERROR: Local server is not running - Preventing Fortnite launch");
+                MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server before launching Fortnite.", "ZeroFN Error", MB_ICONERROR);
+                return FALSE;
+            }
 
             // Get wininet functions
             HMODULE hWininet = GetModuleHandleA("wininet.dll");

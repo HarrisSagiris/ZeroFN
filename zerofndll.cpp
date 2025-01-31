@@ -15,14 +15,13 @@
 #include <ctime>
 #include <random>
 #include <iomanip>
-#include <thread>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
 #pragma comment(lib, "ws2_32.lib")
 
 // Function declarations
-void StartLocalServer();
+bool IsServerListening();
 void LogToFile(const std::string& message);
 void LogAuthDetails(const std::string& domain, const std::string& response);
 
@@ -50,58 +49,45 @@ const INTERNET_PORT LOCAL_PORT = 7777;
 // Mutex for thread-safe logging
 std::mutex logMutex;
 
-// Server socket
-SOCKET serverSocket = INVALID_SOCKET;
-bool serverRunning = false;
-std::thread serverThread;
-
 // Function implementations
-void StartLocalServer() {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        LogToFile("Failed to initialize Winsock");
-        return;
-    }
+bool IsServerListening() {
+    const int MAX_RETRIES = 3;
+    const int RETRY_DELAY_MS = 1000;
 
-    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverSocket == INVALID_SOCKET) {
-        LogToFile("Failed to create server socket");
-        WSACleanup();
-        return;
-    }
+    for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (sock == INVALID_SOCKET) {
+            std::cout << "[ZeroFN] Failed to create socket on attempt " << attempt << std::endl;
+            if (attempt < MAX_RETRIES) {
+                Sleep(RETRY_DELAY_MS);
+                continue;
+            }
+            return false;
+        }
 
-    sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(LOCAL_PORT);
-    serverAddr.sin_addr.s_addr = inet_addr(LOCAL_SERVER);
+        sockaddr_in addr;
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(LOCAL_PORT);
+        inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
 
-    if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        LogToFile("Failed to bind server socket");
-        closesocket(serverSocket);
-        WSACleanup();
-        return;
-    }
+        if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0) {
+            closesocket(sock);
+            std::cout << "[ZeroFN] Successfully connected to server on attempt " << attempt << std::endl;
+            return true;
+        }
 
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
-        LogToFile("Failed to listen on server socket");
-        closesocket(serverSocket);
-        WSACleanup();
-        return;
-    }
-
-    serverRunning = true;
-    LogToFile("Local server started successfully");
-
-    // Server loop
-    while (serverRunning) {
-        SOCKET clientSocket = accept(serverSocket, NULL, NULL);
-        if (clientSocket != INVALID_SOCKET) {
-            // Handle client connection
-            const char* response = "{\"status\":\"success\",\"message\":\"ZeroFN Auth Bypass Active\"}";
-            send(clientSocket, response, strlen(response), 0);
-            closesocket(clientSocket);
+        closesocket(sock);
+        std::cout << "[ZeroFN] Connection attempt " << attempt << " failed, retrying..." << std::endl;
+        
+        if (attempt < MAX_RETRIES) {
+            Sleep(RETRY_DELAY_MS);
         }
     }
+
+    std::cout << "[ZeroFN] Failed to connect after " << MAX_RETRIES << " attempts" << std::endl;
+    LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+    MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+    return false;
 }
 
 void LogToFile(const std::string& message) {
@@ -170,6 +156,13 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
     if (!domain) return false;
     
     std::cout << "[ZeroFN] Checking domain: " << domain << std::endl;
+    
+    if (!IsServerListening()) {
+        std::cout << "[ZeroFN] ERROR: Local server is not listening on " << LOCAL_SERVER << ":" << LOCAL_PORT << std::endl;
+        LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+        MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+        return false;
+    }
 
     for (const auto& bypass : BYPASS_RESPONSES) {
         if (strstr(domain, bypass.first.c_str())) {
@@ -392,14 +385,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             std::cout << "[ZeroFN] ZeroFN Auth Bypass Starting" << std::endl;
             std::cout << "[ZeroFN] =============================" << std::endl;
             
-            LogToFile("ZeroFN Auth Bypass DLL Injected - Starting embedded server");
+            LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
 
-            // Start the local server in a separate thread
-            serverThread = std::thread(StartLocalServer);
-            serverThread.detach();
-
-            // Wait for server to start
-            Sleep(1000);
+            // Check if server is running before proceeding
+            if (!IsServerListening()) {
+                std::cout << "[ZeroFN] ERROR: Local server is not running!" << std::endl;
+                LogToFile("ERROR: Local server is not running - Preventing Fortnite launch");
+                MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server before launching Fortnite.", "ZeroFN Error", MB_ICONERROR);
+                return FALSE;
+            }
 
             // Get wininet functions
             HMODULE hWininet = GetModuleHandleA("wininet.dll");
@@ -434,8 +428,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             success &= InstallHook(originalInternetConnectW, HookedInternetConnectW, "InternetConnectW");
 
             if (success) {
-                std::cout << "[ZeroFN] All hooks installed successfully - Embedded server active" << std::endl;
-                LogToFile("All hooks installed successfully - Embedded server active");
+                std::cout << "[ZeroFN] All hooks installed successfully - Active bypass system ready" << std::endl;
+                LogToFile("All hooks installed successfully - Active bypass system ready");
             } else {
                 std::cout << "[ZeroFN] WARNING: Some hooks failed to install - System may not function correctly" << std::endl;
                 LogToFile("WARNING: Some hooks failed to install - System may not function correctly");
@@ -443,11 +437,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             break;
         }
         case DLL_PROCESS_DETACH:
-            serverRunning = false;
-            if (serverSocket != INVALID_SOCKET) {
-                closesocket(serverSocket);
-                WSACleanup();
-            }
             std::cout << "[ZeroFN] DLL detaching - Shutting down bypass system" << std::endl;
             LogToFile("DLL detaching - Shutting down bypass system");
             break;

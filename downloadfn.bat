@@ -2,6 +2,39 @@
 title ProjectZERO-ZeroFN
 color 0f
 
+:path_select
+cls
+echo =====================================
+echo    Select Installation Path
+echo    Powered by ZeroFN
+echo =====================================
+echo.
+set "DEFAULT_PATH=%cd%"
+echo Current directory: %DEFAULT_PATH%
+echo.
+echo [1] Install in current directory
+echo [2] Specify custom installation path
+echo [3] Exit
+echo.
+set /p path_choice="Enter your choice (1-3): "
+
+if "%path_choice%"=="1" (
+    set "BASE_PATH=%DEFAULT_PATH%"
+    goto season_select
+)
+if "%path_choice%"=="2" (
+    echo.
+    echo Enter the full path where you want to install Fortnite:
+    echo Example: C:\Games\Fortnite
+    set /p BASE_PATH="Path: "
+    if not exist "%BASE_PATH%" (
+        mkdir "%BASE_PATH%"
+    )
+    goto season_select
+)
+if "%path_choice%"=="3" exit
+goto path_select
+
 :season_select
 cls
 echo =====================================
@@ -37,7 +70,7 @@ echo    Installing Fortnite
 echo    Powered by ZeroFN
 echo =====================================
 echo.
-set "INSTALL_DIR=%cd%\FortniteOG"
+set "INSTALL_DIR=%BASE_PATH%\FortniteOG"
 
 if exist "%INSTALL_DIR%" (
     echo The directory "%INSTALL_DIR%" already exists.

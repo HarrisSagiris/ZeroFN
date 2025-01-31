@@ -26,6 +26,8 @@ namespace fs = std::experimental::filesystem;
 // Helper function to download and extract Fortnite
 bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCallback)(const std::string&)) {
     logCallback("Starting Fortnite download...");
+    logCallback("Download size: ~10GB - This may take a while depending on your internet speed");
+    logCallback("Downloading Fortnite version 1.11 ZeroFN");
 
     std::wstring zipPath = downloadPath + L"\\fortnite.zip";
     std::wstring extractPath = downloadPath + L"\\ZeroFN-Gamefiles";
@@ -36,15 +38,20 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
     }
 
     // Download the zip file
+    logCallback("Downloading from: https://public.simplyblk.xyz/1.11.zip");
+    logCallback("Download location: " + std::string(zipPath.begin(), zipPath.end()));
+    
     HRESULT hr = URLDownloadToFileW(NULL, L"https://public.simplyblk.xyz/1.11.zip", 
         zipPath.c_str(), 0, NULL);
 
     if (FAILED(hr)) {
         logCallback("ERROR: Failed to download Fortnite");
+        logCallback("Error code: " + std::to_string(hr));
         return false;
     }
 
-    logCallback("Download complete. Extracting files...");
+    logCallback("Download complete! Starting extraction process...");
+    logCallback("Extracting to: " + std::string(extractPath.begin(), extractPath.end()));
 
     // Extract using PowerShell instead of zip.h
     std::wstring psCommand = L"powershell.exe -Command \"Expand-Archive -Path '" + 
@@ -59,11 +66,13 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
     if (!CreateProcessW(NULL, (LPWSTR)psCommand.c_str(), NULL, NULL, FALSE,
                        CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
         logCallback("ERROR: Failed to start extraction process");
+        logCallback("Windows Error: " + std::to_string(GetLastError()));
         DeleteFileW(zipPath.c_str());
         return false;
     }
 
     // Wait for extraction to complete
+    logCallback("Extracting files... This may take several minutes");
     WaitForSingleObject(pi.hProcess, INFINITE);
 
     // Cleanup
@@ -71,6 +80,7 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
     CloseHandle(pi.hThread);
 
     // Delete the zip file
+    logCallback("Cleaning up temporary files...");
     DeleteFileW(zipPath.c_str());
 
     if (!fs::exists(extractPath)) {
@@ -79,6 +89,8 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
     }
 
     logCallback("Extraction complete!");
+    logCallback("Fortnite has been installed to: " + std::string(extractPath.begin(), extractPath.end()));
+    logCallback("You can now select this folder in the launcher to play");
     return true;
 }
 
@@ -461,7 +473,7 @@ private:
         
         // Check required files
         logMessage("Checking required server files...");
-        if (!fs::exists("backend/server.js") || !fs::exists("backend/redirect.py") || !fs::exists("zerofn.dll")) {
+        if (!fs::exists("packages/backend/src/index.ts") || !fs::exists("zerofn.dll")) {
             MessageBoxW(NULL, L"Required server files or DLL are missing!", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Missing required files!");
             return;
@@ -474,23 +486,39 @@ private:
         // Setup proxy configuration
         SetupProxy();
 
-        // Start Node.js auth server
+        // Check if pnpm is installed
         STARTUPINFOW si = {0};
         PROCESS_INFORMATION pi = {0};
         si.cb = sizeof(si);
         si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_SHOW;
+        si.wShowWindow = SW_HIDE;
 
         // Create server process with proper working directory
         WCHAR currentDir[MAX_PATH];
         GetCurrentDirectoryW(MAX_PATH, currentDir);
-        std::wstring backendDir = std::wstring(currentDir) + L"\\backend";
-        
-        logMessage("Starting auth server on port 5595...");
-        WCHAR nodeCmd[] = L"node server.js";
-        if (!CreateProcessW(NULL, nodeCmd, NULL, NULL, FALSE, 
-            CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP, 
-            NULL, backendDir.c_str(), &si, &pi)) {
+
+        // First run pnpm install if needed
+        logMessage("Checking pnpm installation and dependencies...");
+        WCHAR pnpmInstallCmd[] = L"pnpm install";
+        if (CreateProcessW(NULL, pnpmInstallCmd, NULL, NULL, FALSE,
+            CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP,
+            NULL, currentDir, &si, &pi)) {
+            WaitForSingleObject(pi.hProcess, INFINITE);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            logMessage("Dependencies installed successfully");
+        } else {
+            MessageBoxW(NULL, L"Failed to install dependencies. Please install pnpm first.", L"Error", MB_OK | MB_ICONERROR);
+            logMessage("ERROR: Failed to install dependencies!");
+            return;
+        }
+
+        // Start the server using pnpm run dev
+        logMessage("Starting auth server...");
+        WCHAR serverCmd[] = L"pnpm run dev";
+        if (!CreateProcessW(NULL, serverCmd, NULL, NULL, FALSE,
+            CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP,
+            NULL, currentDir, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start auth server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start auth server!");
             return;
@@ -499,23 +527,9 @@ private:
         CloseHandle(pi.hThread);
         logMessage("Auth server started successfully");
 
-        // Start proxy server for auth redirection
-        logMessage("Starting proxy server on port 8080...");
-        WCHAR proxyCmd[] = L"mitmdump -s redirect.py --listen-port 8080 --set block_global=false";
-        if (!CreateProcessW(NULL, proxyCmd, NULL, NULL, FALSE, 
-            CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP,
-            NULL, backendDir.c_str(), &si, &pi)) {
-            MessageBoxW(NULL, L"Failed to start proxy server", L"Error", MB_OK | MB_ICONERROR);
-            logMessage("ERROR: Failed to start proxy server!");
-            return;
-        }
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        logMessage("Proxy server started successfully");
-
-        // Wait for servers to initialize
+        // Wait for server to initialize
         logMessage("Waiting for services to initialize...");
-        Sleep(2000); // Reduced wait time
+        Sleep(2000);
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -608,7 +622,6 @@ private:
             if (Process32FirstW(snapshot, &pe32)) {
                 do {
                     if (wcscmp(pe32.szExeFile, L"node.exe") == 0 ||
-                        wcscmp(pe32.szExeFile, L"mitmdump.exe") == 0 ||
                         wcscmp(pe32.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
                         
                         HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);

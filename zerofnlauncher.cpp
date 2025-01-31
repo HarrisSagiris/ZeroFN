@@ -26,15 +26,17 @@ namespace fs = std::experimental::filesystem;
 // Custom callback class for download progress
 class DownloadCallback : public IBindStatusCallback {
 public:
-    DownloadCallback(void (*logCallback)(const std::string&)) : logCallback(logCallback) {}
+    DownloadCallback(void (*logCallback)(const std::string&)) : logCallback(logCallback), lastPercentage(-1) {}
 
     STDMETHOD(OnProgress)(ULONG ulProgress, ULONG ulProgressMax, ULONG ulStatusCode, LPCWSTR wszStatusText) {
         if (ulProgressMax != 0) {
             int percentage = (ulProgress * 100) / ulProgressMax;
-            std::stringstream ss;
-            ss << "Download Progress: " << percentage << "% (" 
-               << (ulProgress / 1048576) << "MB / " << (ulProgressMax / 1048576) << "MB)";
-            logCallback(ss.str());
+            if (percentage != lastPercentage) { // Only update when percentage changes
+                std::stringstream ss;
+                ss << "Download Progress: " << percentage << "%";
+                logCallback(ss.str());
+                lastPercentage = percentage;
+            }
         }
         return S_OK;
     }
@@ -54,6 +56,7 @@ public:
 
 private:
     void (*logCallback)(const std::string&);
+    int lastPercentage;
 };
 
 // Helper function to download and extract Fortnite

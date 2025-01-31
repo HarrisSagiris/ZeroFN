@@ -16,12 +16,21 @@
 #include <userenv.h>
 #include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
 #include <urlmon.h> // For URLDownloadToFile
-#include <winhttp.h>
+
+// Avoid winhttp.h conflicts by using LoadLibrary for WinHTTP functions
+typedef HINTERNET (WINAPI *WinHttpOpen_t)(LPCWSTR, DWORD, LPCWSTR, LPCWSTR, DWORD);
+typedef HINTERNET (WINAPI *WinHttpConnect_t)(HINTERNET, LPCWSTR, INTERNET_PORT, DWORD);
+typedef HINTERNET (WINAPI *WinHttpOpenRequest_t)(HINTERNET, LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR*, DWORD);
+typedef BOOL (WINAPI *WinHttpSendRequest_t)(HINTERNET, LPCWSTR, DWORD, LPVOID, DWORD, DWORD, DWORD_PTR);
+typedef BOOL (WINAPI *WinHttpReceiveResponse_t)(HINTERNET, LPVOID);
+typedef BOOL (WINAPI *WinHttpQueryHeaders_t)(HINTERNET, DWORD, LPCWSTR, LPVOID, LPDWORD, LPDWORD);
+typedef BOOL (WINAPI *WinHttpReadData_t)(HINTERNET, LPVOID, DWORD, LPDWORD);
+typedef BOOL (WINAPI *WinHttpCloseHandle_t)(HINTERNET);
+
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "psapi.lib") // Added for psapi functions
 #pragma comment(lib, "urlmon.lib") // For URLDownloadToFile
-#pragma comment(lib, "winhttp.lib")
 
 namespace fs = std::experimental::filesystem;
 
@@ -60,7 +69,6 @@ private:
     void (*logCallback)(const std::string&);
     int lastPercentage;
 };
-
 // Helper function to download and extract Fortnite
 bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCallback)(const std::string&)) {
     logCallback("Starting Fortnite download...");

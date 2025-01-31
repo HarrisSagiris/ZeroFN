@@ -145,91 +145,26 @@ std::string GenerateDeviceId() {
 
 // Block list for Epic/Fortnite domains with active bypass responses
 const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
-    {"epicgames.com/id/api/authenticate", 
-        "{\"access_token\":\"" + GenerateAuthToken() + "\","
-        "\"account_id\":\"" + GenerateRandomString(32) + "\","
-        "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\","
-        "\"expires_in\":28800,"
-        "\"token_type\":\"bearer\","
-        "\"refresh_token\":\"" + GenerateRandomString(32) + "\","
-        "\"refresh_expires\":115200,"
-        "\"device_id\":\"" + GenerateDeviceId() + "\"}"
+    {"content/api/pages/fortnite-game",
+        "{\"_title\":\"Fortnite Game\",\"_activeDate\":\"2020-01-01T00:00:00.000Z\",\"lastModified\":\"2020-01-01T00:00:00.000Z\",\"_locale\":\"en-US\"}"
     },
-    {"fortnite.com/fortnite/api/game/v2/profile",
-        "{\"profileId\":\"athena\","
-        "\"profileChanges\":[{\"changeType\":\"fullProfileUpdate\","
-        "\"profile\":{\"_id\":\"" + GenerateRandomString(32) + "\","
-        "\"accountId\":\"" + GenerateRandomString(32) + "\","
-        "\"version\":\"live_profile\","
-        "\"created\":\"2023-01-01T00:00:00.000Z\"}}],"
-        "\"serverTime\":\"" + std::to_string(std::time(nullptr)) + "\","
-        "\"profileRevision\":1,"
-        "\"profileCommandRevision\":1}"
+    {"telemetry/data",
+        "{\"status\":\"ok\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}"
     },
-    {"account-public-service-prod.ol.epicgames.com/account/api/oauth/token",
-        "{\"access_token\":\"" + GenerateAuthToken() + "\","
-        "\"expires_in\":28800,"
-        "\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\","
-        "\"token_type\":\"bearer\","
-        "\"refresh_token\":\"" + GenerateRandomString(32) + "\","
-        "\"refresh_expires\":115200,"
-        "\"account_id\":\"" + GenerateRandomString(32) + "\","
-        "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\"}"
+    {"intake/v2/rum/events",
+        "{\"status\":\"accepted\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}"
     },
-    {"account-public-service-prod.ol.epicgames.com/account/api/public/account",
-        "{\"id\":\"" + GenerateRandomString(32) + "\","
-        "\"displayName\":\"ZeroFN_Player\","
-        "\"email\":\"player@zerofn.dev\","
-        "\"failedLoginAttempts\":0,"
-        "\"lastLogin\":\"" + std::to_string(std::time(nullptr)) + "\","
-        "\"numberOfDisplayNameChanges\":0,"
-        "\"ageGroup\":\"UNKNOWN\","
-        "\"headless\":false,"
-        "\"country\":\"US\","
-        "\"preferredLanguage\":\"en\","
-        "\"lastDisplayNameChange\":\"2023-01-01T00:00:00.000Z\","
-        "\"canUpdateDisplayName\":true,"
-        "\"tfaEnabled\":false,"
-        "\"emailVerified\":true,"
-        "\"minorVerified\":false,"
-        "\"minorExpected\":false,"
-        "\"minorStatus\":\"UNKNOWN\"}"
+    {"datarouter/api/v1/public/data",
+        "{\"status\":\"ok\",\"sessionId\":\"" + GenerateRandomString(32) + "\"}"
     },
-    {"lightswitch-public-service-prod.ol.epicgames.com",
-        "{\"serviceInstanceId\":\"fortnite\","
-        "\"status\":\"UP\","
-        "\"message\":\"Fortnite is online\","
-        "\"maintenanceUri\":null,"
-        "\"allowedActions\":[\"PLAY\",\"DOWNLOAD\"],"
-        "\"banned\":false}"
+    {"fortnite/api/versioncheck",
+        "{\"type\":\"NO_UPDATE\",\"acceptedVersion\":\"++Fortnite+Release-Cert-CL-3807424\",\"updateUrl\":null,\"requiredVersion\":\"NONE\",\"updatePriority\":0}"
     },
-    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/matchmaking/session/findPlayer",
-        "{\"accountId\":\"" + GenerateRandomString(32) + "\","
-        "\"matches\":[{\"sessionId\":\"" + GenerateRandomString(32) + "\","
-        "\"matchId\":\"" + GenerateRandomString(32) + "\"}]}"
+    {"fortnite/api/cloudstorage/system",
+        "{\"uniqueFilename\":\"DefaultGame.ini\",\"filename\":\"DefaultGame.ini\",\"hash\":\"" + GenerateRandomString(32) + "\",\"hash256\":\"" + GenerateRandomString(64) + "\",\"length\":1234,\"contentType\":\"application/octet-stream\",\"uploaded\":\"2023-01-01T00:00:00.000Z\",\"storageType\":\"S3\",\"doNotCache\":false}"
     },
-    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/cloudstorage/system",
-        "{\"uniqueFilename\":\"DefaultGame.ini\","
-        "\"filename\":\"DefaultGame.ini\","
-        "\"hash\":\"" + GenerateRandomString(32) + "\","
-        "\"hash256\":\"" + GenerateRandomString(64) + "\","
-        "\"length\":1234,"
-        "\"contentType\":\"application/octet-stream\","
-        "\"uploaded\":\"2023-01-01T00:00:00.000Z\","
-        "\"storageType\":\"S3\","
-        "\"doNotCache\":false}"
-    },
-    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/game/v2/matchmakingservice/ticket/player",
-        "{\"serviceUrl\":\"wss://matchmaking-public-service-prod.ol.epicgames.com\","
-        "\"ticketType\":\"mms-player\","
-        "\"payload\":\"" + GenerateRandomString(64) + "\","
-        "\"signature\":\"" + GenerateRandomString(128) + "\"}"
-    },
-    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/storefront/v2/catalog",
-        "{\"refreshIntervalHrs\":24,"
-        "\"dailyPurchaseHrs\":24,"
-        "\"expiration\":\"" + std::to_string(std::time(nullptr) + 86400) + "\","
-        "\"storefronts\":[]}"
+    {"account/api/oauth/token",
+        "{\"access_token\":\"" + GenerateAuthToken() + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"refresh_expires\":115200,\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\"}"
     }
 };
 

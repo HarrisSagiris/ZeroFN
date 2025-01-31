@@ -15,124 +15,11 @@
 #include <functional>
 #include <userenv.h>
 #include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
-#include <urlmon.h> // For URLDownloadToFile
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "psapi.lib") // Added for psapi functions
-#pragma comment(lib, "urlmon.lib") // For URLDownloadToFile
 
 namespace fs = std::experimental::filesystem;
-
-// Custom callback class for download progress
-class DownloadCallback : public IBindStatusCallback {
-public:
-    DownloadCallback(void (*logCallback)(const std::string&)) : logCallback(logCallback), lastPercentage(-1) {}
-
-    STDMETHOD(OnProgress)(ULONG ulProgress, ULONG ulProgressMax, ULONG ulStatusCode, LPCWSTR wszStatusText) {
-        if (ulProgressMax != 0) {
-            int percentage = (ulProgress * 100) / ulProgressMax;
-            if (percentage != lastPercentage) { // Only update when percentage changes
-                std::stringstream ss;
-                ss << "Download Progress: " << percentage << "%";
-                logCallback(ss.str());
-                lastPercentage = percentage;
-            }
-        }
-        return S_OK;
-    }
-
-    // Required IBindStatusCallback methods
-    STDMETHOD(OnStartBinding)(DWORD dwReserved, IBinding* pib) { return E_NOTIMPL; }
-    STDMETHOD(GetPriority)(LONG* pnPriority) { return E_NOTIMPL; }
-    STDMETHOD(OnLowResource)(DWORD reserved) { return E_NOTIMPL; }
-    STDMETHOD(OnStopBinding)(HRESULT hresult, LPCWSTR szError) { return E_NOTIMPL; }
-    STDMETHOD(GetBindInfo)(DWORD* grfBINDF, BINDINFO* pbindinfo) { return E_NOTIMPL; }
-    STDMETHOD(OnDataAvailable)(DWORD grfBSCF, DWORD dwSize, FORMATETC* pformatetc, STGMEDIUM* pstgmed) { return E_NOTIMPL; }
-    STDMETHOD(OnObjectAvailable)(REFIID riid, IUnknown* punk) { return E_NOTIMPL; }
-
-    STDMETHOD_(ULONG, AddRef)() { return 0; }
-    STDMETHOD_(ULONG, Release)() { return 0; }
-    STDMETHOD(QueryInterface)(REFIID riid, void** ppvObject) { return E_NOTIMPL; }
-
-private:
-    void (*logCallback)(const std::string&);
-    int lastPercentage;
-};
-
-// Helper function to download and extract Fortnite
-bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCallback)(const std::string&)) {
-    logCallback("Starting Fortnite download...");
-    logCallback("Download size: ~10GB - This may take a while depending on your internet speed");
-    logCallback("Downloading Fortnite version 1.11 ZeroFN");
-
-    std::wstring zipPath = downloadPath + L"\\fortnite.zip";
-    std::wstring extractPath = downloadPath + L"\\ZeroFN-Gamefiles";
-
-    // Create extraction directory if it doesn't exist
-    if (!fs::exists(extractPath)) {
-        fs::create_directories(extractPath);
-    }
-
-    // Download the zip file with progress updates
-    logCallback("Downloading from: https://public.simplyblk.xyz/1.11.zip");
-    logCallback("Download location: " + std::string(zipPath.begin(), zipPath.end()));
-    
-    DownloadCallback* callback = new DownloadCallback(logCallback);
-    HRESULT hr = URLDownloadToFileW(NULL, L"https://public.simplyblk.xyz/1.11.zip", 
-        zipPath.c_str(), 0, callback);
-    delete callback;
-
-    if (FAILED(hr)) {
-        logCallback("ERROR: Failed to download Fortnite");
-        logCallback("Error code: " + std::to_string(hr));
-        return false;
-    }
-
-    logCallback("Download complete! Starting extraction process...");
-    logCallback("Extracting to: " + std::string(extractPath.begin(), extractPath.end()));
-
-    // Extract using PowerShell instead of zip.h
-    std::wstring psCommand = L"powershell.exe -Command \"$progressPreference = 'silentlyContinue'; " 
-                            L"Write-Host 'Extracting...'; "
-                            L"Expand-Archive -Path '" + zipPath + L"' -DestinationPath '" + 
-                            extractPath + L"' -Force; Write-Host 'Extraction complete!'\"";
-
-    STARTUPINFOW si = {0};
-    PROCESS_INFORMATION pi = {0};
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
-
-    if (!CreateProcessW(NULL, (LPWSTR)psCommand.c_str(), NULL, NULL, FALSE,
-                       CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        logCallback("ERROR: Failed to start extraction process");
-        logCallback("Windows Error: " + std::to_string(GetLastError()));
-        DeleteFileW(zipPath.c_str());
-        return false;
-    }
-
-    // Wait for extraction to complete
-    logCallback("Extracting files... This may take several minutes");
-    WaitForSingleObject(pi.hProcess, INFINITE);
-
-    // Cleanup
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-
-    // Delete the zip file
-    logCallback("Cleaning up temporary files...");
-    DeleteFileW(zipPath.c_str());
-
-    if (!fs::exists(extractPath)) {
-        logCallback("ERROR: Extraction failed - target directory not found");
-        return false;
-    }
-
-    logCallback("Extraction complete!");
-    logCallback("Fortnite has been installed to: " + std::string(extractPath.begin(), extractPath.end()));
-    logCallback("You can now select this folder in the launcher to play");
-    return true;
-}
 
 // Helper function to inject DLL with improved error handling and logging
 bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)(const std::string&)) {
@@ -310,10 +197,6 @@ public:
         stopButton = CreateWindowW(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
             120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
 
-        // Add download button
-        downloadButton = CreateWindowW(L"BUTTON", L"Download Fortnite", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            230, 45, 120, 30, hwnd, (HMENU)5, NULL, NULL);
-
         EnableWindow(stopButton, FALSE);
 
         // Create console output with improved styling
@@ -329,7 +212,6 @@ public:
         SendMessage(pathEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(startButton, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(stopButton, WM_SETFONT, (WPARAM)hFont, TRUE);
-        SendMessage(downloadButton, WM_SETFONT, (WPARAM)hFont, TRUE);
         SendMessage(consoleOutput, WM_SETFONT, (WPARAM)hFont, TRUE);
 
         // Load saved path
@@ -355,9 +237,6 @@ public:
                     case 4: // Stop button
                         StopServer();
                         break;
-                    case 5: // Download button
-                        DownloadFortnite();
-                        break;
                 }
                 break;
             case WM_DESTROY:
@@ -366,33 +245,6 @@ public:
                 return 0;
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
-    }
-
-    static void DownloadFortnite() {
-        // Open folder browser to select download location
-        BROWSEINFOW bi = {0};
-        bi.hwndOwner = hwnd;
-        bi.lpszTitle = L"Select Download Location";
-        bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
-
-        LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
-        if (pidl) {
-            WCHAR path[MAX_PATH];
-            if (SHGetPathFromIDListW(pidl, path)) {
-                std::wstring downloadPath(path);
-                
-                // Start download in a separate thread
-                std::thread downloadThread([downloadPath]() {
-                    if (DownloadAndExtractFortnite(downloadPath, logMessage)) {
-                        logMessage("Fortnite downloaded and extracted successfully!");
-                        SetWindowTextW(pathEdit, (downloadPath + L"\\ZeroFN-Gamefiles").c_str());
-                        SavePath((downloadPath + L"\\ZeroFN-Gamefiles").c_str());
-                    }
-                });
-                downloadThread.detach();
-            }
-            CoTaskMemFree(pidl);
-        }
     }
 
     void Run() {
@@ -645,7 +497,6 @@ private:
         EnableWindow(startButton, FALSE);
         EnableWindow(stopButton, TRUE);
         EnableWindow(pathEdit, FALSE);
-        EnableWindow(downloadButton, FALSE);
         
         logMessage("Fortnite launched successfully with ZeroFN DLL");
     }
@@ -698,7 +549,6 @@ private:
         EnableWindow(startButton, TRUE);
         EnableWindow(stopButton, FALSE);
         EnableWindow(pathEdit, TRUE);
-        EnableWindow(downloadButton, TRUE);
         
         logMessage("All services stopped successfully");
         logMessage("System ready for next session");
@@ -752,7 +602,6 @@ private:
     static HWND startButton;
     static HWND stopButton;
     static HWND consoleOutput;
-    static HWND downloadButton;
 };
 
 HWND ZeroFNLauncher::hwnd = NULL;
@@ -760,7 +609,6 @@ HWND ZeroFNLauncher::pathEdit = NULL;
 HWND ZeroFNLauncher::startButton = NULL;
 HWND ZeroFNLauncher::stopButton = NULL;
 HWND ZeroFNLauncher::consoleOutput = NULL;
-HWND ZeroFNLauncher::downloadButton = NULL;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     ZeroFNLauncher launcher;

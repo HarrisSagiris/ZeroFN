@@ -15,14 +15,21 @@
 #include <ctime>
 #include <random>
 #include <iomanip>
+#include <thread>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
 #pragma comment(lib, "ws2_32.lib")
 
 // Function declarations
+void StartLocalServer();
 void LogToFile(const std::string& message);
 void LogAuthDetails(const std::string& domain, const std::string& response);
+
+// Server socket
+SOCKET serverSocket = INVALID_SOCKET;
+bool serverRunning = false;
+std::thread serverThread;
 
 // Function pointer types for hooks
 typedef BOOL(WINAPI* tHttpSendRequestA)(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength);
@@ -40,8 +47,62 @@ tHttpSendRequestW originalHttpSendRequestW = nullptr;
 tHttpOpenRequestW originalHttpOpenRequestW = nullptr;
 tInternetConnectW originalInternetConnectW = nullptr;
 
+// Local server configuration
+const char* LOCAL_SERVER = "127.0.0.1";
+const wchar_t* LOCAL_SERVER_W = L"127.0.0.1";
+const INTERNET_PORT LOCAL_PORT = 7777;
+
 // Mutex for thread-safe logging
 std::mutex logMutex;
+
+// Function to start local server
+void StartLocalServer() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        LogToFile("Failed to initialize Winsock");
+        return;
+    }
+
+    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverSocket == INVALID_SOCKET) {
+        LogToFile("Failed to create server socket");
+        WSACleanup();
+        return;
+    }
+
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(LOCAL_PORT);
+    serverAddr.sin_addr.s_addr = inet_addr(LOCAL_SERVER);
+
+    if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        LogToFile("Failed to bind server socket");
+        closesocket(serverSocket);
+        WSACleanup();
+        return;
+    }
+
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+        LogToFile("Failed to listen on server socket");
+        closesocket(serverSocket);
+        WSACleanup();
+        return;
+    }
+
+    serverRunning = true;
+    LogToFile("Local server started successfully");
+
+    // Accept and handle connections
+    while (serverRunning) {
+        SOCKET clientSocket = accept(serverSocket, NULL, NULL);
+        if (clientSocket != INVALID_SOCKET) {
+            // Send success response
+            const char* response = "{\"status\":\"success\",\"message\":\"ZeroFN Auth Bypass Active\"}";
+            send(clientSocket, response, strlen(response), 0);
+            closesocket(clientSocket);
+        }
+    }
+}
 
 void LogToFile(const std::string& message) {
     std::lock_guard<std::mutex> lock(logMutex);
@@ -137,6 +198,49 @@ bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
     return ShouldBlockDomain(sDomain.c_str(), response);
 }
 
+bool IsServerListening();
+// Function implementations
+bool IsServerListening() {
+    const int MAX_RETRIES = 3;
+    const int RETRY_DELAY_MS = 1000;
+
+    for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (sock == INVALID_SOCKET) {
+            std::cout << "[ZeroFN] Failed to create socket on attempt " << attempt << std::endl;
+            if (attempt < MAX_RETRIES) {
+                Sleep(RETRY_DELAY_MS);
+                continue;
+            }
+            return false;
+        }
+        sockaddr_in addr;
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(LOCAL_PORT);
+        inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
+        if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0) {
+            closesocket(sock);
+            std::cout << "[ZeroFN] Successfully connected to server on attempt " << attempt << std::endl;
+            return true;
+        }
+        closesocket(sock);
+        std::cout << "[ZeroFN] Connection attempt " << attempt << " failed, retrying..." << std::endl;
+        
+        if (attempt < MAX_RETRIES) {
+            Sleep(RETRY_DELAY_MS);
+
+    std::cout << "[ZeroFN] Failed to connect after " << MAX_RETRIES << " attempts" << std::endl;
+    LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+    MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+    return false;
+    
+    if (!IsServerListening()) {
+        std::cout << "[ZeroFN] ERROR: Local server is not listening on " << LOCAL_SERVER << ":" << LOCAL_PORT << std::endl;
+        LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+        MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+        return false;
+    }
+
 // Enhanced hooked functions with active response generation and caching
 BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength) {
     std::string response;
@@ -225,8 +329,8 @@ HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPC
     }
     
     if (lpszObjectName && ShouldBlockDomain(lpszObjectName, response)) {
-        std::cout << "[ZeroFN] Intercepting HTTP request: " << lpszObjectName << std::endl;
-        LogToFile("Intercepting HTTP request: " + std::string(lpszObjectName));
+        std::cout << "[ZeroFN] Redirecting HTTP request to local server: " << lpszObjectName << std::endl;
+        LogToFile("Redirecting HTTP request to local server: " + std::string(lpszObjectName));
         dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
         dwFlags &= ~INTERNET_FLAG_SECURE;
         return originalHttpOpenRequestA(hConnect, "GET", "/", "HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
@@ -245,8 +349,8 @@ HINTERNET WINAPI HookedHttpOpenRequestW(HINTERNET hConnect, LPCWSTR lpszVerb, LP
     }
     
     if (lpszObjectName && ShouldBlockDomainW(lpszObjectName, response)) {
-        std::cout << "[ZeroFN] Intercepting HTTPS request" << std::endl;
-        LogToFile("Intercepting HTTPS request");
+        std::cout << "[ZeroFN] Redirecting HTTPS request to local server" << std::endl;
+        LogToFile("Redirecting HTTPS request to local server");
         dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
         dwFlags &= ~INTERNET_FLAG_SECURE;
         return originalHttpOpenRequestW(hConnect, L"GET", L"/", L"HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
@@ -263,9 +367,9 @@ HINTERNET WINAPI HookedInternetConnectA(HINTERNET hInternet, LPCSTR lpszServerNa
     }
     
     if (ShouldBlockDomain(lpszServerName, response)) {
-        std::cout << "[ZeroFN] Intercepting connection from: " << lpszServerName << std::endl;
-        LogToFile("Intercepting connection from: " + std::string(lpszServerName));
-        return originalInternetConnectA(hInternet, "127.0.0.1", 80, NULL, NULL, dwService, dwFlags, dwContext);
+        std::cout << "[ZeroFN] Redirecting connection to local server from: " << lpszServerName << std::endl;
+        LogToFile("Redirecting connection to local server from: " + std::string(lpszServerName));
+        return originalInternetConnectA(hInternet, LOCAL_SERVER, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
     }
     return originalInternetConnectA(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
 }
@@ -281,9 +385,9 @@ HINTERNET WINAPI HookedInternetConnectW(HINTERNET hInternet, LPCWSTR lpszServerN
     }
     
     if (ShouldBlockDomainW(lpszServerName, response)) {
-        std::cout << "[ZeroFN] Intercepting secure connection" << std::endl;
-        LogToFile("Intercepting secure connection");
-        return originalInternetConnectW(hInternet, L"127.0.0.1", 80, NULL, NULL, dwService, dwFlags, dwContext);
+        std::cout << "[ZeroFN] Redirecting secure connection to local server" << std::endl;
+        LogToFile("Redirecting secure connection to local server");
+        return originalInternetConnectW(hInternet, LOCAL_SERVER_W, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
     }
     return originalInternetConnectW(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
 }
@@ -331,7 +435,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             std::cout << "[ZeroFN] ZeroFN Auth Bypass Starting" << std::endl;
             std::cout << "[ZeroFN] =============================" << std::endl;
             
-            LogToFile("ZeroFN Auth Bypass DLL Injected - Starting bypass system");
+            LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
+
+            // Check if server is running before proceeding
+            if (!IsServerListening()) {
+                std::cout << "[ZeroFN] ERROR: Local server is not running!" << std::endl;
+                LogToFile("ERROR: Local server is not running - Preventing Fortnite launch");
+                MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server before launching Fortnite.", "ZeroFN Error", MB_ICONERROR);
+                return FALSE;
+            }
 
             // Get wininet functions
             HMODULE hWininet = GetModuleHandleA("wininet.dll");
@@ -366,8 +478,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             success &= InstallHook(originalInternetConnectW, HookedInternetConnectW, "InternetConnectW");
 
             if (success) {
-                std::cout << "[ZeroFN] All hooks installed successfully - Bypass system ready" << std::endl;
-                LogToFile("All hooks installed successfully - Bypass system ready");
+                std::cout << "[ZeroFN] All hooks installed successfully - Active bypass system ready" << std::endl;
+                LogToFile("All hooks installed successfully - Active bypass system ready");
             } else {
                 std::cout << "[ZeroFN] WARNING: Some hooks failed to install - System may not function correctly" << std::endl;
                 LogToFile("WARNING: Some hooks failed to install - System may not function correctly");

@@ -103,8 +103,9 @@ ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for 
 
 ## Contributors
 
-- **@Devharris**: Core Developer
-- **@Addamito**: Support and Testing
+- **@Devharris**: Developer/Founder 
+- **@Ryneex**: Developer/Founder
+- **@Addamito**: Testing/community manager
 
 ---
 

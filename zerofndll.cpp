@@ -42,8 +42,8 @@ tHttpOpenRequestW originalHttpOpenRequestW = nullptr;
 tInternetConnectW originalInternetConnectW = nullptr;
 
 // Local server configuration
-const char* LOCAL_SERVER = "0.0.0.0";
-const wchar_t* LOCAL_SERVER_W = L"0.0.0.0";
+const char* LOCAL_SERVER = "127.0.0.1";
+const wchar_t* LOCAL_SERVER_W = L"127.0.0.1";
 const INTERNET_PORT LOCAL_PORT = 7777;
 
 // Mutex for thread-safe logging

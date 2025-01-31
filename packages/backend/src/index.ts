@@ -4,7 +4,7 @@ import path from "path"
 
 const app = express();
 const port = 7777;
-const host = '0.0.0.0'; // Changed to accept all connections
+const host = 'localhost'; // Changed to only accept local connections
 
 // Middleware to parse JSON bodies
 app.use(express.json());
@@ -321,6 +321,6 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
 
 // Start server
 app.listen(port, host, () => {
-  console.log(`ZeroFN Backend running on ${host}:${port} and accepting all connections`);
-  console.log('Server is ready to accept connections from any IP!');
+  console.log(`ZeroFN Backend running on ${host}:${port} and accepting local connections only`);
+  console.log('Server is ready to accept connections from localhost!');
 });

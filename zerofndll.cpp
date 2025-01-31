@@ -51,7 +51,17 @@ std::mutex logMutex;
 
 // Function implementations
 bool IsServerListening() {
-    return true; // Always return true since we don't need a real server
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) return false;
+
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(LOCAL_PORT);
+    inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
+
+    bool result = connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0;
+    closesocket(sock);
+    return result;
 }
 
 void LogToFile(const std::string& message) {
@@ -228,6 +238,14 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
     if (!domain) return false;
     
     std::cout << "[ZeroFN] Checking domain: " << domain << std::endl;
+    
+    // First check if our local server is running
+    if (!IsServerListening()) {
+        std::cout << "[ZeroFN] ERROR: Local server is not listening on " << LOCAL_SERVER << ":" << LOCAL_PORT << std::endl;
+        LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+        MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+        return false;
+    }
 
     for (const auto& bypass : BYPASS_RESPONSES) {
         if (strstr(domain, bypass.first.c_str())) {

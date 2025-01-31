@@ -320,46 +320,6 @@ private:
         return L"";
     }
 
-    static void SetupProxy() {
-        logMessage("Configuring system proxy settings...");
-        
-        // Reset any existing proxy settings first
-        INTERNET_PER_CONN_OPTION_LIST list;
-        INTERNET_PER_CONN_OPTION options[1];
-        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
-
-        options[0].dwOption = INTERNET_PER_CONN_FLAGS;
-        options[0].Value.dwValue = PROXY_TYPE_DIRECT;
-
-        list.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
-        list.pszConnection = NULL;
-        list.dwOptionCount = 1;
-        list.dwOptionError = 0;
-        list.pOptions = options;
-
-        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, listSize);
-        
-        // Now set our proxy
-        INTERNET_PROXY_INFO proxyInfo;
-        ZeroMemory(&proxyInfo, sizeof(proxyInfo));
-
-        proxyInfo.dwAccessType = INTERNET_OPEN_TYPE_PROXY;
-        proxyInfo.lpszProxy = (LPCTSTR)"127.0.0.1:8080";
-        proxyInfo.lpszProxyBypass = (LPCTSTR)"<local>";
-
-        BOOL result = InternetSetOption(NULL, INTERNET_OPTION_PROXY, &proxyInfo, sizeof(proxyInfo));
-        
-        // Notify WinINET that settings have changed
-        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
-        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
-
-        if(result) {
-            logMessage("Proxy configuration set successfully to 127.0.0.1:8080");
-        } else {
-            logMessage("Failed to set proxy configuration");
-        }
-    }
-
     static void StartServer() {
         logMessage("Starting server initialization sequence...");
         
@@ -374,9 +334,6 @@ private:
 
         // Kill any existing processes first
         StopServer();
-        
-        // Setup proxy configuration
-        SetupProxy();
 
         // Check if pnpm is installed
         STARTUPINFOW si = {0};
@@ -446,7 +403,7 @@ private:
 
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
-            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=0.0.0.0:7777 -AUTH_PASSWORD=test -http-proxy=127.0.0.1:8080 "
+            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=0.0.0.0:7777 -AUTH_PASSWORD=test "
             L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -NOFORCECONNECT";
 
         // Create process suspended
@@ -527,24 +484,6 @@ private:
             }
             CloseHandle(snapshot);
         }
-
-        // Reset proxy settings
-        INTERNET_PER_CONN_OPTION_LIST list;
-        INTERNET_PER_CONN_OPTION options[1];
-        unsigned long listSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
-
-        options[0].dwOption = INTERNET_PER_CONN_FLAGS;
-        options[0].Value.dwValue = PROXY_TYPE_DIRECT;
-
-        list.dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
-        list.pszConnection = NULL;
-        list.dwOptionCount = 1;
-        list.dwOptionError = 0;
-        list.pOptions = options;
-
-        InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, listSize);
-        InternetSetOption(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
-        InternetSetOption(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
 
         EnableWindow(startButton, TRUE);
         EnableWindow(stopButton, FALSE);

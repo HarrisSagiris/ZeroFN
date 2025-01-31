@@ -383,7 +383,7 @@ private:
         PROCESS_INFORMATION pi = {0};
         si.cb = sizeof(si);
         si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_HIDE;
+        si.wShowWindow = SW_SHOW; // Changed to SW_SHOW to make window visible
 
         // Create server process with proper working directory
         WCHAR currentDir[MAX_PATH];
@@ -391,9 +391,9 @@ private:
 
         // First run pnpm install if needed
         logMessage("Checking pnpm installation and dependencies...");
-        WCHAR pnpmInstallCmd[] = L"pnpm install";
+        WCHAR pnpmInstallCmd[] = L"cmd.exe /c start \"Installing Dependencies\" pnpm install";
         if (CreateProcessW(NULL, pnpmInstallCmd, NULL, NULL, FALSE,
-            CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP,
+            CREATE_NEW_CONSOLE,
             NULL, currentDir, &si, &pi)) {
             WaitForSingleObject(pi.hProcess, INFINITE);
             CloseHandle(pi.hProcess);
@@ -405,11 +405,11 @@ private:
             return;
         }
 
-        // Start the server using pnpm run dev
+        // Start the server using pnpm run dev in a new visible window
         logMessage("Starting auth server...");
-        WCHAR serverCmd[] = L"pnpm run dev";
+        WCHAR serverCmd[] = L"cmd.exe /c start \"ZeroFN Server\" pnpm run dev";
         if (!CreateProcessW(NULL, serverCmd, NULL, NULL, FALSE,
-            CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP,
+            CREATE_NEW_CONSOLE,
             NULL, currentDir, &si, &pi)) {
             MessageBoxW(NULL, L"Failed to start auth server", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Failed to start auth server!");
@@ -417,7 +417,7 @@ private:
         }
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
-        logMessage("Auth server started successfully");
+        logMessage("Auth server started successfully in new window");
 
         // Wait for server to initialize
         logMessage("Waiting for services to initialize...");

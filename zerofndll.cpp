@@ -54,7 +54,7 @@ bool IsServerListening() {
     sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(LOCAL_PORT);
-    inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
+    InetPton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
 
     bool result = connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0;
     closesocket(sock);

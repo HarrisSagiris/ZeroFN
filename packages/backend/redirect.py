@@ -26,8 +26,8 @@ def request(flow: http.HTTPFlow) -> None:
         original_path = flow.request.path
         
         # Redirect to local server
-        flow.request.host = "127.0.0.1"
-        flow.request.port = 5595
+        flow.request.host = "0.0.0.0"
+        flow.request.port = 7777
         flow.request.scheme = "http"
         
         # Keep the original path

@@ -4,10 +4,21 @@ import path from "path"
 
 const app = express();
 const port = 7777;
-const host = '127.0.0.1';
+const host = '0.0.0.0'; // Changed to accept all connections
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', '*');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // Load database
 let database = {
@@ -310,6 +321,6 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
 
 // Start server
 app.listen(port, host, () => {
-  console.log(`ZeroFN Backend running on ${host}:${port}`);
-  console.log('Server is ready to accept connections!');
+  console.log(`ZeroFN Backend running on ${host}:${port} and accepting all connections`);
+  console.log('Server is ready to accept connections from any IP!');
 });

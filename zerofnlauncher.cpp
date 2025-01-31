@@ -23,6 +23,39 @@
 
 namespace fs = std::experimental::filesystem;
 
+// Custom callback class for download progress
+class DownloadCallback : public IBindStatusCallback {
+public:
+    DownloadCallback(void (*logCallback)(const std::string&)) : logCallback(logCallback) {}
+
+    STDMETHOD(OnProgress)(ULONG ulProgress, ULONG ulProgressMax, ULONG ulStatusCode, LPCWSTR wszStatusText) {
+        if (ulProgressMax != 0) {
+            int percentage = (ulProgress * 100) / ulProgressMax;
+            std::stringstream ss;
+            ss << "Download Progress: " << percentage << "% (" 
+               << (ulProgress / 1048576) << "MB / " << (ulProgressMax / 1048576) << "MB)";
+            logCallback(ss.str());
+        }
+        return S_OK;
+    }
+
+    // Required IBindStatusCallback methods
+    STDMETHOD(OnStartBinding)(DWORD dwReserved, IBinding* pib) { return E_NOTIMPL; }
+    STDMETHOD(GetPriority)(LONG* pnPriority) { return E_NOTIMPL; }
+    STDMETHOD(OnLowResource)(DWORD reserved) { return E_NOTIMPL; }
+    STDMETHOD(OnStopBinding)(HRESULT hresult, LPCWSTR szError) { return E_NOTIMPL; }
+    STDMETHOD(GetBindInfo)(DWORD* grfBINDF, BINDINFO* pbindinfo) { return E_NOTIMPL; }
+    STDMETHOD(OnDataAvailable)(DWORD grfBSCF, DWORD dwSize, FORMATETC* pformatetc, STGMEDIUM* pstgmed) { return E_NOTIMPL; }
+    STDMETHOD(OnObjectAvailable)(REFIID riid, IUnknown* punk) { return E_NOTIMPL; }
+
+    STDMETHOD_(ULONG, AddRef)() { return 0; }
+    STDMETHOD_(ULONG, Release)() { return 0; }
+    STDMETHOD(QueryInterface)(REFIID riid, void** ppvObject) { return E_NOTIMPL; }
+
+private:
+    void (*logCallback)(const std::string&);
+};
+
 // Helper function to download and extract Fortnite
 bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCallback)(const std::string&)) {
     logCallback("Starting Fortnite download...");
@@ -37,12 +70,14 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
         fs::create_directories(extractPath);
     }
 
-    // Download the zip file
+    // Download the zip file with progress updates
     logCallback("Downloading from: https://public.simplyblk.xyz/1.11.zip");
     logCallback("Download location: " + std::string(zipPath.begin(), zipPath.end()));
     
+    DownloadCallback* callback = new DownloadCallback(logCallback);
     HRESULT hr = URLDownloadToFileW(NULL, L"https://public.simplyblk.xyz/1.11.zip", 
-        zipPath.c_str(), 0, NULL);
+        zipPath.c_str(), 0, callback);
+    delete callback;
 
     if (FAILED(hr)) {
         logCallback("ERROR: Failed to download Fortnite");
@@ -54,8 +89,10 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
     logCallback("Extracting to: " + std::string(extractPath.begin(), extractPath.end()));
 
     // Extract using PowerShell instead of zip.h
-    std::wstring psCommand = L"powershell.exe -Command \"Expand-Archive -Path '" + 
-                            zipPath + L"' -DestinationPath '" + extractPath + L"' -Force\"";
+    std::wstring psCommand = L"powershell.exe -Command \"$progressPreference = 'silentlyContinue'; " 
+                            L"Write-Host 'Extracting...'; "
+                            L"Expand-Archive -Path '" + zipPath + L"' -DestinationPath '" + 
+                            extractPath + L"' -Force; Write-Host 'Extraction complete!'\"";
 
     STARTUPINFOW si = {0};
     PROCESS_INFORMATION pi = {0};

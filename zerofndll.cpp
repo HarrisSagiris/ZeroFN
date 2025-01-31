@@ -1,3 +1,4 @@
+#define _WIN32_WINNT 0x0600
 #include <WinSock2.h> // Must come before Windows.h
 #include <ws2tcpip.h>
 #include <Windows.h>
@@ -341,7 +342,7 @@ HINTERNET WINAPI HookedInternetConnectW(HINTERNET hInternet, LPCWSTR lpszServerN
 template<typename T>
 bool InstallHook(T& original, T hooked, const char* name) {
     DWORD oldProtect;
-    LPVOID originalPtr = reinterpret_cast<LPVOID>(original);
+    LPVOID originalPtr = reinterpret_cast<LPVOID>(&original);
     
     std::cout << "[ZeroFN] Installing hook for " << name << std::endl;
     

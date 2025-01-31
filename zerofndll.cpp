@@ -18,6 +18,10 @@
 #pragma comment(lib, "urlmon.lib")
 #pragma comment(lib, "ws2_32.lib")
 
+// Function declarations
+bool IsServerListening();
+void LogToFile(const std::string& message);
+
 // Function pointer types for hooks
 typedef BOOL(WINAPI* tHttpSendRequestA)(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength);
 typedef HINTERNET(WINAPI* tHttpOpenRequestA)(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext);
@@ -41,6 +45,32 @@ const INTERNET_PORT LOCAL_PORT = 7777;
 
 // Mutex for thread-safe logging
 std::mutex logMutex;
+
+// Function implementations
+bool IsServerListening() {
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) return false;
+
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(LOCAL_PORT);
+    inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
+
+    bool result = connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0;
+    closesocket(sock);
+    return result;
+}
+
+void LogToFile(const std::string& message) {
+    std::lock_guard<std::mutex> lock(logMutex);
+    std::ofstream logFile("zerofn.log", std::ios::app);
+    if (logFile.is_open()) {
+        auto now = std::chrono::system_clock::now();
+        auto time = std::chrono::system_clock::to_time_t(now);
+        logFile << std::ctime(&time) << message << std::endl;
+        logFile.close();
+    }
+}
 
 // Generate random account ID and session ID
 std::string GenerateRandomString(int length) {

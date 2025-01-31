@@ -16,7 +16,6 @@
 #include <userenv.h>
 #include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
 #include <urlmon.h> // For URLDownloadToFile
-
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "psapi.lib") // Added for psapi functions
@@ -59,6 +58,7 @@ private:
     void (*logCallback)(const std::string&);
     int lastPercentage;
 };
+
 // Helper function to download and extract Fortnite
 bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCallback)(const std::string&)) {
     logCallback("Starting Fortnite download...");
@@ -73,117 +73,20 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
         fs::create_directories(extractPath);
     }
 
-    // Create the callback object
+    // Download the zip file with progress updates
+    logCallback("Downloading from: https://public.simplyblk.xyz/1.11.zip");
+    logCallback("Download location: " + std::string(zipPath.begin(), zipPath.end()));
+    
     DownloadCallback* callback = new DownloadCallback(logCallback);
-
-    // Download using URLDownloadToFile
     HRESULT hr = URLDownloadToFileW(NULL, L"https://public.simplyblk.xyz/1.11.zip", 
-                                   zipPath.c_str(), 0, callback);
-
-    if (FAILED(hr)) {
-        logCallback("ERROR: Failed to download file");
-        delete callback;
-        return false;
-    }
-
+        zipPath.c_str(), 0, callback);
     delete callback;
 
-    // Create request
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", L"/1.11.zip",
-                                          NULL, WINHTTP_NO_REFERER,
-                                          WINHTTP_DEFAULT_ACCEPT_TYPES,
-                                          WINHTTP_FLAG_SECURE);
-    
-    if (!hRequest) {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        logCallback("ERROR: Failed to create request");
+    if (FAILED(hr)) {
+        logCallback("ERROR: Failed to download Fortnite");
+        logCallback("Error code: " + std::to_string(hr));
         return false;
     }
-
-    // Send request
-    if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-                           WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
-        WinHttpCloseHandle(hRequest);
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        logCallback("ERROR: Failed to send request");
-        return false;
-    }
-
-    // Receive response
-    if (!WinHttpReceiveResponse(hRequest, NULL)) {
-        WinHttpCloseHandle(hRequest);
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        logCallback("ERROR: Failed to receive response");
-        return false;
-    }
-
-    // Get content length
-    DWORD contentLength = 0;
-    DWORD size = sizeof(contentLength);
-    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER,
-                       WINHTTP_HEADER_NAME_BY_INDEX, &contentLength, &size, WINHTTP_NO_HEADER_INDEX);
-
-    // Create/open the output file
-    HANDLE hFile = CreateFileW(zipPath.c_str(), GENERIC_WRITE, 0, NULL,
-                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    
-    if (hFile == INVALID_HANDLE_VALUE) {
-        WinHttpCloseHandle(hRequest);
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        logCallback("ERROR: Failed to create output file");
-        return false;
-    }
-
-    // Download the file with progress updates
-    DWORD bytesRead = 0;
-    DWORD totalBytesRead = 0;
-    char buffer[8192];
-    int lastPercentage = -1;
-
-    do {
-        if (!WinHttpReadData(hRequest, buffer, sizeof(buffer), &bytesRead)) {
-            CloseHandle(hFile);
-            WinHttpCloseHandle(hRequest);
-            WinHttpCloseHandle(hConnect);
-            WinHttpCloseHandle(hSession);
-            DeleteFileW(zipPath.c_str());
-            logCallback("ERROR: Failed to read data");
-            return false;
-        }
-
-        if (bytesRead > 0) {
-            DWORD bytesWritten;
-            if (!WriteFile(hFile, buffer, bytesRead, &bytesWritten, NULL)) {
-                CloseHandle(hFile);
-                WinHttpCloseHandle(hRequest);
-                WinHttpCloseHandle(hConnect);
-                WinHttpCloseHandle(hSession);
-                DeleteFileW(zipPath.c_str());
-                logCallback("ERROR: Failed to write data");
-                return false;
-            }
-
-            totalBytesRead += bytesRead;
-            int percentage = (int)((totalBytesRead * 100.0) / contentLength);
-            
-            if (percentage != lastPercentage) {
-                std::stringstream ss;
-                ss << "Download Progress: " << percentage << "%";
-                logCallback(ss.str());
-                lastPercentage = percentage;
-            }
-        }
-    } while (bytesRead > 0);
-
-    // Cleanup download handles
-    CloseHandle(hFile);
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
 
     logCallback("Download complete! Starting extraction process...");
     logCallback("Extracting to: " + std::string(extractPath.begin(), extractPath.end()));

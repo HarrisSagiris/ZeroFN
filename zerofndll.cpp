@@ -77,7 +77,11 @@ void LogToFile(const std::string& message) {
 
 void LogAuthDetails(const std::string& domain, const std::string& response) {
     std::cout << "\n[ZeroFN] ========== AUTH DETAILS ==========\n";
-    std::cout << "[ZeroFN] Timestamp: " << std::put_time(std::localtime(&std::time(nullptr)), "%Y-%m-%d %H:%M:%S") << "\n";
+    
+    // Fix: Store time_t value first then use it
+    std::time_t current_time = std::time(nullptr);
+    std::cout << "[ZeroFN] Timestamp: " << std::put_time(std::localtime(&current_time), "%Y-%m-%d %H:%M:%S") << "\n";
+    
     std::cout << "[ZeroFN] Domain: " << domain << "\n";
     
     // Parse and format JSON-like response for better readability

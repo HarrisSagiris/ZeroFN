@@ -11,6 +11,8 @@
 #include <TlHelp32.h>
 #include <mutex>
 #include <chrono>
+#include <ctime>
+#include <random>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
@@ -40,78 +42,83 @@ const INTERNET_PORT LOCAL_PORT = 7777;
 // Mutex for thread-safe logging
 std::mutex logMutex;
 
-// Check if server is listening
-bool IsServerListening() {
-    std::cout << "[ZeroFN] Checking if local server is listening..." << std::endl;
-    
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cout << "[ZeroFN] ERROR: WSAStartup failed" << std::endl;
-        return false;
+// Generate random account ID and session ID
+std::string GenerateRandomString(int length) {
+    static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, sizeof(alphanum) - 2);
+    std::string result;
+    for (int i = 0; i < length; ++i) {
+        result += alphanum[dis(gen)];
     }
-
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock == INVALID_SOCKET) {
-        std::cout << "[ZeroFN] ERROR: Failed to create socket" << std::endl;
-        WSACleanup();
-        return false;
-    }
-
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(LOCAL_PORT);
-    addr.sin_addr.s_addr = inet_addr(LOCAL_SERVER);
-
-    bool isListening = (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0);
-    
-    if (isListening) {
-        std::cout << "[ZeroFN] Successfully connected to local server" << std::endl;
-    } else {
-        std::cout << "[ZeroFN] ERROR: Could not connect to local server" << std::endl;
-    }
-    
-    closesocket(sock);
-    WSACleanup();
-    return isListening;
+    return result;
 }
 
-// Logger function
-void LogToFile(const std::string& message) {
-    std::lock_guard<std::mutex> lock(logMutex);
-    std::ofstream logFile("zerofn_bypass.log", std::ios::app);
-    auto now = std::chrono::system_clock::now();
-    auto now_c = std::chrono::system_clock::to_time_t(now);
-    char timestamp[64];
-    strftime(timestamp, sizeof(timestamp), "[%Y-%m-%d %H:%M:%S]", localtime(&now_c));
-    logFile << timestamp << " " << message << std::endl;
-    std::cout << "[ZeroFN] " << timestamp << " " << message << std::endl;
+// Generate random auth token
+std::string GenerateAuthToken() {
+    return "eg1~" + GenerateRandomString(32);
+}
+
+// Generate random device ID
+std::string GenerateDeviceId() {
+    return GenerateRandomString(16) + "-" + 
+           GenerateRandomString(8) + "-" + 
+           GenerateRandomString(8) + "-" + 
+           GenerateRandomString(8) + "-" + 
+           GenerateRandomString(24);
 }
 
 // Block list for Epic/Fortnite domains with active bypass responses
 const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
-    {"epicgames.com", "{\"success\":true,\"account_id\":\"bypass_account\",\"session_id\":\"active_session\"}"},
-    {"fortnite.com", "{\"status\":\"UP\",\"message\":\"Fortnite is online\",\"version\":\"2.0.0\"}"},
-    {"ol.epicgames.com", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"authentication successful\"}"},
-    {"account-public-service-prod03", "{\"access_token\":\"bypass_token\",\"expires_in\":28800,\"client_id\":\"fortnitePCGameClient\"}"},
-    {"lightswitch-public-service-prod06", "{\"serviceInstanceId\":\"fortnite\",\"status\":\"UP\",\"message\":\"lightswitch check passed\"}"},
-    {"launcher-public-service-prod06", "{\"buildVersion\":\"++Fortnite+Release-2.5.0\",\"status\":\"ACTIVE\",\"message\":\"launcher check passed\"}"},
-    {"fortnite-game-public-service", "{\"status\":\"UP\",\"message\":\"Game servers online\",\"allowedToPlay\":true}"},
-    {"datarouter.ol.epicgames.com", "{\"success\":true}"},
-    {"fortnite-public-service-prod11", "{\"profileRevision\":1,\"profileId\":\"athena\",\"profileChangesBaseRevision\":1,\"profileChanges\":[],\"serverTime\":\"2023-01-01T00:00:00.000Z\",\"responseVersion\":1}"},
-    // Added additional authentication endpoints
-    {"account-public-service-prod.ol.epicgames.com", "{\"access_token\":\"bypass_token\",\"expires_in\":28800,\"client_id\":\"fortnitePCGameClient\"}"},
-    {"auth.epicgames.com", "{\"access_token\":\"bypass_token\",\"expires_in\":28800,\"client_id\":\"fortnitePCGameClient\"}"},
-    {"egp-idsoc.ol.epicgames.com", "{\"success\":true,\"session_id\":\"active_session\"}"},
-    {"fortnite-public-service-prod.ol.epicgames.com", "{\"status\":\"UP\",\"message\":\"Game servers online\",\"allowedToPlay\":true}"},
-    {"entitlement-public-service-prod08.ol.epicgames.com", "{\"entitlements\":[{\"appId\":\"Fortnite\",\"catalogItemId\":\"access\",\"entitlementName\":\"Fortnite Access\"}]}"},
-    {"eulatracking-public-service-prod06.ol.epicgames.com", "{\"accepted\":true}"},
-    {"friends-public-service-prod06.ol.epicgames.com", "{\"friends\":[],\"incoming\":[],\"outgoing\":[],\"blocklist\":[]}"},
-    // Added new authentication endpoints
-    {"xmpp-service-prod.ol.epicgames.com", "{\"status\":\"UP\"}"},
-    {"fortnite-matchmaking-public-service-live-prod.ol.epicgames.com", "{\"status\":\"UP\"}"},
-    {"party-service-prod.ol.epicgames.com", "{\"status\":\"UP\"}"},
-    // Added endpoint to bypass "unable to login" message
-    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/game/v2/enabled", "{\"status\":true,\"message\":\"\",\"allowed\":true}"}
+    {"epicgames.com/id/api/authenticate", 
+        "{\"access_token\":\"" + GenerateAuthToken() + "\","
+        "\"account_id\":\"" + GenerateRandomString(32) + "\","
+        "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\","
+        "\"expires_in\":28800,"
+        "\"token_type\":\"bearer\","
+        "\"refresh_token\":\"" + GenerateRandomString(32) + "\","
+        "\"refresh_expires\":115200,"
+        "\"device_id\":\"" + GenerateDeviceId() + "\"}"
+    },
+    {"fortnite.com/fortnite/api/game/v2/profile",
+        "{\"profileId\":\"athena\","
+        "\"profileChanges\":[{\"changeType\":\"fullProfileUpdate\","
+        "\"profile\":{\"_id\":\"" + GenerateRandomString(32) + "\","
+        "\"accountId\":\"" + GenerateRandomString(32) + "\","
+        "\"version\":\"live_profile\","
+        "\"created\":\"2023-01-01T00:00:00.000Z\"}}],"
+        "\"serverTime\":\"" + std::to_string(std::time(nullptr)) + "\","
+        "\"profileRevision\":1,"
+        "\"profileCommandRevision\":1}"
+    },
+    {"account-public-service-prod.ol.epicgames.com/account/api/oauth/token",
+        "{\"access_token\":\"" + GenerateAuthToken() + "\","
+        "\"expires_in\":28800,"
+        "\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\","
+        "\"token_type\":\"bearer\","
+        "\"refresh_token\":\"" + GenerateRandomString(32) + "\","
+        "\"refresh_expires\":115200,"
+        "\"account_id\":\"" + GenerateRandomString(32) + "\","
+        "\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\"}"
+    },
+    {"lightswitch-public-service-prod.ol.epicgames.com",
+        "{\"serviceInstanceId\":\"fortnite\","
+        "\"status\":\"UP\","
+        "\"message\":\"Fortnite is online\","
+        "\"maintenanceUri\":null,"
+        "\"allowedActions\":[\"PLAY\",\"DOWNLOAD\"],"
+        "\"banned\":false}"
+    },
+    {"fortnite-public-service-prod.ol.epicgames.com/fortnite/api/matchmaking/session/findPlayer",
+        "{\"accountId\":\"" + GenerateRandomString(32) + "\","
+        "\"matches\":[{\"sessionId\":\"" + GenerateRandomString(32) + "\","
+        "\"matchId\":\"" + GenerateRandomString(32) + "\"}]}"
+    }
+    // Additional endpoints can be added here as needed
 };
 
 // Enhanced domain blocking with active response generation

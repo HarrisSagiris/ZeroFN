@@ -16,13 +16,11 @@
 #include <userenv.h>
 #include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
 #include <urlmon.h> // For URLDownloadToFile
-#include <winhttp.h>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "psapi.lib") // Added for psapi functions
 #pragma comment(lib, "urlmon.lib") // For URLDownloadToFile
-#pragma comment(lib, "winhttp.lib")
 
 namespace fs = std::experimental::filesystem;
 
@@ -75,36 +73,20 @@ bool DownloadAndExtractFortnite(const std::wstring& downloadPath, void (*logCall
         fs::create_directories(extractPath);
     }
 
-    // Initialize WinHTTP
-    HINTERNET hSession = WinHttpOpen(L"ZeroFN Downloader",  
-                                   WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-                                   WINHTTP_NO_PROXY_NAME, 
-                                   WINHTTP_NO_PROXY_BYPASS, 0);
-    
-    if (!hSession) {
-        logCallback("ERROR: Failed to initialize WinHTTP");
+    // Create the callback object
+    DownloadCallback* callback = new DownloadCallback(logCallback);
+
+    // Download using URLDownloadToFile
+    HRESULT hr = URLDownloadToFileW(NULL, L"https://public.simplyblk.xyz/1.11.zip", 
+                                   zipPath.c_str(), 0, callback);
+
+    if (FAILED(hr)) {
+        logCallback("ERROR: Failed to download file");
+        delete callback;
         return false;
     }
 
-    // Create URL components
-    URL_COMPONENTS urlComp = {0};
-    urlComp.dwStructSize = sizeof(urlComp);
-    urlComp.dwHostNameLength = (DWORD)-1;
-    urlComp.dwUrlPathLength = (DWORD)-1;
-
-    // Parse URL
-    WCHAR url[] = L"https://public.simplyblk.xyz/1.11.zip";
-    WinHttpCrackUrl(url, 0, 0, &urlComp);
-
-    // Connect to server
-    HINTERNET hConnect = WinHttpConnect(hSession, L"public.simplyblk.xyz", 
-                                      INTERNET_DEFAULT_HTTPS_PORT, 0);
-    
-    if (!hConnect) {
-        WinHttpCloseHandle(hSession);
-        logCallback("ERROR: Failed to connect to server");
-        return false;
-    }
+    delete callback;
 
     // Create request
     HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", L"/1.11.zip",

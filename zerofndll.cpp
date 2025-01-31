@@ -51,17 +51,43 @@ std::mutex logMutex;
 
 // Function implementations
 bool IsServerListening() {
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock == INVALID_SOCKET) return false;
+    const int MAX_RETRIES = 3;
+    const int RETRY_DELAY_MS = 1000;
 
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(LOCAL_PORT);
-    inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
+    for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (sock == INVALID_SOCKET) {
+            std::cout << "[ZeroFN] Failed to create socket on attempt " << attempt << std::endl;
+            if (attempt < MAX_RETRIES) {
+                Sleep(RETRY_DELAY_MS);
+                continue;
+            }
+            return false;
+        }
 
-    bool result = connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0;
-    closesocket(sock);
-    return result;
+        sockaddr_in addr;
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(LOCAL_PORT);
+        inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
+
+        if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0) {
+            closesocket(sock);
+            std::cout << "[ZeroFN] Successfully connected to server on attempt " << attempt << std::endl;
+            return true;
+        }
+
+        closesocket(sock);
+        std::cout << "[ZeroFN] Connection attempt " << attempt << " failed, retrying..." << std::endl;
+        
+        if (attempt < MAX_RETRIES) {
+            Sleep(RETRY_DELAY_MS);
+        }
+    }
+
+    std::cout << "[ZeroFN] Failed to connect after " << MAX_RETRIES << " attempts" << std::endl;
+    LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+    MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+    return false;
 }
 
 void LogToFile(const std::string& message) {

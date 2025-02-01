@@ -21,7 +21,7 @@
 #pragma comment(lib, "ws2_32.lib")
 
 // Function declarations
-bool IsServerListening();
+bool ConnectToIndexTS();
 void LogToFile(const std::string& message);
 void LogAuthDetails(const std::string& domain, const std::string& response);
 
@@ -44,49 +44,34 @@ tInternetConnectW originalInternetConnectW = nullptr;
 // Local server configuration
 const char* LOCAL_SERVER = "127.0.0.1";
 const wchar_t* LOCAL_SERVER_W = L"127.0.0.1";
-const INTERNET_PORT LOCAL_PORT = 7777;
+const INTERNET_PORT LOCAL_PORT = 3000; // Port for index.ts
 
 // Mutex for thread-safe logging
 std::mutex logMutex;
 
 // Function implementations
-bool IsServerListening() {
-    const int MAX_RETRIES = 3;
-    const int RETRY_DELAY_MS = 1000;
-
-    for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (sock == INVALID_SOCKET) {
-            std::cout << "[ZeroFN] Failed to create socket on attempt " << attempt << std::endl;
-            if (attempt < MAX_RETRIES) {
-                Sleep(RETRY_DELAY_MS);
-                continue;
-            }
-            return false;
-        }
-
-        sockaddr_in addr;
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(LOCAL_PORT);
-        inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
-
-        if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0) {
-            closesocket(sock);
-            std::cout << "[ZeroFN] Successfully connected to server on attempt " << attempt << std::endl;
-            return true;
-        }
-
-        closesocket(sock);
-        std::cout << "[ZeroFN] Connection attempt " << attempt << " failed, retrying..." << std::endl;
-        
-        if (attempt < MAX_RETRIES) {
-            Sleep(RETRY_DELAY_MS);
-        }
+bool ConnectToIndexTS() {
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        std::cout << "[ZeroFN] Failed to create socket for index.ts connection" << std::endl;
+        return false;
     }
 
-    std::cout << "[ZeroFN] Failed to connect after " << MAX_RETRIES << " attempts" << std::endl;
-    LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
-    MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(LOCAL_PORT);
+    inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
+
+    if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0) {
+        closesocket(sock);
+        std::cout << "[ZeroFN] Successfully connected to index.ts" << std::endl;
+        return true;
+    }
+
+    closesocket(sock);
+    std::cout << "[ZeroFN] Failed to connect to index.ts" << std::endl;
+    LogToFile("ERROR: Could not connect to index.ts on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+    MessageBoxA(NULL, "Could not connect to index.ts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
     return false;
 }
 
@@ -157,10 +142,10 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
     
     std::cout << "[ZeroFN] Checking domain: " << domain << std::endl;
     
-    if (!IsServerListening()) {
-        std::cout << "[ZeroFN] ERROR: Local server is not listening on " << LOCAL_SERVER << ":" << LOCAL_PORT << std::endl;
-        LogToFile("ERROR: Local server is not listening on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
-        MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server first.", "ZeroFN Error", MB_ICONERROR);
+    if (!ConnectToIndexTS()) {
+        std::cout << "[ZeroFN] ERROR: Could not connect to index.ts" << std::endl;
+        LogToFile("ERROR: Could not connect to index.ts");
+        MessageBoxA(NULL, "Could not connect to index.ts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
         return false;
     }
 
@@ -387,11 +372,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             
             LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
 
-            // Check if server is running before proceeding
-            if (!IsServerListening()) {
-                std::cout << "[ZeroFN] ERROR: Local server is not running!" << std::endl;
-                LogToFile("ERROR: Local server is not running - Preventing Fortnite launch");
-                MessageBoxA(NULL, "ZeroFN Server is not running! Please start the server before launching Fortnite.", "ZeroFN Error", MB_ICONERROR);
+            // Check if index.ts is running before proceeding
+            if (!ConnectToIndexTS()) {
+                std::cout << "[ZeroFN] ERROR: Could not connect to index.ts!" << std::endl;
+                LogToFile("ERROR: Could not connect to index.ts - Preventing Fortnite launch");
+                MessageBoxA(NULL, "Could not connect to index.ts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
                 return FALSE;
             }
 

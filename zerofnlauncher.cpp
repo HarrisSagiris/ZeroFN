@@ -364,7 +364,7 @@ private:
 
         // Start the server using pnpm run dev in a new visible window
         logMessage("Starting auth server...");
-        WCHAR serverCmd[] = L"cmd.exe /c start \"ZeroFN Server\" pnpm run dev";
+        WCHAR serverCmd[] = L"cmd.exe /c start \"ZeroFN Server\" cd packages/backend && pnpm run dev";
         if (!CreateProcessW(NULL, serverCmd, NULL, NULL, FALSE,
             CREATE_NEW_CONSOLE,
             NULL, currentDir, &si, &pi)) {
@@ -403,8 +403,8 @@ private:
 
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
-            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=localhost:7777 -AUTH_PASSWORD=test "
-            L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -NOFORCECONNECT";
+            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:3000 -AUTH_PASSWORD=test "
+            L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -FORCECONNECT";
 
         // Create process suspended
         SHELLEXECUTEINFOW shExInfo = {0};

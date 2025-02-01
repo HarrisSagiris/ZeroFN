@@ -1,10 +1,11 @@
 import express from "express"
 import fs from "fs"
 import path from "path"
+import net from "net"
 
 const app = express();
-const port = 7777;
-const host = 'localhost'; // Changed to only accept local connections
+const port = 3000; // Changed to match LOCAL_PORT in zerofndll.cpp
+const host = '127.0.0.1'; // Changed to match LOCAL_SERVER in zerofndll.cpp
 
 // Middleware to parse JSON bodies
 app.use(express.json());
@@ -48,20 +49,35 @@ const saveDatabase = () => {
   console.log('Database saved successfully');
 };
 
+// Create TCP server to verify DLL connection
+const tcpServer = net.createServer((socket) => {
+  console.log('ZeroFN DLL connected to backend');
+  socket.on('data', (data) => {
+    console.log('Received data from DLL:', data.toString());
+  });
+  socket.on('end', () => {
+    console.log('ZeroFN DLL disconnected');
+  });
+});
+
+tcpServer.listen(3001, host, () => {
+  console.log('TCP server listening for DLL connections on port 3001');
+});
+
 // Authentication bypass endpoints
 app.get('/account/api/oauth/verify', (req, res) => {
   console.log('Client connected! Verifying authentication...');
   res.json({
     access_token: "eg1~-*",
     expires_in: 28800,
-    token_type: "bearer",
+    token_type: "bearer", 
     refresh_token: "eg1~-*",
     refresh_expires: 115200,
     account_id: "ninja",
-    client_id: "3446cd72694c4a4485d81b77adbb2141",
+    client_id: "ec684b8c687f479fadea3cb2ad83f5c6", // Match client_id from zerofndll.cpp
     internal_client: true,
     client_service: "fortnite",
-    displayName: "Ninja",
+    displayName: "ZeroFN", // Match displayName from zerofndll.cpp
     app: "fortnite",
     in_app_id: "ninja",
     device_id: "164fb25bb44e42c5a027977d0d5da800"
@@ -71,20 +87,29 @@ app.get('/account/api/oauth/verify', (req, res) => {
 
 app.post('/account/api/oauth/token', (req, res) => {
   console.log('Client requesting auth token...');
+  // Generate random strings like in zerofndll.cpp
+  const randomString = (length: number) => {
+    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    let result = '';
+    for(let i = 0; i < length; i++) {
+      result += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return result;
+  };
+
   res.json({
-    access_token: "eg1~-*",
+    access_token: `eg1~${randomString(128)}`,
     expires_in: 28800,
     token_type: "bearer",
-    refresh_token: "eg1~-*",
+    refresh_token: randomString(32),
     refresh_expires: 115200,
-    account_id: "ninja",
-    client_id: "3446cd72694c4a4485d81b77adbb2141",
+    account_id: randomString(32),
+    client_id: "ec684b8c687f479fadea3cb2ad83f5c6",
     internal_client: true,
-    client_service: "fortnite",
-    displayName: "Ninja",
+    client_service: "fortnite", 
+    displayName: "ZeroFN",
     app: "fortnite",
-    in_app_id: "ninja",
-    device_id: "164fb25bb44e42c5a027977d0d5da800"
+    in_app_id: randomString(32)
   });
   console.log('Auth token generated and sent to client');
 });
@@ -93,16 +118,16 @@ app.get('/account/api/public/account/:accountId', (req, res) => {
   console.log(`Client requesting account info for ID: ${req.params.accountId}`);
   res.json({
     id: "ninja",
-    displayName: "Ninja",
-    name: "Ninja",
-    email: "ninja@ninja.com",
+    displayName: "ZeroFN",
+    name: "ZeroFN",
+    email: "zerofn@zerofn.com",
     failedLoginAttempts: 0,
     lastLogin: new Date().toISOString(),
     numberOfDisplayNameChanges: 0,
     ageGroup: "UNKNOWN",
     headless: false,
     country: "US",
-    lastName: "Ninja",
+    lastName: "ZeroFN",
     preferredLanguage: "en",
     canUpdateDisplayName: false,
     tfaEnabled: false,
@@ -117,12 +142,12 @@ app.get('/account/api/public/account/:accountId', (req, res) => {
   console.log('Account info sent to client');
 });
 
-// Version check endpoints
+// Version check endpoints matching zerofndll.cpp responses
 app.get('/fortnite/api/version', (req, res) => {
   console.log('Client checking game version...');
   res.json({
     type: 'NO_UPDATE',
-    version: '++Fortnite+Release-20.00-CL-19458861',
+    version: '++Fortnite+Release-Cert-CL-3807424',
     buildDate: '2023-01-01'
   });
   console.log('Version check completed');
@@ -131,7 +156,12 @@ app.get('/fortnite/api/version', (req, res) => {
 app.get('/fortnite/api/versioncheck/:version', (req, res) => {
   console.log(`Client version check for: ${req.params.version}`);
   res.json({
-    type: 'NO_UPDATE'
+    type: "NO_UPDATE",
+    acceptedVersion: "++Fortnite+Release-Cert-CL-3807424",
+    updateUrl: null,
+    requiredVersion: "NONE",
+    updatePriority: 0,
+    message: "No update required."
   });
   console.log('Version compatibility confirmed');
 });
@@ -140,15 +170,15 @@ app.get('/fortnite/api/versioncheck/:version', (req, res) => {
 app.get('/fortnite/api/cloudstorage/user/:accountId', (req, res) => {
   console.log(`Client requesting cloud storage for account: ${req.params.accountId}`);
   res.json([{
-    "uniqueFilename": "ClientSettings.Sav",
-    "filename": "ClientSettings.Sav",
-    "hash": "603E6907392C7212C4A7642D3247552A",
-    "hash256": "973124FFC4A03E66D6A4458E587D5D6146F71FC57F359C8D516E0B12A50D96E0",
-    "length": 0,
-    "contentType": "application/octet-stream",
-    "uploaded": "2023-01-01T00:00:00.000Z",
-    "storageType": "S3",
-    "doNotCache": false
+    uniqueFilename: "DefaultGame.ini",
+    filename: "DefaultGame.ini",
+    hash: randomString(32),
+    hash256: randomString(64),
+    length: 1234,
+    contentType: "application/octet-stream",
+    uploaded: "2025-01-31T20:57:02.000Z",
+    storageType: "S3",
+    doNotCache: false
   }]);
   console.log('Cloud storage data sent to client');
 });
@@ -321,6 +351,6 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
 
 // Start server
 app.listen(port, host, () => {
-  console.log(`ZeroFN Backend running on ${host}:${port} and accepting local connections only`);
-  console.log('Server is ready to accept connections from localhost!');
+  console.log(`ZeroFN Backend running on ${host}:${port}`);
+  console.log('Server is ready to accept connections from ZeroFN DLL!');
 });

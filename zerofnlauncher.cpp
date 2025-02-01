@@ -378,7 +378,7 @@ private:
 
         // Wait for server to initialize
         logMessage("Waiting for services to initialize...");
-        Sleep(2000);
+        Sleep(5000); // Increased from 2000 to 5000 to allow more time for server initialization
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];

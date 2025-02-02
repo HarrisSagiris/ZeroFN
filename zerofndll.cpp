@@ -51,9 +51,16 @@ std::mutex logMutex;
 
 // Function implementations
 bool ConnectToServer() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cout << "[ZeroFN] Failed to initialize Winsock" << std::endl;
+        return false;
+    }
+
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) {
         std::cout << "[ZeroFN] Failed to create socket for server connection" << std::endl;
+        WSACleanup();
         return false;
     }
 
@@ -64,11 +71,13 @@ bool ConnectToServer() {
 
     if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0) {
         closesocket(sock);
+        WSACleanup();
         std::cout << "[ZeroFN] Successfully connected to server" << std::endl;
         return true;
     }
 
     closesocket(sock);
+    WSACleanup();
     std::cout << "[ZeroFN] Failed to connect to server" << std::endl;
     LogToFile("ERROR: Could not connect to server on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
     MessageBoxA(NULL, "Could not connect to server! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
@@ -353,6 +362,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
 
+            // Initialize Winsock
+            WSADATA wsaData;
+            if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+                MessageBoxA(NULL, "Failed to initialize Winsock!", "ZeroFN Error", MB_ICONERROR);
+                return FALSE;
+            }
+
             // Create console for debugging
             AllocConsole();
             FILE* f;
@@ -382,6 +398,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 std::cout << "[ZeroFN] ERROR: Failed to connect to server after " << maxRetries << " attempts" << std::endl;
                 LogToFile("ERROR: Failed to connect to server after " + std::to_string(maxRetries) + " attempts");
                 MessageBoxA(NULL, "Could not connect to server after multiple attempts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
+                WSACleanup();
                 return FALSE;
             }
 
@@ -393,6 +410,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             if (!hWininet) {
                 std::cout << "[ZeroFN] ERROR: Failed to load wininet.dll" << std::endl;
                 LogToFile("ERROR: Failed to load wininet.dll");
+                WSACleanup();
                 return FALSE;
             }
 
@@ -429,6 +447,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         case DLL_PROCESS_DETACH:
             std::cout << "[ZeroFN] DLL detaching - Shutting down bypass system" << std::endl;
             LogToFile("DLL detaching - Shutting down bypass system");
+            WSACleanup();
             break;
     }
     return TRUE;

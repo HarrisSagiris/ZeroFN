@@ -15,9 +15,13 @@
 #include <functional>
 #include <userenv.h>
 #include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
+#include <gdiplus.h> // Added for gradient backgrounds
+#include <dwmapi.h> // Added for window composition effects
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
-#pragma comment(lib, "psapi.lib") // Added for psapi functions
+#pragma comment(lib, "psapi.lib")
+#pragma comment(lib, "gdiplus.lib")
+#pragma comment(lib, "dwmapi.lib")
 
 namespace fs = std::experimental::filesystem;
 
@@ -159,66 +163,81 @@ bool InjectDLL(HANDLE hProcess, const std::wstring& dllPath, void (*logCallback)
 class ZeroFNLauncher {
 public:
     ZeroFNLauncher() {
-        // Initialize COM for folder browser
+        // Initialize GDI+ and COM
+        Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+        Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
         CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
-        // Create main window with dark theme
+        // Create main window with Epic-style theme
         WNDCLASSEXW wc = {0};
         wc.cbSize = sizeof(WNDCLASSEXW);
         wc.lpfnWndProc = WindowProc;
         wc.hInstance = GetModuleHandle(NULL);
         wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-        wc.hbrBackground = CreateSolidBrush(RGB(32, 32, 32)); // Dark background
+        wc.hbrBackground = CreateSolidBrush(RGB(18, 18, 18)); // Epic dark background
         wc.lpszClassName = L"ZeroFNLauncher";
         RegisterClassExW(&wc);
 
         hwnd = CreateWindowExW(
-            WS_EX_LAYERED,
+            WS_EX_LAYERED | WS_EX_COMPOSITED,
             L"ZeroFNLauncher", 
             L"ZeroFN Launcher",
-            WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+            WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX,
+            CW_USEDEFAULT, CW_USEDEFAULT, 1000, 600,
             NULL,
             NULL,
             GetModuleHandle(NULL),
             NULL
         );
 
-        // Set window transparency
-        SetLayeredWindowAttributes(hwnd, 0, 245, LWA_ALPHA);
+        // Enable window composition effects
+        MARGINS margins = {1, 1, 1, 1};
+        DwmExtendFrameIntoClientArea(hwnd, &margins);
+        
+        // Set window transparency and blur
+        SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+        BOOL enabled = TRUE;
+        DwmEnableBlurBehindWindow(hwnd, &enabled);
 
-        // Create modern styled controls
+        // Create Epic-styled controls with modern gradients
         CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            10, 10, 80, 30, hwnd, (HMENU)1, NULL, NULL);
+            20, 20, 100, 40, hwnd, (HMENU)1, NULL, NULL);
 
         pathEdit = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
-            100, 10, 580, 30, hwnd, (HMENU)2, NULL, NULL);
+            140, 20, 700, 40, hwnd, (HMENU)2, NULL, NULL);
 
-        startButton = CreateWindowW(L"BUTTON", L"Launch Game", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            10, 50, 120, 35, hwnd, (HMENU)3, NULL, NULL);
+        startButton = CreateWindowW(L"BUTTON", L"LAUNCH FORTNITE", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+            20, 80, 200, 50, hwnd, (HMENU)3, NULL, NULL);
 
-        stopButton = CreateWindowW(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            140, 50, 120, 35, hwnd, (HMENU)4, NULL, NULL);
+        stopButton = CreateWindowW(L"BUTTON", L"STOP SERVICES", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+            240, 80, 200, 50, hwnd, (HMENU)4, NULL, NULL);
 
         EnableWindow(stopButton, FALSE);
 
-        // Create styled console output
+        // Create Epic-styled console output
         consoleOutput = CreateWindowW(L"EDIT", L"", 
             WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
-            10, 95, 760, 450, hwnd, (HMENU)6, NULL, NULL);
+            20, 150, 940, 400, hwnd, (HMENU)6, NULL, NULL);
 
-        // Set modern font
-        HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        // Set Epic Games font
+        HFONT hFont = CreateFontW(20, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
             CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
 
-        // Apply styling to controls
-        for(HWND ctrl : {pathEdit, startButton, stopButton, consoleOutput}) {
+        HFONT hFontBold = CreateFontW(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+
+        // Apply Epic styling to controls
+        SendMessage(startButton, WM_SETFONT, (WPARAM)hFontBold, TRUE);
+        SendMessage(stopButton, WM_SETFONT, (WPARAM)hFontBold, TRUE);
+        
+        for(HWND ctrl : {pathEdit, consoleOutput}) {
             SendMessage(ctrl, WM_SETFONT, (WPARAM)hFont, TRUE);
             SetWindowSubclass(ctrl, ButtonSubclassProc, 0, 0);
         }
 
-        // Custom colors for controls
+        // Custom Epic-style colors and borders
         SetWindowLongPtr(pathEdit, GWL_EXSTYLE, GetWindowLongPtr(pathEdit, GWL_EXSTYLE) | WS_EX_CLIENTEDGE);
         SetWindowLongPtr(consoleOutput, GWL_EXSTYLE, GetWindowLongPtr(consoleOutput, GWL_EXSTYLE) | WS_EX_CLIENTEDGE);
 
@@ -239,9 +258,9 @@ public:
                 PAINTSTRUCT ps;
                 HDC hdc = BeginPaint(hWnd, &ps);
                 
-                // Custom dark theme colors
-                SetBkColor(hdc, RGB(45, 45, 45));
-                SetTextColor(hdc, RGB(240, 240, 240));
+                // Epic-style colors
+                SetBkColor(hdc, RGB(32, 32, 32));
+                SetTextColor(hdc, RGB(255, 255, 255));
                 
                 EndPaint(hWnd, &ps);
                 break;
@@ -249,15 +268,15 @@ public:
             case WM_CTLCOLOREDIT:
             case WM_CTLCOLORSTATIC: {
                 HDC hdcEdit = (HDC)wParam;
-                SetBkColor(hdcEdit, RGB(45, 45, 45));
-                SetTextColor(hdcEdit, RGB(240, 240, 240));
-                return (LRESULT)CreateSolidBrush(RGB(45, 45, 45));
+                SetBkColor(hdcEdit, RGB(32, 32, 32));
+                SetTextColor(hdcEdit, RGB(255, 255, 255));
+                return (LRESULT)CreateSolidBrush(RGB(32, 32, 32));
             }
             case WM_CTLCOLORBTN: {
                 HDC hdcButton = (HDC)wParam;
-                SetBkColor(hdcButton, RGB(60, 60, 60));
-                SetTextColor(hdcButton, RGB(240, 240, 240));
-                return (LRESULT)CreateSolidBrush(RGB(60, 60, 60));
+                SetBkColor(hdcButton, RGB(0, 140, 255)); // Epic blue
+                SetTextColor(hdcButton, RGB(255, 255, 255));
+                return (LRESULT)CreateSolidBrush(RGB(0, 140, 255));
             }
         }
         return DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -268,15 +287,15 @@ public:
             case WM_CTLCOLOREDIT:
             case WM_CTLCOLORSTATIC: {
                 HDC hdcEdit = (HDC)wParam;
-                SetBkColor(hdcEdit, RGB(45, 45, 45));
-                SetTextColor(hdcEdit, RGB(240, 240, 240));
-                return (LRESULT)CreateSolidBrush(RGB(45, 45, 45));
+                SetBkColor(hdcEdit, RGB(32, 32, 32));
+                SetTextColor(hdcEdit, RGB(255, 255, 255));
+                return (LRESULT)CreateSolidBrush(RGB(32, 32, 32));
             }
             case WM_CTLCOLORBTN: {
                 HDC hdcButton = (HDC)wParam;
-                SetBkColor(hdcButton, RGB(60, 60, 60));
-                SetTextColor(hdcButton, RGB(240, 240, 240));
-                return (LRESULT)CreateSolidBrush(RGB(60, 60, 60));
+                SetBkColor(hdcButton, RGB(0, 140, 255)); // Epic blue
+                SetTextColor(hdcButton, RGB(255, 255, 255));
+                return (LRESULT)CreateSolidBrush(RGB(0, 140, 255));
             }
             case WM_COMMAND:
                 switch (LOWORD(wParam)) {
@@ -292,6 +311,7 @@ public:
                 }
                 break;
             case WM_DESTROY:
+                Gdiplus::GdiplusShutdown(gdiplusToken);
                 CoUninitialize();
                 PostQuitMessage(0);
                 return 0;
@@ -542,11 +562,13 @@ private:
             logFile.close();
         }
     }
+
     static HWND hwnd;
     static HWND pathEdit;
     static HWND startButton;
     static HWND stopButton;
     static HWND consoleOutput;
+    static ULONG_PTR gdiplusToken;
 };
 
 HWND ZeroFNLauncher::hwnd = NULL;
@@ -554,6 +576,7 @@ HWND ZeroFNLauncher::pathEdit = NULL;
 HWND ZeroFNLauncher::startButton = NULL;
 HWND ZeroFNLauncher::stopButton = NULL;
 HWND ZeroFNLauncher::consoleOutput = NULL;
+ULONG_PTR ZeroFNLauncher::gdiplusToken = 0;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     ZeroFNLauncher launcher;

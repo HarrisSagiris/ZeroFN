@@ -364,7 +364,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             
             LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
 
-<<<<<<< Updated upstream
             // Retry connecting to server until successful
             bool connected = false;
             int retryCount = 0;
@@ -383,13 +382,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 std::cout << "[ZeroFN] ERROR: Failed to connect to server after " << maxRetries << " attempts" << std::endl;
                 LogToFile("ERROR: Failed to connect to server after " + std::to_string(maxRetries) + " attempts");
                 MessageBoxA(NULL, "Could not connect to server after multiple attempts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
-=======
-            // Check if index.ts is running before proceeding
-            if (!ConnectToIndexTS()) {
-                std::cout << "[ZeroFN] ERROR: Could not connect to index.ts!" << std::endl;
-                LogToFile("ERROR: Could not connect to server - Preventing Fortnite launch");
-                MessageBoxA(NULL, "Could not connect to server! Please check if the server is down.", "ZeroFN Error", MB_ICONERROR);
->>>>>>> Stashed changes
                 return FALSE;
             }
 

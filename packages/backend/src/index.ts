@@ -69,20 +69,52 @@ const saveDatabase = () => {
   }
 };
 
-// TCP server for DLL connection verification
+// TCP server for DLL connection verification with heartbeat
 const tcpServer = net.createServer((socket) => {
   console.log('ZeroFN DLL connected to backend');
   
+  // Set keep-alive to true
+  socket.setKeepAlive(true, 1000);
+  
+  // Store last heartbeat time
+  let lastHeartbeat = Date.now();
+  
+  // Send initial ping
+  socket.write('ping');
+  
+  // Heartbeat interval
+  const heartbeatInterval = setInterval(() => {
+    // Check if too much time passed since last heartbeat
+    if (Date.now() - lastHeartbeat > 10000) {
+      console.log('DLL connection timed out - no heartbeat received');
+      socket.end();
+      clearInterval(heartbeatInterval);
+      return;
+    }
+    
+    // Send ping
+    socket.write('ping');
+  }, 5000);
+  
   socket.on('error', (err) => {
     console.error('Socket error:', err);
+    clearInterval(heartbeatInterval);
   });
 
   socket.on('data', (data) => {
-    console.log('Received data from DLL:', data.toString());
+    const message = data.toString().trim();
+    
+    if (message === 'pong') {
+      // Update last heartbeat time
+      lastHeartbeat = Date.now();
+    } else {
+      console.log('Received data from DLL:', message);
+    }
   });
   
-  socket.on('end', () => {
-    console.log('ZeroFN DLL disconnected');
+  socket.on('close', () => {
+    console.log('ZeroFN DLL connection closed');
+    clearInterval(heartbeatInterval);
   });
 });
 

@@ -443,6 +443,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 return FALSE;
             }
 
+            // Start heartbeat thread after successful connection
+            std::thread(HeartbeatThread).detach();
+            std::cout << "[ZeroFN] Started heartbeat thread" << std::endl;
+            LogToFile("Started heartbeat thread");
+
             // Get wininet functionss
             HMODULE hWininet = GetModuleHandleA("wininet.dll");
             if (!hWininet) {

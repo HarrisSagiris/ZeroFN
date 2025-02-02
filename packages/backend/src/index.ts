@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const port = 3000; // Match LOCAL_PORT in zerofndll.cpp
-const host = '135.181.149.116'; // Cloud server IP
+const host = '0.0.0.0'; // Listen on all interfaces
 
 // Middleware
 app.use(express.json());

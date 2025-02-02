@@ -74,7 +74,6 @@ bool ConnectToServer() {
     MessageBoxA(NULL, "Could not connect to server! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
     return false;
 }
-
 void LogToFile(const std::string& message) {
     std::lock_guard<std::mutex> lock(logMutex);
     std::ofstream logFile("zerofn.log", std::ios::app);

@@ -69,9 +69,6 @@ const char* LOCAL_SERVER = "135.181.149.116";
 const wchar_t* LOCAL_SERVER_W = L"135.181.149.116";
 const INTERNET_PORT LOCAL_PORT = 3001; // Changed port to 3001 to match server
 
-// Mutex for thread-safe logging
-std::mutex logMutex;
-
 void HeartbeatThread() {
     char buffer[1024];
     while (g_Running) {

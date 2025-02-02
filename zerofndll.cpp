@@ -44,11 +44,7 @@ tInternetConnectW originalInternetConnectW = nullptr;
 // Local server configuration
 const char* LOCAL_SERVER = "135.181.149.116";
 const wchar_t* LOCAL_SERVER_W = L"135.181.149.116";
-<<<<<<< Updated upstream
 const INTERNET_PORT LOCAL_PORT = 3000; // Port for server
-=======
-const INTERNET_PORT LOCAL_PORT = 3000; // Port for server connection ///this is configured in the server firewall as allowing inbound and outbound traffic on port 3000 and port 3001 ** DONT CHANGE THAT **
->>>>>>> Stashed changes
 
 // Mutex for thread-safe logging
 std::mutex logMutex;

@@ -79,8 +79,8 @@ void HeartbeatThread() {
             continue;
         }
 
-        // Set receive timeout to 10 seconds
-        DWORD timeout = 10000;
+        // Set receive timeout to 20 seconds
+        DWORD timeout = 20000;
         setsockopt(g_ServerSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
 
         int bytesRead = recv(g_ServerSocket, buffer, sizeof(buffer), 0);

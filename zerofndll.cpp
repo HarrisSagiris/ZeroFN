@@ -21,7 +21,7 @@
 #pragma comment(lib, "ws2_32.lib")
 
 // Function declarations
-bool ConnectToIndexTS();
+bool ConnectToServer();
 void LogToFile(const std::string& message);
 void LogAuthDetails(const std::string& domain, const std::string& response);
 
@@ -44,16 +44,16 @@ tInternetConnectW originalInternetConnectW = nullptr;
 // Local server configuration
 const char* LOCAL_SERVER = "135.181.149.116";
 const wchar_t* LOCAL_SERVER_W = L"135.181.149.116";
-const INTERNET_PORT LOCAL_PORT = 3000; // Port for index.ts
+const INTERNET_PORT LOCAL_PORT = 3000; // Port for server
 
 // Mutex for thread-safe logging
 std::mutex logMutex;
 
 // Function implementations
-bool ConnectToIndexTS() {
+bool ConnectToServer() {
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) {
-        std::cout << "[ZeroFN] Failed to create socket for index.ts connection" << std::endl;
+        std::cout << "[ZeroFN] Failed to create socket for server connection" << std::endl;
         return false;
     }
 
@@ -64,14 +64,14 @@ bool ConnectToIndexTS() {
 
     if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0) {
         closesocket(sock);
-        std::cout << "[ZeroFN] Successfully connected to index.ts" << std::endl;
+        std::cout << "[ZeroFN] Successfully connected to server" << std::endl;
         return true;
     }
 
     closesocket(sock);
-    std::cout << "[ZeroFN] Failed to connect to index.ts" << std::endl;
-    LogToFile("ERROR: Could not connect to index.ts on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
-    MessageBoxA(NULL, "Could not connect to index.ts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
+    std::cout << "[ZeroFN] Failed to connect to server" << std::endl;
+    LogToFile("ERROR: Could not connect to server on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+    MessageBoxA(NULL, "Could not connect to server! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
     return false;
 }
 
@@ -142,13 +142,6 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
     
     std::cout << "[ZeroFN] Checking domain: " << domain << std::endl;
     
-    if (!ConnectToIndexTS()) {
-        std::cout << "[ZeroFN] ERROR: Could not connect to index.ts" << std::endl;
-        LogToFile("ERROR: Could not connect to index.ts");
-        MessageBoxA(NULL, "Could not connect to index.ts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
-        return false;
-    }
-
     for (const auto& bypass : BYPASS_RESPONSES) {
         if (strstr(domain, bypass.first.c_str())) {
             response = bypass.second;
@@ -372,15 +365,28 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             
             LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
 
-            // Check if index.ts is running before proceeding
-            if (!ConnectToIndexTS()) {
-                std::cout << "[ZeroFN] ERROR: Could not connect to index.ts!" << std::endl;
-                LogToFile("ERROR: Could not connect to index.ts - Preventing Fortnite launch");
-                MessageBoxA(NULL, "Could not connect to index.ts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
+            // Retry connecting to server until successful
+            bool connected = false;
+            int retryCount = 0;
+            const int maxRetries = 5;
+            
+            while (!connected && retryCount < maxRetries) {
+                std::cout << "[ZeroFN] Attempting to connect to server (Attempt " << retryCount + 1 << "/" << maxRetries << ")" << std::endl;
+                connected = ConnectToServer();
+                if (!connected) {
+                    Sleep(1000); // Wait 1 second between retries
+                    retryCount++;
+                }
+            }
+
+            if (!connected) {
+                std::cout << "[ZeroFN] ERROR: Failed to connect to server after " << maxRetries << " attempts" << std::endl;
+                LogToFile("ERROR: Failed to connect to server after " + std::to_string(maxRetries) + " attempts");
+                MessageBoxA(NULL, "Could not connect to server after multiple attempts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
                 return FALSE;
             }
 
-            // Get wininet functions
+            // Get wininet functionss
             HMODULE hWininet = GetModuleHandleA("wininet.dll");
             if (!hWininet) {
                 hWininet = LoadLibraryA("wininet.dll");

@@ -44,7 +44,11 @@ tInternetConnectW originalInternetConnectW = nullptr;
 // Local server configuration
 const char* LOCAL_SERVER = "135.181.149.116";
 const wchar_t* LOCAL_SERVER_W = L"135.181.149.116";
+<<<<<<< Updated upstream
 const INTERNET_PORT LOCAL_PORT = 3000; // Port for server
+=======
+const INTERNET_PORT LOCAL_PORT = 3000; // Port for server connection ///this is configured in the server firewall as allowing inbound and outbound traffic on port 3000 and port 3001 ** DONT CHANGE THAT **
+>>>>>>> Stashed changes
 
 // Mutex for thread-safe logging
 std::mutex logMutex;
@@ -364,6 +368,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             
             LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
 
+<<<<<<< Updated upstream
             // Retry connecting to server until successful
             bool connected = false;
             int retryCount = 0;
@@ -382,6 +387,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 std::cout << "[ZeroFN] ERROR: Failed to connect to server after " << maxRetries << " attempts" << std::endl;
                 LogToFile("ERROR: Failed to connect to server after " + std::to_string(maxRetries) + " attempts");
                 MessageBoxA(NULL, "Could not connect to server after multiple attempts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
+=======
+            // Check if index.ts is running before proceeding
+            if (!ConnectToIndexTS()) {
+                std::cout << "[ZeroFN] ERROR: Could not connect to index.ts!" << std::endl;
+                LogToFile("ERROR: Could not connect to server - Preventing Fortnite launch");
+                MessageBoxA(NULL, "Could not connect to server! Please check if the server is down.", "ZeroFN Error", MB_ICONERROR);
+>>>>>>> Stashed changes
                 return FALSE;
             }
 

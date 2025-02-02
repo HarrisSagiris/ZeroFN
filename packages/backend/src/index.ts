@@ -10,7 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const port = 3001; // Match LOCAL_PORT in zerofndll.cpp
+const port = 3000; // Express server port
+const tcpPort = 3001; // TCP server port for DLL
 const host = '0.0.0.0'; // Listen on all interfaces
 
 // Middleware
@@ -86,8 +87,8 @@ const tcpServer = net.createServer((socket) => {
 });
 
 // Start TCP server with error handling
-tcpServer.listen(3001, host, () => {
-  console.log('TCP server listening for DLL connections on port 3001');
+tcpServer.listen(tcpPort, host, () => {
+  console.log(`TCP server listening for DLL connections on port ${tcpPort}`);
 });
 
 tcpServer.on('error', (err) => {

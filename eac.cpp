@@ -150,6 +150,12 @@ void AllowDLLInjection(DWORD processId) {
 }
 
 // Main entry point
+bool StartZeroFNEAC();
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    return StartZeroFNEAC();
+}
+
 extern "C" __declspec(dllexport) bool StartZeroFNEAC() {
     // Check for admin privileges
     if (!IsRunningAsAdmin()) {

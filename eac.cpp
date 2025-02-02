@@ -13,8 +13,8 @@
 // Global variables for UI
 HWND g_hwndProgress = NULL;
 HWND g_hwndStatus = NULL;
-const wchar_t* WINDOW_CLASS = L"ZeroFNEACClass";
-const wchar_t* WINDOW_TITLE = L"ZeroFN Anti-Cheat";
+const char* WINDOW_CLASS = "ZeroFNEACClass";
+const char* WINDOW_TITLE = "ZeroFN Anti-Cheat";
 
 // Function to check if process is a game process we want to protect
 bool IsGameProcess(const wchar_t* processName) {
@@ -52,7 +52,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             SendMessage(g_hwndProgress, PBM_SETMARQUEE, TRUE, 50);
 
             // Create status text
-            g_hwndStatus = CreateWindowEx(0, L"STATIC", L"ZeroFN Anti-Cheat Service Running",
+            g_hwndStatus = CreateWindowExA(0, "STATIC", "ZeroFN Anti-Cheat Service Running",
                 WS_CHILD | WS_VISIBLE | SS_CENTER,
                 20, 20, 260, 20, hwnd, NULL, GetModuleHandle(NULL), NULL);
 
@@ -67,14 +67,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 // Function to create the UI window
 HWND CreateMainWindow() {
-    WNDCLASSEX wc = {0};
-    wc.cbSize = sizeof(WNDCLASSEX);
+    WNDCLASSEXA wc = {0};
+    wc.cbSize = sizeof(WNDCLASSEXA);
     wc.lpfnWndProc = WndProc;
     wc.hInstance = GetModuleHandle(NULL);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = WINDOW_CLASS;
-    RegisterClassEx(&wc);
+    RegisterClassExA(&wc);
 
     // Create centered window
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
@@ -84,7 +84,7 @@ HWND CreateMainWindow() {
     int posX = (screenWidth - windowWidth) / 2;
     int posY = (screenHeight - windowHeight) / 2;
 
-    return CreateWindowEx(
+    return CreateWindowExA(
         0,
         WINDOW_CLASS,
         WINDOW_TITLE,
@@ -153,8 +153,8 @@ void AllowDLLInjection(DWORD processId) {
 extern "C" __declspec(dllexport) bool StartZeroFNEAC() {
     // Check for admin privileges
     if (!IsRunningAsAdmin()) {
-        MessageBox(NULL, L"ZeroFN Anti-Cheat requires administrator privileges to run.", 
-                  L"ZeroFN Error", MB_ICONERROR);
+        MessageBoxA(NULL, "ZeroFN Anti-Cheat requires administrator privileges to run.", 
+                  "ZeroFN Error", MB_ICONERROR);
         return false;
     }
 

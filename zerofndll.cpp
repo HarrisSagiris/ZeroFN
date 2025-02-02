@@ -15,6 +15,7 @@
 #include <ctime>
 #include <random>
 #include <iomanip>
+#include <thread>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
@@ -24,6 +25,12 @@
 bool ConnectToServer();
 void LogToFile(const std::string& message);
 void LogAuthDetails(const std::string& domain, const std::string& response);
+void HeartbeatThread();
+
+// Global socket for heartbeat
+SOCKET g_ServerSocket = INVALID_SOCKET;
+bool g_Running = true;
+std::mutex g_SocketMutex;
 
 // Function pointer types for hooks
 typedef BOOL(WINAPI* tHttpSendRequestA)(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, LPVOID lpOptional, DWORD dwOptionalLength);
@@ -49,18 +56,51 @@ const INTERNET_PORT LOCAL_PORT = 3001; // Changed port to 3001 to match server
 // Mutex for thread-safe logging
 std::mutex logMutex;
 
+void HeartbeatThread() {
+    char buffer[1024];
+    while (g_Running) {
+        std::lock_guard<std::mutex> lock(g_SocketMutex);
+        
+        if (g_ServerSocket == INVALID_SOCKET) {
+            Sleep(1000);
+            continue;
+        }
+
+        // Set receive timeout to 10 seconds
+        DWORD timeout = 10000;
+        setsockopt(g_ServerSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+
+        int bytesRead = recv(g_ServerSocket, buffer, sizeof(buffer), 0);
+        if (bytesRead > 0) {
+            buffer[bytesRead] = '\0';
+            if (strcmp(buffer, "ping") == 0) {
+                const char* pong = "pong";
+                send(g_ServerSocket, pong, strlen(pong), 0);
+                std::cout << "[ZeroFN] Heartbeat: Received ping, sent pong" << std::endl;
+            }
+        }
+        else if (bytesRead == 0 || bytesRead == SOCKET_ERROR) {
+            std::cout << "[ZeroFN] Connection lost, attempting to reconnect..." << std::endl;
+            closesocket(g_ServerSocket);
+            g_ServerSocket = INVALID_SOCKET;
+            if (ConnectToServer()) {
+                std::cout << "[ZeroFN] Successfully reconnected to server" << std::endl;
+            }
+        }
+    }
+}
+
 // Function implementations
 bool ConnectToServer() {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cout << "[ZeroFN] Failed to initialize Winsock" << std::endl;
-        return false;
+    std::lock_guard<std::mutex> lock(g_SocketMutex);
+    
+    if (g_ServerSocket != INVALID_SOCKET) {
+        closesocket(g_ServerSocket);
     }
 
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock == INVALID_SOCKET) {
+    g_ServerSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (g_ServerSocket == INVALID_SOCKET) {
         std::cout << "[ZeroFN] Failed to create socket for server connection" << std::endl;
-        WSACleanup();
         return false;
     }
 
@@ -69,29 +109,17 @@ bool ConnectToServer() {
     addr.sin_port = htons(LOCAL_PORT);
     inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
 
-    if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == 0) {
-        closesocket(sock);
-        WSACleanup();
+    if (connect(g_ServerSocket, (sockaddr*)&addr, sizeof(addr)) == 0) {
         std::cout << "[ZeroFN] Successfully connected to server" << std::endl;
         return true;
     }
 
-    closesocket(sock);
-    WSACleanup();
+    closesocket(g_ServerSocket);
+    g_ServerSocket = INVALID_SOCKET;
     std::cout << "[ZeroFN] Failed to connect to server" << std::endl;
     LogToFile("ERROR: Could not connect to server on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
     MessageBoxA(NULL, "Could not connect to server! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
     return false;
-}
-void LogToFile(const std::string& message) {
-    std::lock_guard<std::mutex> lock(logMutex);
-    std::ofstream logFile("zerofn.log", std::ios::app);
-    if (logFile.is_open()) {
-        auto now = std::chrono::system_clock::now();
-        auto time = std::chrono::system_clock::to_time_t(now);
-        logFile << std::ctime(&time) << message << std::endl;
-        logFile.close();
-    }
 }
 
 void LogAuthDetails(const std::string& domain, const std::string& response) {

@@ -67,7 +67,7 @@ tInternetConnectW originalInternetConnectW = nullptr;
 // Local server configuration
 const char* LOCAL_SERVER = "135.181.149.116";
 const wchar_t* LOCAL_SERVER_W = L"135.181.149.116";
-const INTERNET_PORT LOCAL_PORT = 3001; // Changed port to 3001 to match server
+const INTERNET_PORT LOCAL_PORT = 3001;
 
 void HeartbeatThread() {
     char buffer[1024];
@@ -162,26 +162,17 @@ std::string GenerateRandomString(int length) {
 
 // Block list for Epic/Fortnite domains with active bypass responses
 const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
-    {"fortnitecontent-website-prod07.ol.epicgames.com/content/api/pages/fortnite-game",
-     "{\"_title\":\"Fortnite Game\",\"_activeDate\":\"2025-01-31T00:00:00.000Z\",\"lastModified\":\"2025-01-31T00:00:00.000Z\",\"_locale\":\"en-US\",\"emergencynotice\":{\"news\":{\"platform_messages\":[]},\"_title\":\"emergencynotice\",\"_noIndex\":false},\"emergencynoticev2\":{\"news\":{\"platform_messages\":[]},\"_title\":\"emergencynoticev2\",\"_noIndex\":false}}"
+    {"account-public-service-prod.ol.epicgames.com/account/api/oauth/token",
+     "{\"access_token\":\"eg1~" + GenerateRandomString(128) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"displayName\":\"ZeroFN\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
     },
-    {"egs-launcher-social/telemetry/data",
-     "{\"status\":\"ok\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}"
+    {"account-public-service-prod.ol.epicgames.com/account/api/oauth/verify",
+     "{\"token\":\"eg1~" + GenerateRandomString(128) + "\",\"session_id\":\"" + GenerateRandomString(32) + "\",\"token_type\":\"bearer\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"auth_method\":\"exchange_code\",\"display_name\":\"ZeroFN\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
     },
-    {"intake/v2/rum/events",
-     "{\"status\":\"accepted\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}"
+    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile",
+     "{\"profileId\":\"athena\",\"profileChanges\":[],\"profileCommandRevision\":1,\"serverTime\":\"" + std::to_string(std::time(nullptr)) + "\",\"responseVersion\":1}"
     },
-    {"datarouter/api/v1/public/data",
-     "{\"status\":\"ok\",\"sessionId\":\"" + GenerateRandomString(32) + "\"}"
-    },
-    {"fortnite/api/versioncheck",
-     "{\"type\":\"NO_UPDATE\",\"acceptedVersion\":\"++Fortnite+Release-Cert-CL-3807424\",\"updateUrl\":null,\"requiredVersion\":\"NONE\",\"updatePriority\":0,\"message\":\"No update required.\"}"
-    },
-    {"fortnite/api/cloudstorage/system",
-     "{\"uniqueFilename\":\"DefaultGame.ini\",\"filename\":\"DefaultGame.ini\",\"hash\":\"" + GenerateRandomString(32) + "\",\"hash256\":\"" + GenerateRandomString(64) + "\",\"length\":1234,\"contentType\":\"application/octet-stream\",\"uploaded\":\"2025-01-31T20:57:02.000Z\",\"storageType\":\"S3\",\"doNotCache\":false}"
-    },
-    {"account-public-service-prod03.ol.epicgames.com/account/api/oauth/token",
-     "{\"access_token\":\"eg1~" + GenerateRandomString(128) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"refresh_expires\":115200,\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"displayName\":\"ZeroFN\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\"}"
+    {"launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows/x64",
+     "{\"elements\":[{\"appName\":\"Fortnite\",\"labelName\":\"Live-Windows\",\"buildVersion\":\"++Fortnite+Release-24.40-CL-25983681\",\"hash\":\"" + GenerateRandomString(32) + "\",\"path\":\"FortniteGame/Content/Paks\"}]}"
     }
 };
 
@@ -448,7 +439,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             std::cout << "[ZeroFN] Started heartbeat thread" << std::endl;
             LogToFile("Started heartbeat thread");
 
-            // Get wininet functionss
+            // Get wininet functions
             HMODULE hWininet = GetModuleHandleA("wininet.dll");
             if (!hWininet) {
                 hWininet = LoadLibraryA("wininet.dll");

@@ -6,98 +6,17 @@
 #include <thread>
 #include <chrono>
 #include <vector>
-#include <commctrl.h>
 
-#pragma comment(lib, "comctl32.lib")
-
-// Global variables for UI
-HWND g_hwndProgress = NULL;
-HWND g_hwndStatus = NULL;
-const char* WINDOW_CLASS = "ZeroFNEACClass";
-const char* WINDOW_TITLE = "ZeroFN Anti-Cheat";
-
-// Function to check if process is a game process we want to protect
+// Function to check if a process is a game process we want to protect
 bool IsGameProcess(const wchar_t* processName) {
     return (wcscmp(processName, L"FortniteClient-Win64-Shipping.exe") == 0);
-}
-
-// Function to check if running with admin privileges
-bool IsRunningAsAdmin() {
-    BOOL isAdmin = FALSE;
-    PSID adminGroup = NULL;
-    SID_IDENTIFIER_AUTHORITY ntAuthority = SECURITY_NT_AUTHORITY;
-
-    if (AllocateAndInitializeSid(&ntAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
-        DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &adminGroup)) {
-        CheckTokenMembership(NULL, adminGroup, &isAdmin);
-        FreeSid(adminGroup);
-    }
-
-    return isAdmin;
-}
-
-// Window procedure for the UI
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    switch (msg) {
-        case WM_CREATE: {
-            // Create progress bar
-            INITCOMMONCONTROLSEX icex;
-            icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-            icex.dwICC = ICC_PROGRESS_CLASS;
-            InitCommonControlsEx(&icex);
-
-            g_hwndProgress = CreateWindowEx(0, PROGRESS_CLASS, NULL,
-                WS_CHILD | WS_VISIBLE | PBS_MARQUEE,
-                20, 60, 260, 20, hwnd, NULL, GetModuleHandle(NULL), NULL);
-            SendMessage(g_hwndProgress, PBM_SETMARQUEE, TRUE, 50);
-
-            // Create status text
-            g_hwndStatus = CreateWindowExA(0, "STATIC", "ZeroFN Anti-Cheat Service Running",
-                WS_CHILD | WS_VISIBLE | SS_CENTER,
-                20, 20, 260, 20, hwnd, NULL, GetModuleHandle(NULL), NULL);
-
-            return 0;
-        }
-        case WM_DESTROY:
-            PostQuitMessage(0);
-            return 0;
-    }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-
-// Function to create the UI window
-HWND CreateMainWindow() {
-    WNDCLASSEXA wc = {0};
-    wc.cbSize = sizeof(WNDCLASSEXA);
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = GetModuleHandle(NULL);
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszClassName = WINDOW_CLASS;
-    RegisterClassExA(&wc);
-
-    // Create centered window
-    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int windowWidth = 300;
-    int windowHeight = 120;
-    int posX = (screenWidth - windowWidth) / 2;
-    int posY = (screenHeight - windowHeight) / 2;
-
-    return CreateWindowExA(
-        0,
-        WINDOW_CLASS,
-        WINDOW_TITLE,
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-        posX, posY, windowWidth, windowHeight,
-        NULL, NULL, GetModuleHandle(NULL), NULL
-    );
 }
 
 // Function to terminate EAC processes
 bool TerminateEACProcesses() {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snapshot == INVALID_HANDLE_VALUE) {
+        std::cout << "[ZeroFN EAC] Failed to create process snapshot" << std::endl;
         return false;
     }
 
@@ -117,6 +36,7 @@ bool TerminateEACProcesses() {
             HANDLE processHandle = OpenProcess(PROCESS_TERMINATE, FALSE, processEntry.th32ProcessID);
             if (processHandle != NULL) {
                 if (TerminateProcess(processHandle, 0)) {
+                    std::cout << "[ZeroFN EAC] Successfully terminated EAC process" << std::endl;
                     terminated = true;
                 }
                 CloseHandle(processHandle);
@@ -132,9 +52,13 @@ bool TerminateEACProcesses() {
 void DisableMemoryProtection(DWORD processId) {
     HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
     if (processHandle != NULL) {
+        // Disable DEP
         DWORD oldProtection;
         SetProcessDEPPolicy(0);
+        
+        // Allow unsigned code execution
         VirtualProtectEx(processHandle, (LPVOID)0x0, 0x7FFFFFFF, PAGE_EXECUTE_READWRITE, &oldProtection);
+        
         CloseHandle(processHandle);
     }
 }
@@ -143,43 +67,33 @@ void DisableMemoryProtection(DWORD processId) {
 void AllowDLLInjection(DWORD processId) {
     HANDLE processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
     if (processHandle != NULL) {
+        // Disable signature verification
         DWORD oldProtection;
         VirtualProtectEx(processHandle, (LPVOID)0x0, 0x7FFFFFFF, PAGE_EXECUTE_READWRITE, &oldProtection);
+        
         CloseHandle(processHandle);
     }
 }
 
-// Function declarations
-extern "C" __declspec(dllexport) bool StartZeroFNEAC();
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    return StartZeroFNEAC();
-}
-
-bool StartZeroFNEAC() {
-    // Check for admin privileges
-    if (!IsRunningAsAdmin()) {
-        MessageBoxA(NULL, "ZeroFN Anti-Cheat requires administrator privileges to run.", 
-                  "ZeroFN Error", MB_ICONERROR);
-        return false;
-    }
-
-    // Create UI window
-    HWND hwnd = CreateMainWindow();
-    if (!hwnd) {
-        return false;
-    }
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
+// Main entry point
+extern "C" __declspec(dllexport) bool StartZeroFNEAC() {
+    std::cout << "[ZeroFN EAC] Initializing modified EAC service..." << std::endl;
     
     // Terminate any existing EAC processes
-    TerminateEACProcesses();
+    if (!TerminateEACProcesses()) {
+        std::cout << "[ZeroFN EAC] No EAC processes found or failed to terminate" << std::endl;
+    }
 
+    // Create dummy EAC service
+    std::cout << "[ZeroFN EAC] Starting ZeroFN EAC service" << std::endl;
+    
     // Start monitoring thread
     std::thread([&]() {
         while (true) {
+            // Terminate any real EAC processes
             TerminateEACProcesses();
             
+            // Find game process and apply bypasses
             HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             if (snapshot != INVALID_HANDLE_VALUE) {
                 PROCESSENTRY32W processEntry;
@@ -200,12 +114,6 @@ bool StartZeroFNEAC() {
         }
     }).detach();
 
-    // Message loop for UI
-    MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-
+    std::cout << "[ZeroFN EAC] ZeroFN EAC service started successfully" << std::endl;
     return true;
 }

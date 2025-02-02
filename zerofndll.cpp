@@ -23,9 +23,22 @@
 
 // Function declarations
 bool ConnectToServer();
-void LogToFile(const std::string& message);
-void LogAuthDetails(const std::string& domain, const std::string& response);
 void HeartbeatThread();
+
+// Add LogToFile implementation
+void LogToFile(const std::string& message) {
+    std::lock_guard<std::mutex> lock(logMutex);
+    std::ofstream logFile("zerofn.log", std::ios::app);
+    if (logFile.is_open()) {
+        auto now = std::chrono::system_clock::now();
+        auto now_c = std::chrono::system_clock::to_time_t(now);
+        logFile << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S") 
+                << " - " << message << std::endl;
+        logFile.close();
+    }
+}
+
+void LogAuthDetails(const std::string& domain, const std::string& response);
 
 // Global socket for heartbeat
 SOCKET g_ServerSocket = INVALID_SOCKET;

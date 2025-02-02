@@ -21,6 +21,9 @@
 #pragma comment(lib, "urlmon.lib")
 #pragma comment(lib, "ws2_32.lib")
 
+// Mutex for thread-safe logging
+std::mutex logMutex;
+
 // Function declarations
 bool ConnectToServer();
 void HeartbeatThread();

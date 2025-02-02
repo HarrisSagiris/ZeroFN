@@ -407,7 +407,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             freopen_s(&f, "CONOUT$", "w", stdout);
             
             std::cout << "[ZeroFN] =============================" << std::endl;
-            std::cout << "[ZeroFN] ZeroFN Auth Bypass Starting" << std::endl;
+            std::cout << "[ZeroFN] ZeroFN, Created by @Devharris" << std::endl;
             std::cout << "[ZeroFN] =============================" << std::endl;
             
             LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");

@@ -23,7 +23,8 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', '*');
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    res.sendStatus(200);
+    return
   }
   next();
 });

@@ -86,8 +86,8 @@ const tcpServer = net.createServer((socket) => {
 });
 
 // Start TCP server with error handling
-tcpServer.listen(3000, host, () => {
-  console.log('TCP server listening for DLL connections on port 3000');
+tcpServer.listen(3001, host, () => {
+  console.log('TCP server listening for DLL connections on port 3001');
 });
 
 tcpServer.on('error', (err) => {

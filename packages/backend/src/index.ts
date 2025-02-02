@@ -1,17 +1,23 @@
-import express from "express"
-import fs from "fs"
-import path from "path"
-import net from "net"
+import express from "express";
+import fs from "fs";
+import path from "path";
+import net from "net";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
-const port = 3000; // Changed to match LOCAL_PORT in zerofndll.cpp
-const host = '127.0.0.1'; // Changed to match LOCAL_SERVER in zerofndll.cpp
+const port = 3000; // Match LOCAL_PORT in zerofndll.cpp
+const host = '135.181.149.116'; // Cloud server IP
 
-// Middleware to parse JSON bodies
+// Middleware
 app.use(express.json());
 
-// Enable CORS for all routes
-app.use((req, res, next) => {
+// CORS middleware
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', '*');
@@ -21,15 +27,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// Load database
-let database = {
+// Database structure
+interface Database {
+  users: Record<string, any>;
+  cosmetics: Array<{
+    id: string;
+    templateId: string;
+  }>;
+}
+
+// Initialize database
+let database: Database = {
   users: {},
-  cosmetics: [] as any[]
+  cosmetics: []
 };
 
 console.log('Initializing ZeroFN Backend...');
 
-// Load initial cosmetics from database.json if exists
+// Load cosmetics database
 try {
   console.log('Loading cosmetics database...');
   const cosmeticsData = fs.readFileSync(path.join(__dirname, 'database.json'), 'utf8');
@@ -39,33 +54,58 @@ try {
   console.log('No existing database.json found, starting with empty cosmetics list');
 }
 
-// Save database helper function
+// Save database helper
 const saveDatabase = () => {
-  console.log('Saving user data to database...');
-  fs.writeFileSync(
-    path.join(__dirname, 'userdata.json'),
-    JSON.stringify(database, null, 2)
-  );
-  console.log('Database saved successfully');
+  try {
+    console.log('Saving user data to database...');
+    fs.writeFileSync(
+      path.join(__dirname, 'userdata.json'),
+      JSON.stringify(database, null, 2)
+    );
+    console.log('Database saved successfully');
+  } catch (err) {
+    console.error('Error saving database:', err);
+  }
 };
 
-// Create TCP server to verify DLL connection
+// TCP server for DLL connection verification
 const tcpServer = net.createServer((socket) => {
   console.log('ZeroFN DLL connected to backend');
+  
+  socket.on('error', (err) => {
+    console.error('Socket error:', err);
+  });
+
   socket.on('data', (data) => {
     console.log('Received data from DLL:', data.toString());
   });
+  
   socket.on('end', () => {
     console.log('ZeroFN DLL disconnected');
   });
 });
 
+// Start TCP server with error handling
 tcpServer.listen(3001, host, () => {
   console.log('TCP server listening for DLL connections on port 3001');
 });
 
-// Authentication bypass endpoints
-app.get('/account/api/oauth/verify', (req, res) => {
+tcpServer.on('error', (err) => {
+  console.error('TCP server error:', err);
+});
+
+// Random string generator
+const randomString = (length: number): string => {
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  let result = '';
+  for(let i = 0; i < length; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return result;
+};
+
+// Authentication endpoints
+app.get('/account/api/oauth/verify', (req: express.Request, res: express.Response) => {
   console.log('Client connected! Verifying authentication...');
   res.json({
     access_token: "eg1~-*",
@@ -74,10 +114,10 @@ app.get('/account/api/oauth/verify', (req, res) => {
     refresh_token: "eg1~-*",
     refresh_expires: 115200,
     account_id: "ninja",
-    client_id: "ec684b8c687f479fadea3cb2ad83f5c6", // Match client_id from zerofndll.cpp
+    client_id: "ec684b8c687f479fadea3cb2ad83f5c6",
     internal_client: true,
     client_service: "fortnite",
-    displayName: "ZeroFN", // Match displayName from zerofndll.cpp
+    displayName: "ZeroFN",
     app: "fortnite",
     in_app_id: "ninja",
     device_id: "164fb25bb44e42c5a027977d0d5da800"
@@ -85,18 +125,8 @@ app.get('/account/api/oauth/verify', (req, res) => {
   console.log('Client authentication verified successfully');
 });
 
-app.post('/account/api/oauth/token', (req, res) => {
+app.post('/account/api/oauth/token', (req: express.Request, res: express.Response) => {
   console.log('Client requesting auth token...');
-  // Generate random strings like in zerofndll.cpp
-  const randomString = (length: number) => {
-    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    let result = '';
-    for(let i = 0; i < length; i++) {
-      result += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return result;
-  };
-
   res.json({
     access_token: `eg1~${randomString(128)}`,
     expires_in: 28800,
@@ -106,15 +136,15 @@ app.post('/account/api/oauth/token', (req, res) => {
     account_id: randomString(32),
     client_id: "ec684b8c687f479fadea3cb2ad83f5c6",
     internal_client: true,
-    client_service: "fortnite", 
-    displayName: "ZeroFN",
+    client_service: "fortnite",
+    displayName: "ZeroFN", 
     app: "fortnite",
     in_app_id: randomString(32)
   });
   console.log('Auth token generated and sent to client');
 });
 
-app.get('/account/api/public/account/:accountId', (req, res) => {
+app.get('/account/api/public/account/:accountId', (req: express.Request, res: express.Response) => {
   console.log(`Client requesting account info for ID: ${req.params.accountId}`);
   res.json({
     id: "ninja",
@@ -142,8 +172,8 @@ app.get('/account/api/public/account/:accountId', (req, res) => {
   console.log('Account info sent to client');
 });
 
-// Version check endpoints matching zerofndll.cpp responses
-app.get('/fortnite/api/version', (req, res) => {
+// Version check endpoints
+app.get('/fortnite/api/version', (req: express.Request, res: express.Response) => {
   console.log('Client checking game version...');
   res.json({
     type: 'NO_UPDATE',
@@ -153,7 +183,7 @@ app.get('/fortnite/api/version', (req, res) => {
   console.log('Version check completed');
 });
 
-app.get('/fortnite/api/versioncheck/:version', (req, res) => {
+app.get('/fortnite/api/versioncheck/:version', (req: express.Request, res: express.Response) => {
   console.log(`Client version check for: ${req.params.version}`);
   res.json({
     type: "NO_UPDATE",
@@ -166,8 +196,8 @@ app.get('/fortnite/api/versioncheck/:version', (req, res) => {
   console.log('Version compatibility confirmed');
 });
 
-// User cosmetics endpoints
-app.get('/fortnite/api/cloudstorage/user/:accountId', (req, res) => {
+// Cloud storage endpoints
+app.get('/fortnite/api/cloudstorage/user/:accountId', (req: express.Request, res: express.Response) => {
   console.log(`Client requesting cloud storage for account: ${req.params.accountId}`);
   res.json([{
     uniqueFilename: "DefaultGame.ini",
@@ -183,14 +213,14 @@ app.get('/fortnite/api/cloudstorage/user/:accountId', (req, res) => {
   console.log('Cloud storage data sent to client');
 });
 
-app.post('/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename', (req, res) => {
+app.post('/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename', (req: express.Request, res: express.Response) => {
   console.log(`Client updating cloud storage: ${req.params.uniqueFilename}`);
   res.status(204).send();
   console.log('Cloud storage update acknowledged');
 });
 
-// Catalog endpoints
-app.get('/fortnite/api/storefront/v2/catalog', (req, res) => {
+// Catalog endpoint
+app.get('/fortnite/api/storefront/v2/catalog', (req: express.Request, res: express.Response) => {
   console.log('Client requesting store catalog...');
   res.json({
     catalog: []
@@ -199,9 +229,9 @@ app.get('/fortnite/api/storefront/v2/catalog', (req, res) => {
 });
 
 // Profile endpoints
-app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) => {
+app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req: express.Request, res: express.Response) => {
   const { accountId, command } = req.params;
-  const profileId = req.query.profileId || 'athena';
+  const profileId = req.query.profileId as string || 'athena';
 
   console.log(`Client ${accountId} requesting profile command: ${command}`);
 
@@ -217,9 +247,7 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
   switch (command) {
     case 'QueryProfile':
       console.log('Processing QueryProfile request...');
-      // Add default cosmetic items
-      const items: any = {
-        // Default character
+      const items: Record<string, any> = {
         "CID_Default": {
           "templateId": "AthenaCharacter:CID_001_Athena_Commando_F_Default",
           "attributes": {
@@ -231,7 +259,6 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
           },
           "quantity": 1
         },
-        // Default pickaxe
         "DefaultPickaxe": {
           "templateId": "AthenaPickaxe:DefaultPickaxe",
           "attributes": {
@@ -243,7 +270,6 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
           },
           "quantity": 1
         },
-        // Default backpack
         "BID_Default": {
           "templateId": "AthenaBackpack:BID_001_Default",
           "attributes": {
@@ -257,7 +283,6 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
         }
       };
 
-      // Add any loaded cosmetics from database
       console.log('Adding custom cosmetics from database...');
       database.cosmetics.forEach(cosmetic => {
         items[cosmetic.id] = {
@@ -304,6 +329,7 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
       });
       console.log('QueryProfile response prepared');
       break;
+
     case 'ClientQuestLogin':
     case 'RefreshExpeditions':
     case 'SetMtxPlatform':
@@ -341,6 +367,7 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
       });
       console.log(`${command} response prepared`);
       break;
+
     default:
       console.log(`Warning: Unknown command received: ${command}`);
   }
@@ -349,8 +376,10 @@ app.post('/fortnite/api/game/v2/profile/:accountId/client/:command', (req, res) 
   console.log(`Response sent for command: ${command}`);
 });
 
-// Start server
+// Start express server with error handling
 app.listen(port, host, () => {
   console.log(`ZeroFN Backend running on ${host}:${port}`);
   console.log('Server is ready to accept connections from ZeroFN DLL!');
+}).on('error', (err) => {
+  console.error('Express server error:', err);
 });

@@ -325,8 +325,8 @@ private:
         
         // Check required files
         logMessage("Checking required server files...");
-        if (!fs::exists("packages/backend/src/index.ts") || !fs::exists("zerofn.dll")) {
-            MessageBoxW(NULL, L"Required server files or DLL are missing!", L"Error", MB_OK | MB_ICONERROR);
+        if (!fs::exists("zerofn.dll")) {
+            MessageBoxW(NULL, L"Required DLL is missing!", L"Error", MB_OK | MB_ICONERROR);
             logMessage("ERROR: Missing required files!");
             return;
         }
@@ -334,51 +334,6 @@ private:
 
         // Kill any existing processes first
         StopServer();
-
-        // Check if pnpm is installed
-        STARTUPINFOW si = {0};
-        PROCESS_INFORMATION pi = {0};
-        si.cb = sizeof(si);
-        si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_SHOW; // Changed to SW_SHOW to make window visible
-
-        // Create server process with proper working directory
-        WCHAR currentDir[MAX_PATH];
-        GetCurrentDirectoryW(MAX_PATH, currentDir);
-
-        // First run pnpm install if needed
-        logMessage("Checking pnpm installation and dependencies...");
-        WCHAR pnpmInstallCmd[] = L"cmd.exe /c start \"Installing Dependencies\" pnpm install";
-        if (CreateProcessW(NULL, pnpmInstallCmd, NULL, NULL, FALSE,
-            CREATE_NEW_CONSOLE,
-            NULL, currentDir, &si, &pi)) {
-            WaitForSingleObject(pi.hProcess, INFINITE);
-            CloseHandle(pi.hProcess);
-            CloseHandle(pi.hThread);
-            logMessage("Dependencies installed successfully");
-        } else {
-            MessageBoxW(NULL, L"Failed to install dependencies. Please install pnpm first.", L"Error", MB_OK | MB_ICONERROR);
-            logMessage("ERROR: Failed to install dependencies!");
-            return;
-        }
-
-        // Start the server using pnpm run dev in a new visible window
-        logMessage("Starting auth server...");
-        WCHAR serverCmd[] = L"cmd.exe /c start \"ZeroFN Server\" cd packages/backend && pnpm run dev";
-        if (!CreateProcessW(NULL, serverCmd, NULL, NULL, FALSE,
-            CREATE_NEW_CONSOLE,
-            NULL, currentDir, &si, &pi)) {
-            MessageBoxW(NULL, L"Failed to start auth server", L"Error", MB_OK | MB_ICONERROR);
-            logMessage("ERROR: Failed to start auth server!");
-            return;
-        }
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        logMessage("Auth server started successfully in new window");
-
-        // Wait for server to initialize
-        logMessage("Waiting for services to initialize...");
-        Sleep(5000); // Increased from 2000 to 5000 to allow more time for server initialization
 
         // Get Fortnite path
         WCHAR path[MAX_PATH];
@@ -403,7 +358,7 @@ private:
 
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
-            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=127.0.0.1:3000 -AUTH_PASSWORD=test "
+            L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=135.181.149.116:3000 -AUTH_PASSWORD=test "
             L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -FORCECONNECT";
 
         // Create process suspended
@@ -429,7 +384,7 @@ private:
         piGame.hProcess = shExInfo.hProcess;
 
         // Inject DLL before resuming process
-        std::wstring dllPath = std::wstring(currentDir) + L"\\zerofn.dll";
+        std::wstring dllPath = L"zerofn.dll";
         logMessage("Injecting DLL before process start...");
         
         if (!fs::exists(dllPath)) {
@@ -469,9 +424,7 @@ private:
 
             if (Process32FirstW(snapshot, &pe32)) {
                 do {
-                    if (wcscmp(pe32.szExeFile, L"node.exe") == 0 ||
-                        wcscmp(pe32.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
-                        
+                    if (wcscmp(pe32.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
                         HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
                         if (hProcess != NULL) {
                             TerminateProcess(hProcess, 0);

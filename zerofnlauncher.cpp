@@ -476,7 +476,8 @@ private:
 
             if (Process32FirstW(snapshot, &pe32)) {
                 do {
-                    if (wcscmp(pe32.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
+                    if (wcscmp(pe32.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0 ||
+                        wcscmp(pe32.szExeFile, L"eac.exe") == 0) {
                         HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
                         if (hProcess != NULL) {
                             TerminateProcess(hProcess, 0);

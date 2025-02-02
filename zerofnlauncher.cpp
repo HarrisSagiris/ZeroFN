@@ -196,8 +196,11 @@ public:
         
         // Set window transparency and blur
         SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
-        BOOL enabled = TRUE;
-        DwmEnableBlurBehindWindow(hwnd, &enabled);
+        
+        DWM_BLURBEHIND bb = {0};
+        bb.dwFlags = DWM_BB_ENABLE;
+        bb.fEnable = TRUE;
+        DwmEnableBlurBehindWindow(hwnd, &bb);
 
         // Create Epic-styled controls with modern gradients
         CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,

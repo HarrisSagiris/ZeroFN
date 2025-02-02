@@ -297,8 +297,7 @@ private:
         std::vector<std::wstring> checkPaths = {
             L"\\FortniteGame",
             L"\\Engine",
-            L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe",
-            L"\\FortniteGame\\Binaries\\Win64\\EasyAntiCheat\\EasyAntiCheat_Setup.exe" // Added EAC check
+            L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe"
         };
 
         for (const auto& checkPath : checkPaths) {
@@ -340,32 +339,8 @@ private:
         WCHAR path[MAX_PATH];
         GetWindowTextW(pathEdit, path, MAX_PATH);
         std::wstring basePath(path);
-        std::wstring eacPath = basePath + L"\\FortniteGame\\Binaries\\Win64\\EasyAntiCheat\\EasyAntiCheat_Setup.exe";
         std::wstring fortnitePath = basePath + L"\\FortniteGame\\Binaries\\Win64\\FortniteClient-Win64-Shipping.exe";
 
-        // Launch EAC first
-        logMessage("Launching EasyAntiCheat...");
-        SHELLEXECUTEINFOW shExInfoEac = {0};
-        shExInfoEac.cbSize = sizeof(SHELLEXECUTEINFOW);
-        shExInfoEac.fMask = SEE_MASK_NOCLOSEPROCESS;
-        shExInfoEac.hwnd = NULL;
-        shExInfoEac.lpVerb = L"runas";
-        shExInfoEac.lpFile = eacPath.c_str();
-        shExInfoEac.lpParameters = L"install 217";
-        shExInfoEac.nShow = SW_SHOW;
-
-        if (!ShellExecuteExW(&shExInfoEac)) {
-            DWORD error = GetLastError();
-            logMessage("ERROR: Failed to launch EAC. Error code: " + std::to_string(error));
-            return;
-        }
-
-        // Wait for EAC to finish
-        WaitForSingleObject(shExInfoEac.hProcess, INFINITE);
-        CloseHandle(shExInfoEac.hProcess);
-        logMessage("EasyAntiCheat setup completed");
-
-        // Now launch Fortnite
         logMessage("Verifying Fortnite executable...");
         if (!fs::exists(fortnitePath)) {
             MessageBoxW(NULL, L"Fortnite executable not found!", L"Error", MB_OK | MB_ICONERROR);
@@ -374,16 +349,24 @@ private:
         }
         logMessage("Fortnite executable found");
 
+        // Create suspended Fortnite process
+        STARTUPINFOW siGame = {0};
+        PROCESS_INFORMATION piGame = {0};
+        siGame.cb = sizeof(siGame);
+        siGame.dwFlags = STARTF_USESHOWWINDOW;
+        siGame.wShowWindow = SW_SHOW;
+
         std::wstring cmdLine = L"\"" + fortnitePath + L"\" -NOSSLPINNING -noeac -fromfl=be -fltoken=7d41f3c07b724575892f0def64c57569 "
             L"-skippatchcheck -epicapp=Fortnite -epicenv=Prod -epiclocale=en-us -epicportal -nobe -fromfl=eac -fltoken=none "
             L"-nosound -AUTH_TYPE=epic -AUTH_LOGIN=135.181.149.116:3000 -AUTH_PASSWORD=test "
             L"-FORCECONSOLE -notexturestreaming -dx11 -windowed -FORCECONNECT";
 
+        // Create process suspended
         SHELLEXECUTEINFOW shExInfo = {0};
         shExInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
         shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
         shExInfo.hwnd = NULL;
-        shExInfo.lpVerb = L"runas";
+        shExInfo.lpVerb = L"runas";  // Request elevation
         shExInfo.lpFile = fortnitePath.c_str();
         shExInfo.lpParameters = cmdLine.c_str() + fortnitePath.length() + 3;
         shExInfo.lpDirectory = basePath.c_str();
@@ -398,28 +381,30 @@ private:
             return;
         }
 
-        // Inject DLL
+        piGame.hProcess = shExInfo.hProcess;
+
+        // Inject DLL before resuming process
         std::wstring dllPath = L"zerofn.dll";
-        logMessage("Injecting DLL...");
+        logMessage("Injecting DLL before process start...");
         
         if (!fs::exists(dllPath)) {
             logMessage("ERROR: zerofn.dll not found at: " + std::string(dllPath.begin(), dllPath.end()));
-            TerminateProcess(shExInfo.hProcess, 0);
-            CloseHandle(shExInfo.hProcess);
+            TerminateProcess(piGame.hProcess, 0);
+            CloseHandle(piGame.hProcess);
             return;
         }
 
-        bool injectionSuccess = InjectDLL(shExInfo.hProcess, dllPath, logMessage);
+        bool injectionSuccess = InjectDLL(piGame.hProcess, dllPath, logMessage);
         if (!injectionSuccess) {
             logMessage("ERROR: DLL injection failed");
-            TerminateProcess(shExInfo.hProcess, 0);
-            CloseHandle(shExInfo.hProcess);
+            TerminateProcess(piGame.hProcess, 0);
+            CloseHandle(piGame.hProcess);
             return;
         }
 
-        logMessage("DLL injection successful");
+        logMessage("DLL injection successful - resuming Fortnite process");
 
-        CloseHandle(shExInfo.hProcess);
+        CloseHandle(piGame.hProcess);
 
         EnableWindow(startButton, FALSE);
         EnableWindow(stopButton, TRUE);
@@ -439,8 +424,7 @@ private:
 
             if (Process32FirstW(snapshot, &pe32)) {
                 do {
-                    if (wcscmp(pe32.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0 ||
-                        wcscmp(pe32.szExeFile, L"EasyAntiCheat_Setup.exe") == 0) {
+                    if (wcscmp(pe32.szExeFile, L"FortniteClient-Win64-Shipping.exe") == 0) {
                         HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
                         if (hProcess != NULL) {
                             TerminateProcess(hProcess, 0);

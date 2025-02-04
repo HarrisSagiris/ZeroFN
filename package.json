@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "dev": "pnpm --filter backend dev"
+    "dev": "pnpm --filter backend dev",
+    "format": "pnpm --filter backend format"
   },
   "keywords": [],
   "author": "",

@@ -22,6 +22,10 @@ app.use(express.json())
 // CORS middleware
 app.use(cors())
 
+app.get("/", (_, res) => {
+    res.send("Welcome to ZeroFN!")
+})
+
 console.log("Initializing ZeroFN Backend...")
 
 // Save database helper

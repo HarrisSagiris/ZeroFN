@@ -1,10 +1,33 @@
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+
+# env files (can opt-in for commiting if needed)
+.env*
+
+# do not ignore .env.example
+!.env.example
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# custom
+build
 config.json
 auth_token.json
 FortniteOG
 ZeroFn.zip
 path.json
 liscence.md
-node_modules
 g++
 launcher.log
 zerofn.o

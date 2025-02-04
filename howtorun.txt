@@ -20,3 +20,9 @@ ONCE EVERYTHING IS READY CLICK ON THE START BUTTON ! THIS SHOULD START MULTIPLE 
 
 
 ##MADE BY @DEVHARRIS AND @RYNEEX 
+
+
+what does the launcher do ?? 
+--it spoofs the fortnite process running an actively patching DLL with fortnite
+--it connects to our server (ZeroFN server) that is running 24/7 and actively listening for dll connections from the client--eg : you
+--it launches fortnite with completely working private server that unlocks all cosmetics and enables you to play og with ur friends or private !

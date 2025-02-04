@@ -5,8 +5,18 @@
         "moduleResolution": "Bundler",
         "strict": true,
         "skipLibCheck": true,
+        "resolveJsonModule": true,
         "esModuleInterop": true,
         "isolatedModules": true,
-        "jsx": "preserve"
+        "jsx": "preserve",
+        "baseUrl": ".",
+        "outDir": "build",
+        "paths": {
+            "@/*": ["src/*"]
+        }
+    },
+    "include": ["src"],
+    "tsc-alias": {
+        "resolveFullPaths": true
     }
 }

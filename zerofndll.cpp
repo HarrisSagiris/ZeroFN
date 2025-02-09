@@ -186,41 +186,41 @@ std::string GenerateRandomString(int length) {
 
 // Block list for Epic/Fortnite domains with active bypass responses
 const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
-    // OAuth token endpoint
+    // OAuth token endpoint with Chapter 1 Season 2 specific version
     {"account-public-service-prod.ol.epicgames.com/account/api/oauth/token",
-     "{\"access_token\":\"eg1~" + GenerateRandomString(128) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"displayName\":\"ZeroFN\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
+     "{\"access_token\":\"eg1~" + GenerateRandomString(128) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"displayName\":\"ZeroFN_C1S2\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
     },
     
-    // OAuth verify endpoint
+    // OAuth verify endpoint with Chapter 1 Season 2 specific version
     {"account-public-service-prod.ol.epicgames.com/account/api/oauth/verify",
-     "{\"token\":\"eg1~" + GenerateRandomString(128) + "\",\"session_id\":\"" + GenerateRandomString(32) + "\",\"token_type\":\"bearer\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"auth_method\":\"exchange_code\",\"display_name\":\"ZeroFN\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
+     "{\"token\":\"eg1~" + GenerateRandomString(128) + "\",\"session_id\":\"" + GenerateRandomString(32) + "\",\"token_type\":\"bearer\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"auth_method\":\"exchange_code\",\"display_name\":\"ZeroFN_C1S2\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
     },
     
-    // Profile endpoint
+    // Profile endpoint with Chapter 1 Season 2 specific version
     {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile",
-     "{\"profileId\":\"athena\",\"profileChanges\":[],\"profileCommandRevision\":1,\"serverTime\":\"" + std::to_string(std::time(nullptr)) + "\",\"responseVersion\":1}"
+     "{\"profileId\":\"athena\",\"profileChanges\":[{\"changeType\":\"fullProfileUpdate\",\"profile\":{\"_id\":\"" + GenerateRandomString(32) + "\",\"accountId\":\"" + GenerateRandomString(32) + "\",\"profileId\":\"athena\",\"version\":\"Chapter1_Season2\",\"items\":{},\"stats\":{\"attributes\":{\"season_num\":2}}}}],\"profileCommandRevision\":1,\"serverTime\":\"" + std::to_string(std::time(nullptr)) + "\",\"responseVersion\":1}"
     },
     
-    // Launcher assets endpoint
+    // Launcher assets endpoint with Chapter 1 Season 2 specific version
     {"launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows/x64",
-     "{\"elements\":[{\"appName\":\"Fortnite\",\"labelName\":\"Live-Windows\",\"buildVersion\":\"++Fortnite+Release-24.40-CL-25983681\",\"hash\":\"" + GenerateRandomString(32) + "\",\"path\":\"FortniteGame/Content/Paks\"}]}"
+     "{\"elements\":[{\"appName\":\"Fortnite\",\"labelName\":\"Live-Windows\",\"buildVersion\":\"++Fortnite+Release-2.4.2-CL-3870737\",\"hash\":\"" + GenerateRandomString(32) + "\",\"path\":\"FortniteGame/Content/Paks\"}]}"
     },
 
-    // Additional auth endpoints
+    // Additional auth endpoints with Chapter 1 Season 2 specific responses
     {"account-public-service-prod.ol.epicgames.com/account/api/oauth/exchange",
      "{\"expiresInSeconds\":28800,\"code\":\"" + GenerateRandomString(32) + "\",\"creatingClientId\":\"ec684b8c687f479fadea3cb2ad83f5c6\"}"
     },
 
     {"account-public-service-prod.ol.epicgames.com/account/api/public/account",
-     "{\"id\":\"" + GenerateRandomString(32) + "\",\"displayName\":\"ZeroFN\",\"email\":\"zerofn@example.com\",\"failedLoginAttempts\":0,\"lastLogin\":\"" + std::to_string(std::time(nullptr)) + "\",\"numberOfDisplayNameChanges\":0,\"dateOfBirth\":\"1990-01-01\",\"ageGroup\":\"ADULT\",\"headless\":false,\"country\":\"US\",\"preferredLanguage\":\"en\",\"lastDisplayNameChange\":\"1970-01-01\",\"canUpdateDisplayName\":true,\"tfaEnabled\":false,\"emailVerified\":true,\"minorVerified\":false,\"minorExpected\":false,\"minorStatus\":\"UNKNOWN\"}"
+     "{\"id\":\"" + GenerateRandomString(32) + "\",\"displayName\":\"ZeroFN_C1S2\",\"email\":\"zerofn@example.com\",\"failedLoginAttempts\":0,\"lastLogin\":\"" + std::to_string(std::time(nullptr)) + "\",\"numberOfDisplayNameChanges\":0,\"dateOfBirth\":\"1990-01-01\",\"ageGroup\":\"ADULT\",\"headless\":false,\"country\":\"US\",\"preferredLanguage\":\"en\",\"lastDisplayNameChange\":\"1970-01-01\",\"canUpdateDisplayName\":true,\"tfaEnabled\":false,\"emailVerified\":true,\"minorVerified\":false,\"minorExpected\":false,\"minorStatus\":\"UNKNOWN\"}"
     },
 
     {"account-public-service-prod.ol.epicgames.com/account/api/accounts",
-     "{\"id\":\"" + GenerateRandomString(32) + "\",\"displayName\":\"ZeroFN\",\"externalAuths\":{}}"
+     "{\"id\":\"" + GenerateRandomString(32) + "\",\"displayName\":\"ZeroFN_C1S2\",\"externalAuths\":{}}"
     },
 
     {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/cloudstorage/system",
-     "[]"
+     "[{\"uniqueFilename\":\"DefaultGame.ini\",\"filename\":\"DefaultGame.ini\",\"hash\":\"" + GenerateRandomString(32) + "\",\"hash256\":\"" + GenerateRandomString(64) + "\",\"length\":1234,\"contentType\":\"application/octet-stream\",\"uploaded\":\"2017-11-30T23:59:59.999Z\",\"storageType\":\"S3\",\"doNotCache\":false}]"
     },
 
     {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/cloudstorage/user",
@@ -228,11 +228,11 @@ const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
     },
 
     {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/storefront/v2/catalog",
-     "{\"refreshIntervalHrs\":24,\"dailyPurchaseHrs\":24,\"expiration\":\"" + std::to_string(std::time(nullptr) + 86400) + "\",\"storefronts\":[]}"
+     "{\"refreshIntervalHrs\":24,\"dailyPurchaseHrs\":24,\"expiration\":\"" + std::to_string(std::time(nullptr) + 86400) + "\",\"storefronts\":[{\"name\":\"BRWeeklyStorefront\",\"catalogEntries\":[]}]}"
     },
 
     {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/matchmaking/session/findPlayer",
-     "{\"player\":{\"id\":\"" + GenerateRandomString(32) + "\",\"attributes\":{\"player.subregion\":\"None\",\"player.platform\":\"Windows\",\"player.option.partyId\":\"" + GenerateRandomString(32) + "\"}}}"
+     "{\"player\":{\"id\":\"" + GenerateRandomString(32) + "\",\"attributes\":{\"player.subregion\":\"None\",\"player.platform\":\"Windows\",\"player.option.partyId\":\"" + GenerateRandomString(32) + "\",\"player.seasonLevel\":\"2\"}}}"
     }
 };
 
@@ -461,6 +461,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             LogToFile("============================");
             LogToFile("ZeroFN Auth Bypass Starting");
             LogToFile("Created by @Devharris");
+            LogToFile("Chapter 1 Season 2 Version");
             LogToFile("============================");
             
             // Retry connecting to server until successful

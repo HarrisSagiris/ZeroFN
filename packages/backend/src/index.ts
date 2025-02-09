@@ -109,12 +109,28 @@ const randomString = (length: number): string => {
 
 // Authentication endpoints
 app.get("/account/api/oauth/verify", (req, res) => {
+    // Extract bearer token from authorization header
+    const authHeader = req.headers.authorization
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log("Missing or invalid authorization header")
+        return res.status(401).json({ error: "Invalid authorization" })
+    }
+
+    const token = authHeader.split(' ')[1]
+    console.log(`Verifying auth token: ${token}`)
+
+    // Verify token matches expected format from DLL
+    if (!token.startsWith('eg1~')) {
+        console.log("Invalid token format")
+        return res.status(401).json({ error: "Invalid token format" })
+    }
+
     console.log("Client connected! Verifying authentication...")
     res.json({
-        access_token: "eg1~-*",
+        access_token: token,
         expires_in: 28800,
-        token_type: "bearer",
-        refresh_token: "eg1~-*",
+        token_type: "bearer", 
+        refresh_token: token,
         refresh_expires: 115200,
         account_id: "ninja",
         client_id: "ec684b8c687f479fadea3cb2ad83f5c6",
@@ -123,7 +139,7 @@ app.get("/account/api/oauth/verify", (req, res) => {
         displayName: "ZeroFN",
         app: "fortnite",
         in_app_id: "ninja",
-        device_id: "164fb25bb44e42c5a027977d0d5da800",
+        device_id: "164fb25bb44e42c5a027977d0d5da800"
     })
     console.log("Client authentication verified successfully")
 })

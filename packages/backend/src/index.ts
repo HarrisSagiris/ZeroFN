@@ -26,6 +26,34 @@ app.get("/", (_, res) => {
     res.send("Welcome to ZeroFN!")
 })
 
+app.get("/fortnite/api/version", (req, res) => {
+  res.json({ type: "NO_UPDATE" });
+});
+
+app.get("/lightswitch/api/service/bulk/status", (req, res) => {
+  res.json([{ serviceInstanceId: "fortnite", status: "UP" }]);
+});
+
+app.get("/account/api/oauth/verify", (req, res) => {
+  res.json({ token: "valid", session_id: "valid" });
+});
+
+app.get("/fortnite/api/cloudstorage/user/:accountId", (req, res) => {
+  res.json([]);
+});
+
+app.get("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req, res) => {
+  res.send("");
+});
+
+app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId", (req, res) => {
+  res.json({ accountId: req.params.accountId, sessionId: req.params.sessionId });
+});
+
+app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) => {
+  res.json({ profileRevision: 1, profileId: "athena", profileChanges: [] });
+});
+
 console.log("Initializing ZeroFN Backend...")
 
 // Save database helper
@@ -240,24 +268,42 @@ app.get("/fortnite/api/cloudstorage/user/:accountId", (req, res) => {
     console.log(`Client requesting cloud storage for account: ${req.params.accountId}`)
     res.json([
         {
-            uniqueFilename: "DefaultGame.ini",
-            filename: "DefaultGame.ini",
+            uniqueFilename: "ClientSettings.Sav",
+            filename: "ClientSettings.Sav",
             hash: randomString(32),
             hash256: randomString(64),
             length: 1234,
             contentType: "application/octet-stream",
-            uploaded: "2025-01-31T20:57:02.000Z",
+            uploaded: new Date().toISOString(),
             storageType: "S3",
-            doNotCache: false,
+            doNotCache: false
         },
+        {
+            uniqueFilename: "ClientQualitySettings.Sav", 
+            filename: "ClientQualitySettings.Sav",
+            hash: randomString(32),
+            hash256: randomString(64),
+            length: 1234,
+            contentType: "application/octet-stream",
+            uploaded: new Date().toISOString(),
+            storageType: "S3",
+            doNotCache: false
+        }
     ])
     console.log("Cloud storage data sent to client")
 })
 
-app.post("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req, res) => {
-    console.log(`Client updating cloud storage: ${req.params.uniqueFilename}`)
+app.get("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req, res) => {
+    console.log(`Client requesting cloud storage file: ${req.params.uniqueFilename}`)
+    // Send empty file content
+    res.send(Buffer.from([]))
+    console.log("Empty cloud storage file sent")
+})
+
+app.put("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req, res) => {
+    console.log(`Client uploading cloud storage file: ${req.params.uniqueFilename}`)
     res.status(204).send()
-    console.log("Cloud storage update acknowledged")
+    console.log("Cloud storage file upload acknowledged") 
 })
 
 // Catalog endpoint

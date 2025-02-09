@@ -43,7 +43,9 @@ void LogToFile(const std::string& message) {
     if (logFile.is_open()) {
         auto now = std::chrono::system_clock::now();
         auto now_c = std::chrono::system_clock::to_time_t(now);
-        std::string timestamp = std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
+        std::string timestamp = ss.str();
         logFile << timestamp << " - " << message << std::endl;
         logFile.close();
 

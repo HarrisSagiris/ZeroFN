@@ -23,7 +23,7 @@ app.use(express.json())
 app.use(cors())
 
 app.get("/", (_, res) => {
-    res.send("Welcome to ZeroFN!")
+    res.send("Welcome to ZeroFN v1!")
 })
 
 console.log("Initializing ZeroFN Backend...")

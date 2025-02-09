@@ -136,7 +136,7 @@ const randomString = (length: number): string => {
 }
 
 // Authentication endpoints
-app.get("/account/api/oauth/verify", (req, res) => {
+app.get("/account/api/oauth/verify", (req: any, res: any) => {
     // Extract bearer token from authorization header
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

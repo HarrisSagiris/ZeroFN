@@ -233,6 +233,17 @@ app.get("/fortnite/api/storefront/v2/catalog", (req, res) => {
     console.log("Empty catalog sent to client")
 })
 
+// Matchmaking session endpoint
+app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId", (req, res) => {
+    console.log(`Client requesting matchmaking session for account ${req.params.accountId}`)
+    res.json({
+        accountId: req.params.accountId,
+        sessionId: req.params.sessionId,
+        key: "none",
+    })
+    console.log("Matchmaking session response sent")
+})
+
 // Profile endpoints
 app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) => {
     const { accountId, command } = req.params

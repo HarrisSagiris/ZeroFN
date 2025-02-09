@@ -28,20 +28,51 @@ std::mutex logMutex;
 bool ConnectToServer();
 void HeartbeatThread();
 
-// Add LogToFile implementation
+// Enhanced logging with console colors
+void LogWithColor(const std::string& message, int color) {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(hConsole, color);
+    std::cout << message << std::endl;
+    SetConsoleTextAttribute(hConsole, 7); // Reset to default color
+}
+
+// Add LogToFile implementation with enhanced logging
 void LogToFile(const std::string& message) {
     std::lock_guard<std::mutex> lock(logMutex);
     std::ofstream logFile("zerofn.log", std::ios::app);
     if (logFile.is_open()) {
         auto now = std::chrono::system_clock::now();
         auto now_c = std::chrono::system_clock::to_time_t(now);
-        logFile << std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S") 
-                << " - " << message << std::endl;
+        std::string timestamp = std::put_time(std::localtime(&now_c), "%Y-%m-%d %H:%M:%S");
+        logFile << timestamp << " - " << message << std::endl;
         logFile.close();
+
+        // Also log to console with colors
+        std::string consoleMsg = "[" + timestamp + "] " + message;
+        if (message.find("ERROR") != std::string::npos) {
+            LogWithColor(consoleMsg, 12); // Red for errors
+        } else if (message.find("SUCCESS") != std::string::npos || message.find("BYPASSED") != std::string::npos) {
+            LogWithColor(consoleMsg, 10); // Green for success
+        } else if (message.find("WARNING") != std::string::npos) {
+            LogWithColor(consoleMsg, 14); // Yellow for warnings
+        } else {
+            LogWithColor(consoleMsg, 11); // Light cyan for info
+        }
     }
 }
 
-void LogAuthDetails(const std::string& domain, const std::string& response);
+void LogAuthDetails(const std::string& domain, const std::string& response) {
+    std::string logMsg = "\n========== AUTH DETAILS ==========\n";
+    std::time_t current_time = std::time(nullptr);
+    logMsg += "Timestamp: " + std::string(std::ctime(&current_time));
+    logMsg += "Domain: " + domain + "\n";
+    logMsg += "Response: " + response + "\n";
+    logMsg += "=================================\n";
+    
+    LogToFile("AUTH ATTEMPT DETECTED - Domain: " + domain);
+    LogToFile("BYPASSED - Generated fake auth response");
+    LogWithColor(logMsg, 13); // Light magenta for auth details
+}
 
 // Global socket for heartbeat
 SOCKET g_ServerSocket = INVALID_SOCKET;
@@ -75,6 +106,7 @@ void HeartbeatThread() {
         std::lock_guard<std::mutex> lock(g_SocketMutex);
         
         if (g_ServerSocket == INVALID_SOCKET) {
+            LogToFile("WARNING: Server socket invalid, waiting for reconnection...");
             Sleep(1000);
             continue;
         }
@@ -89,15 +121,15 @@ void HeartbeatThread() {
             if (strcmp(buffer, "ping") == 0) {
                 const char* pong = "pong";
                 send(g_ServerSocket, pong, strlen(pong), 0);
-                std::cout << "[ZeroFN] Heartbeat: Received ping, sent pong" << std::endl;
+                LogToFile("SUCCESS: Heartbeat exchange successful");
             }
         }
         else if (bytesRead == 0 || bytesRead == SOCKET_ERROR) {
-            std::cout << "[ZeroFN] Connection lost, attempting to reconnect..." << std::endl;
+            LogToFile("WARNING: Connection lost, attempting to reconnect...");
             closesocket(g_ServerSocket);
             g_ServerSocket = INVALID_SOCKET;
             if (ConnectToServer()) {
-                std::cout << "[ZeroFN] Successfully reconnected to server" << std::endl;
+                LogToFile("SUCCESS: Reconnected to server");
             }
         }
     }
@@ -113,7 +145,7 @@ bool ConnectToServer() {
 
     g_ServerSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (g_ServerSocket == INVALID_SOCKET) {
-        std::cout << "[ZeroFN] Failed to create socket for server connection" << std::endl;
+        LogToFile("ERROR: Failed to create socket for server connection");
         return false;
     }
 
@@ -123,25 +155,15 @@ bool ConnectToServer() {
     inet_pton(AF_INET, LOCAL_SERVER, &addr.sin_addr);
 
     if (connect(g_ServerSocket, (sockaddr*)&addr, sizeof(addr)) == 0) {
-        std::cout << "[ZeroFN] Successfully connected to server" << std::endl;
+        LogToFile("SUCCESS: Connected to server at " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
         return true;
     }
 
     closesocket(g_ServerSocket);
     g_ServerSocket = INVALID_SOCKET;
-    std::cout << "[ZeroFN] Failed to connect to server" << std::endl;
-    LogToFile("ERROR: Could not connect to server on " + std::string(LOCAL_SERVER) + ":" + std::to_string(LOCAL_PORT));
+    LogToFile("ERROR: Failed to connect to server");
     MessageBoxA(NULL, "Could not connect to server! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
     return false;
-}
-
-void LogAuthDetails(const std::string& domain, const std::string& response) {
-    std::cout << "\n[ZeroFN] ========== AUTH DETAILS ==========\n";
-    std::time_t current_time = std::time(nullptr);
-    std::cout << "[ZeroFN] Timestamp: " << std::put_time(std::localtime(&current_time), "%Y-%m-%d %H:%M:%S") << "\n";
-    std::cout << "[ZeroFN] Domain: " << domain << "\n";
-    std::cout << "[ZeroFN] Response: " << response << "\n";
-    std::cout << "[ZeroFN] =================================\n\n";
 }
 
 // Generate random strings for auth tokens
@@ -216,13 +238,13 @@ const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
 bool ShouldBlockDomain(const char* domain, std::string& response) {
     if (!domain) return false;
     
-    std::cout << "[ZeroFN] Checking domain: " << domain << std::endl;
+    LogToFile("Checking domain: " + std::string(domain));
     
     for (const auto& bypass : BYPASS_RESPONSES) {
         if (strstr(domain, bypass.first.c_str())) {
             response = bypass.second;
+            LogToFile("BYPASSED - Login/Auth request intercepted: " + std::string(domain));
             LogAuthDetails(domain, response);
-            LogToFile("Intercepted request to " + std::string(domain) + " - Generating bypass response");
             return true;
         }
     }
@@ -230,10 +252,11 @@ bool ShouldBlockDomain(const char* domain, std::string& response) {
     // Additional checks for data collection endpoints
     if (strstr(domain, "datarouter") || strstr(domain, "telemetry") || strstr(domain, "intake")) {
         response = "{\"status\":\"ok\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}";
+        LogToFile("BYPASSED - Blocked telemetry request to: " + std::string(domain));
         return true;
     }
     
-    std::cout << "[ZeroFN] Domain not in block list: " << domain << std::endl;
+    LogToFile("INFO: Domain not in block list: " + std::string(domain));
     return false;
 }
 
@@ -241,7 +264,7 @@ bool ShouldBlockDomainW(const wchar_t* domain, std::string& response) {
     if (!domain) return false;
     std::wstring wDomain(domain);
     std::string sDomain(wDomain.begin(), wDomain.end());
-    std::cout << "[ZeroFN] Checking wide-char domain: " << sDomain << std::endl;
+    LogToFile("Checking wide-char domain: " + sDomain);
     return ShouldBlockDomain(sDomain.c_str(), response);
 }
 
@@ -254,10 +277,10 @@ BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD
     char urlBuffer[1024];
     DWORD urlSize = sizeof(urlBuffer);
     
-    std::cout << "[ZeroFN] Intercepted HttpSendRequestA" << std::endl;
+    LogToFile("Intercepted HttpSendRequestA");
     
     if(InternetQueryOptionA(hRequest, INTERNET_OPTION_URL, urlBuffer, &urlSize)) {
-        std::cout << "[ZeroFN] Request URL: " << urlBuffer << std::endl;
+        LogToFile("Request URL: " + std::string(urlBuffer));
         
         if(ShouldBlockDomain(urlBuffer, response)) {
             // Write cached response
@@ -273,13 +296,12 @@ BOOL WINAPI HookedHttpSendRequestA(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD
             buffers.dwBufferLength = responseLength;
             
             HttpEndRequestA(hRequest, NULL, 0, 0);
-            std::cout << "[ZeroFN] Sent cached response for: " << urlBuffer << std::endl;
-            LogToFile("Sent cached response for: " + std::string(urlBuffer));
+            LogToFile("SUCCESS: Sent cached response for: " + std::string(urlBuffer));
             return TRUE;
         }
     }
     
-    std::cout << "[ZeroFN] Passing request to original handler" << std::endl;
+    LogToFile("INFO: Passing request to original handler");
     return originalHttpSendRequestA(hRequest, lpszHeaders, dwHeadersLength, lpOptional, dwOptionalLength);
 }
 
@@ -287,7 +309,7 @@ BOOL WINAPI HookedHttpSendRequestW(HINTERNET hRequest, LPCWSTR lpszHeaders, DWOR
     std::string response;
     DWORD responseLength = 0;
     
-    std::cout << "[ZeroFN] Intercepted HttpSendRequestW" << std::endl;
+    LogToFile("Intercepted HttpSendRequestW");
     
     // Get URL from request handle
     WCHAR urlBuffer[1024];
@@ -295,7 +317,7 @@ BOOL WINAPI HookedHttpSendRequestW(HINTERNET hRequest, LPCWSTR lpszHeaders, DWOR
     if(InternetQueryOptionW(hRequest, INTERNET_OPTION_URL, urlBuffer, &urlSize)) {
         std::wstring wUrl(urlBuffer);
         std::string url(wUrl.begin(), wUrl.end());
-        std::cout << "[ZeroFN] Request URL: " << url << std::endl;
+        LogToFile("Request URL: " + url);
         
         if(ShouldBlockDomainW(urlBuffer, response)) {
             // Write cached response
@@ -314,27 +336,25 @@ BOOL WINAPI HookedHttpSendRequestW(HINTERNET hRequest, LPCWSTR lpszHeaders, DWOR
             buffers.dwBufferLength = responseLength * sizeof(wchar_t);
             
             HttpEndRequestW(hRequest, NULL, 0, 0);
-            std::cout << "[ZeroFN] Sent cached response for wide-char request" << std::endl;
-            LogToFile("Sent cached response for wide-char request");
+            LogToFile("SUCCESS: Sent cached response for wide-char request");
             return TRUE;
         }
     }
     
-    std::cout << "[ZeroFN] Passing request to original handler" << std::endl;
+    LogToFile("INFO: Passing request to original handler");
     return originalHttpSendRequestW(hRequest, lpszHeaders, dwHeadersLength, lpOptional, dwOptionalLength);
 }
 
 HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion, LPCSTR lpszReferrer, LPCSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
     std::string response;
     
-    std::cout << "[ZeroFN] Intercepted HttpOpenRequestA" << std::endl;
+    LogToFile("Intercepted HttpOpenRequestA");
     if (lpszObjectName) {
-        std::cout << "[ZeroFN] Request object: " << lpszObjectName << std::endl;
+        LogToFile("Request object: " + std::string(lpszObjectName));
     }
     
     if (lpszObjectName && ShouldBlockDomain(lpszObjectName, response)) {
-        std::cout << "[ZeroFN] Redirecting HTTP request to local server: " << lpszObjectName << std::endl;
-        LogToFile("Redirecting HTTP request to local server: " + std::string(lpszObjectName));
+        LogToFile("BYPASSED - Redirecting HTTP request to local server: " + std::string(lpszObjectName));
         dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
         dwFlags &= ~INTERNET_FLAG_SECURE;
         return originalHttpOpenRequestA(hConnect, "GET", "/", "HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
@@ -345,16 +365,15 @@ HINTERNET WINAPI HookedHttpOpenRequestA(HINTERNET hConnect, LPCSTR lpszVerb, LPC
 HINTERNET WINAPI HookedHttpOpenRequestW(HINTERNET hConnect, LPCWSTR lpszVerb, LPCWSTR lpszObjectName, LPCWSTR lpszVersion, LPCWSTR lpszReferrer, LPCWSTR* lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext) {
     std::string response;
     
-    std::cout << "[ZeroFN] Intercepted HttpOpenRequestW" << std::endl;
+    LogToFile("Intercepted HttpOpenRequestW");
     if (lpszObjectName) {
         std::wstring wObj(lpszObjectName);
         std::string obj(wObj.begin(), wObj.end());
-        std::cout << "[ZeroFN] Request object: " << obj << std::endl;
+        LogToFile("Request object: " + obj);
     }
     
     if (lpszObjectName && ShouldBlockDomainW(lpszObjectName, response)) {
-        std::cout << "[ZeroFN] Redirecting HTTPS request to local server" << std::endl;
-        LogToFile("Redirecting HTTPS request to local server");
+        LogToFile("BYPASSED - Redirecting HTTPS request to local server");
         dwFlags |= INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
         dwFlags &= ~INTERNET_FLAG_SECURE;
         return originalHttpOpenRequestW(hConnect, L"GET", L"/", L"HTTP/1.1", NULL, lplpszAcceptTypes, dwFlags, dwContext);
@@ -365,14 +384,13 @@ HINTERNET WINAPI HookedHttpOpenRequestW(HINTERNET hConnect, LPCWSTR lpszVerb, LP
 HINTERNET WINAPI HookedInternetConnectA(HINTERNET hInternet, LPCSTR lpszServerName, INTERNET_PORT nServerPort, LPCSTR lpszUserName, LPCSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext) {
     std::string response;
     
-    std::cout << "[ZeroFN] Intercepted InternetConnectA" << std::endl;
+    LogToFile("Intercepted InternetConnectA");
     if (lpszServerName) {
-        std::cout << "[ZeroFN] Server name: " << lpszServerName << std::endl;
+        LogToFile("Server name: " + std::string(lpszServerName));
     }
     
     if (ShouldBlockDomain(lpszServerName, response)) {
-        std::cout << "[ZeroFN] Redirecting connection to local server from: " << lpszServerName << std::endl;
-        LogToFile("Redirecting connection to local server from: " + std::string(lpszServerName));
+        LogToFile("BYPASSED - Redirecting connection to local server from: " + std::string(lpszServerName));
         return originalInternetConnectA(hInternet, LOCAL_SERVER, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
     }
     return originalInternetConnectA(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
@@ -381,16 +399,15 @@ HINTERNET WINAPI HookedInternetConnectA(HINTERNET hInternet, LPCSTR lpszServerNa
 HINTERNET WINAPI HookedInternetConnectW(HINTERNET hInternet, LPCWSTR lpszServerName, INTERNET_PORT nServerPort, LPCWSTR lpszUserName, LPCWSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext) {
     std::string response;
     
-    std::cout << "[ZeroFN] Intercepted InternetConnectW" << std::endl;
+    LogToFile("Intercepted InternetConnectW");
     if (lpszServerName) {
         std::wstring wServer(lpszServerName);
         std::string server(wServer.begin(), wServer.end());
-        std::cout << "[ZeroFN] Server name: " << server << std::endl;
+        LogToFile("Server name: " + server);
     }
     
     if (ShouldBlockDomainW(lpszServerName, response)) {
-        std::cout << "[ZeroFN] Redirecting secure connection to local server" << std::endl;
-        LogToFile("Redirecting secure connection to local server");
+        LogToFile("BYPASSED - Redirecting secure connection to local server");
         return originalInternetConnectW(hInternet, LOCAL_SERVER_W, LOCAL_PORT, NULL, NULL, dwService, dwFlags, dwContext);
     }
     return originalInternetConnectW(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
@@ -402,10 +419,9 @@ bool InstallHook(T& original, T hooked, const char* name) {
     DWORD oldProtect;
     LPVOID originalPtr = reinterpret_cast<LPVOID>(&original);
     
-    std::cout << "[ZeroFN] Installing hook for " << name << std::endl;
+    LogToFile("Installing hook for " + std::string(name));
     
     if (!VirtualProtect(originalPtr, sizeof(T), PAGE_EXECUTE_READWRITE, &oldProtect)) {
-        std::cout << "[ZeroFN] ERROR: Failed to modify protection for " << name << std::endl;
         LogToFile("ERROR: Failed to modify protection for " + std::string(name));
         return false;
     }
@@ -413,14 +429,12 @@ bool InstallHook(T& original, T hooked, const char* name) {
     memcpy(originalPtr, &hooked, sizeof(T));
     VirtualProtect(originalPtr, sizeof(T), oldProtect, &oldProtect);
     
-    std::cout << "[ZeroFN] Successfully installed hook for " << name << std::endl;
-    LogToFile("Successfully installed hook for " + std::string(name));
+    LogToFile("SUCCESS: Installed hook for " + std::string(name));
     return true;
 }
 
 // Export function to verify injection
 extern "C" __declspec(dllexport) BOOL WINAPI VerifyInjection() {
-    std::cout << "[ZeroFN] Injection verification requested - Status: Active" << std::endl;
     LogToFile("Injection verification requested - Status: Active");
     return TRUE;
 }
@@ -442,19 +456,18 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             FILE* f;
             freopen_s(&f, "CONOUT$", "w", stdout);
             
-            std::cout << "[ZeroFN] =============================" << std::endl;
-            std::cout << "[ZeroFN] ZeroFN, Created by @Devharris" << std::endl;
-            std::cout << "[ZeroFN] =============================" << std::endl;
+            LogToFile("============================");
+            LogToFile("ZeroFN Auth Bypass Starting");
+            LogToFile("Created by @Devharris");
+            LogToFile("============================");
             
-            LogToFile("ZeroFN Auth Bypass DLL Injected - Starting active bypass system");
-
             // Retry connecting to server until successful
             bool connected = false;
             int retryCount = 0;
             const int maxRetries = 5;
             
             while (!connected && retryCount < maxRetries) {
-                std::cout << "[ZeroFN] Attempting to connect to server (Attempt " << retryCount + 1 << "/" << maxRetries << ")" << std::endl;
+                LogToFile("Attempting to connect to server (Attempt " + std::to_string(retryCount + 1) + "/" + std::to_string(maxRetries) + ")");
                 connected = ConnectToServer();
                 if (!connected) {
                     Sleep(1000); // Wait 1 second between retries
@@ -463,7 +476,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             }
 
             if (!connected) {
-                std::cout << "[ZeroFN] ERROR: Failed to connect to server after " << maxRetries << " attempts" << std::endl;
                 LogToFile("ERROR: Failed to connect to server after " + std::to_string(maxRetries) + " attempts");
                 MessageBoxA(NULL, "Could not connect to server after multiple attempts! Please ensure it is running.", "ZeroFN Error", MB_ICONERROR);
                 WSACleanup();
@@ -472,8 +484,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
             // Start heartbeat thread after successful connection
             std::thread(HeartbeatThread).detach();
-            std::cout << "[ZeroFN] Started heartbeat thread" << std::endl;
-            LogToFile("Started heartbeat thread");
+            LogToFile("SUCCESS: Started heartbeat thread");
 
             // Get wininet functions
             HMODULE hWininet = GetModuleHandleA("wininet.dll");
@@ -481,13 +492,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 hWininet = LoadLibraryA("wininet.dll");
             }
             if (!hWininet) {
-                std::cout << "[ZeroFN] ERROR: Failed to load wininet.dll" << std::endl;
                 LogToFile("ERROR: Failed to load wininet.dll");
                 WSACleanup();
                 return FALSE;
             }
 
-            std::cout << "[ZeroFN] Successfully loaded wininet.dll" << std::endl;
+            LogToFile("SUCCESS: Loaded wininet.dll");
 
             // Store original functions
             originalHttpSendRequestA = (tHttpSendRequestA)GetProcAddress(hWininet, "HttpSendRequestA");
@@ -497,7 +507,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             originalHttpOpenRequestW = (tHttpOpenRequestW)GetProcAddress(hWininet, "HttpOpenRequestW");
             originalInternetConnectW = (tInternetConnectW)GetProcAddress(hWininet, "InternetConnectW");
 
-            std::cout << "[ZeroFN] Retrieved all original function addresses" << std::endl;
+            LogToFile("SUCCESS: Retrieved all original function addresses");
 
             // Install hooks
             bool success = true;
@@ -509,16 +519,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             success &= InstallHook(originalInternetConnectW, HookedInternetConnectW, "InternetConnectW");
 
             if (success) {
-                std::cout << "[ZeroFN] All hooks installed successfully - Active bypass system ready" << std::endl;
-                LogToFile("All hooks installed successfully - Active bypass system ready");
+                LogToFile("SUCCESS: All hooks installed - Auth bypass system ACTIVE");
+                LogToFile("Ready to intercept and bypass login requests!");
             } else {
-                std::cout << "[ZeroFN] WARNING: Some hooks failed to install - System may not function correctly" << std::endl;
                 LogToFile("WARNING: Some hooks failed to install - System may not function correctly");
             }
             break;
         }
         case DLL_PROCESS_DETACH:
-            std::cout << "[ZeroFN] DLL detaching - Shutting down bypass system" << std::endl;
             LogToFile("DLL detaching - Shutting down bypass system");
             WSACleanup();
             break;

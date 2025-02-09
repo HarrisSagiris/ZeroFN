@@ -186,6 +186,26 @@ app.get("/fortnite/api/version", (req, res) => {
     console.log("Version check completed")
 })
 
+// Lightswitch endpoint for service status
+app.get("/lightswitch/api/service/bulk/status", (req, res) => {
+    console.log("Client checking service status...")
+    res.json([{
+        serviceInstanceId: "fortnite",
+        status: "UP",
+        message: "Fortnite is online",
+        maintenanceUri: null,
+        overrideCatalogIds: ["a7f138b2e51945ffbfdacc1af0541053"],
+        allowedActions: ["PLAY", "DOWNLOAD"],
+        banned: false,
+        launcherInfoDTO: {
+            appName: "Fortnite",
+            catalogItemId: "4fe75bbc5a674f4f9b356b5c90567da5",
+            namespace: "fn"
+        }
+    }])
+    console.log("Service status sent to client")
+})
+
 app.get("/fortnite/api/versioncheck/:version", (req, res) => {
     console.log(`Client version check for: ${req.params.version}`)
     res.json({

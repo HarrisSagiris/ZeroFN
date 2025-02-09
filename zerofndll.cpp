@@ -162,21 +162,57 @@ std::string GenerateRandomString(int length) {
 
 // Block list for Epic/Fortnite domains with active bypass responses
 const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
+    // OAuth token endpoint
     {"account-public-service-prod.ol.epicgames.com/account/api/oauth/token",
      "{\"access_token\":\"eg1~" + GenerateRandomString(128) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"displayName\":\"ZeroFN\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
     },
+    
+    // OAuth verify endpoint
     {"account-public-service-prod.ol.epicgames.com/account/api/oauth/verify",
      "{\"token\":\"eg1~" + GenerateRandomString(128) + "\",\"session_id\":\"" + GenerateRandomString(32) + "\",\"token_type\":\"bearer\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"auth_method\":\"exchange_code\",\"display_name\":\"ZeroFN\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
     },
+    
+    // Profile endpoint
     {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile",
      "{\"profileId\":\"athena\",\"profileChanges\":[],\"profileCommandRevision\":1,\"serverTime\":\"" + std::to_string(std::time(nullptr)) + "\",\"responseVersion\":1}"
     },
+    
+    // Launcher assets endpoint
     {"launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows/x64",
      "{\"elements\":[{\"appName\":\"Fortnite\",\"labelName\":\"Live-Windows\",\"buildVersion\":\"++Fortnite+Release-24.40-CL-25983681\",\"hash\":\"" + GenerateRandomString(32) + "\",\"path\":\"FortniteGame/Content/Paks\"}]}"
+    },
+
+    // Additional auth endpoints
+    {"account-public-service-prod.ol.epicgames.com/account/api/oauth/exchange",
+     "{\"expiresInSeconds\":28800,\"code\":\"" + GenerateRandomString(32) + "\",\"creatingClientId\":\"ec684b8c687f479fadea3cb2ad83f5c6\"}"
+    },
+
+    {"account-public-service-prod.ol.epicgames.com/account/api/public/account",
+     "{\"id\":\"" + GenerateRandomString(32) + "\",\"displayName\":\"ZeroFN\",\"email\":\"zerofn@example.com\",\"failedLoginAttempts\":0,\"lastLogin\":\"" + std::to_string(std::time(nullptr)) + "\",\"numberOfDisplayNameChanges\":0,\"dateOfBirth\":\"1990-01-01\",\"ageGroup\":\"ADULT\",\"headless\":false,\"country\":\"US\",\"preferredLanguage\":\"en\",\"lastDisplayNameChange\":\"1970-01-01\",\"canUpdateDisplayName\":true,\"tfaEnabled\":false,\"emailVerified\":true,\"minorVerified\":false,\"minorExpected\":false,\"minorStatus\":\"UNKNOWN\"}"
+    },
+
+    {"account-public-service-prod.ol.epicgames.com/account/api/accounts",
+     "{\"id\":\"" + GenerateRandomString(32) + "\",\"displayName\":\"ZeroFN\",\"externalAuths\":{}}"
+    },
+
+    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/cloudstorage/system",
+     "[]"
+    },
+
+    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/cloudstorage/user",
+     "[]"
+    },
+
+    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/storefront/v2/catalog",
+     "{\"refreshIntervalHrs\":24,\"dailyPurchaseHrs\":24,\"expiration\":\"" + std::to_string(std::time(nullptr) + 86400) + "\",\"storefronts\":[]}"
+    },
+
+    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/matchmaking/session/findPlayer",
+     "{\"player\":{\"id\":\"" + GenerateRandomString(32) + "\",\"attributes\":{\"player.subregion\":\"None\",\"player.platform\":\"Windows\",\"player.option.partyId\":\"" + GenerateRandomString(32) + "\"}}}"
     }
 };
 
-// Enhanced domain blocking with active response generation
+// Block list for Epic/Fortnite domains with active response generation
 bool ShouldBlockDomain(const char* domain, std::string& response) {
     if (!domain) return false;
     

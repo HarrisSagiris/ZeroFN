@@ -27,7 +27,10 @@ app.get("/", (_, res) => {
 })
 
 app.get("/fortnite/api/version", (req, res) => {
-  res.json({ type: "NO_UPDATE" });
+  res.json({ 
+    type: "NO_UPDATE",
+    version: "++Fortnite+Release-2.4.2-CL-3870737"
+  });
 });
 
 app.get("/lightswitch/api/service/bulk/status", (req, res) => {
@@ -48,6 +51,110 @@ app.get("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req, res)
 
 app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId", (req, res) => {
   res.json({ accountId: req.params.accountId, sessionId: req.params.sessionId });
+});
+
+app.post("/fortnite/api/game/v2/profile/:accountId/client/QueryProfile", (req, res) => {
+  const { accountId } = req.params;
+  const profileId = (req.query.profileId as string) || "athena";
+
+  console.log(`Client ${accountId} requesting QueryProfile`);
+
+  const items: Record<string, any> = {};
+
+  database.cosmetics.forEach((cosmetic) => {
+    items[cosmetic.id] = {
+      templateId: cosmetic.template_id,
+      attributes: {
+        favorite: false,
+        item_seen: true,
+        level: 1,
+        variants: [],
+        xp: 0,
+      },
+      quantity: 1,
+    }
+  });
+
+  res.json({
+    profileRevision: 1,
+    profileId: profileId,
+    profileChangesBaseRevision: 1,
+    profileChanges: [{
+      changeType: "fullProfileUpdate",
+      profile: {
+        _id: accountId,
+        accountId: accountId,
+        profileId: profileId,
+        version: "Chapter1_Season2",
+        items: items,
+        stats: {
+          attributes: {
+            past_seasons: [],
+            season_match_boost: 0,
+            loadouts: ["loadout_0"],
+            mfa_reward_claimed: true,
+            rested_xp_overflow: 0,
+            quest_manager: {},
+            book_level: 1,
+            season_num: 2,
+            book_xp: 0,
+            permissions: [],
+            season: {
+              numWins: 0,
+              numHighBracket: 0,
+              numLowBracket: 0,
+            },
+          },
+        },
+      },
+    }],
+    serverTime: new Date().toISOString(),
+    responseVersion: 1
+  });
+});
+
+app.post("/fortnite/api/game/v2/profile/:accountId/client/ClientQuestLogin", (req, res) => {
+  const { accountId } = req.params;
+  const profileId = (req.query.profileId as string) || "athena";
+
+  console.log(`Client ${accountId} requesting ClientQuestLogin`);
+
+  res.json({
+    profileRevision: 1,
+    profileId: profileId,
+    profileChangesBaseRevision: 1,
+    profileChanges: [{
+      changeType: "fullProfileUpdate", 
+      profile: {
+        _id: accountId,
+        accountId: accountId,
+        profileId: profileId,
+        version: "Chapter1_Season2",
+        items: {},
+        stats: {
+          attributes: {
+            past_seasons: [],
+            season_match_boost: 0,
+            loadouts: ["loadout_0"],
+            mfa_reward_claimed: true,
+            rested_xp_overflow: 0,
+            quest_manager: {},
+            book_level: 1,
+            season_num: 2,
+            book_xp: 0,
+            permissions: [],
+            season: {
+              numWins: 0,
+              numHighBracket: 0,
+              numLowBracket: 0,
+            },
+          },
+        },
+      },
+    }],
+    serverTime: new Date().toISOString(),
+    responseVersion: 1
+  });
 });
 
 app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) => {
@@ -164,7 +271,7 @@ app.get("/account/api/oauth/verify", (req: any, res: any) => {
         client_id: "ec684b8c687f479fadea3cb2ad83f5c6",
         internal_client: true,
         client_service: "fortnite",
-        displayName: "ZeroFN",
+        displayName: "ZeroFN_C1S2",
         app: "fortnite",
         in_app_id: "ninja",
         device_id: "164fb25bb44e42c5a027977d0d5da800"
@@ -184,7 +291,7 @@ app.post("/account/api/oauth/token", (req, res) => {
         client_id: "ec684b8c687f479fadea3cb2ad83f5c6",
         internal_client: true,
         client_service: "fortnite",
-        displayName: "ZeroFN",
+        displayName: "ZeroFN_C1S2",
         app: "fortnite",
         in_app_id: randomString(32),
     })
@@ -195,8 +302,8 @@ app.get("/account/api/public/account/:accountId", (req, res) => {
     console.log(`Client requesting account info for ID: ${req.params.accountId}`)
     res.json({
         id: "ninja",
-        displayName: "ZeroFN",
-        name: "ZeroFN",
+        displayName: "ZeroFN_C1S2",
+        name: "ZeroFN_C1S2",
         email: "zerofn@zerofn.com",
         failedLoginAttempts: 0,
         lastLogin: new Date().toISOString(),
@@ -204,7 +311,7 @@ app.get("/account/api/public/account/:accountId", (req, res) => {
         ageGroup: "UNKNOWN",
         headless: false,
         country: "US",
-        lastName: "ZeroFN",
+        lastName: "ZeroFN_C1S2",
         preferredLanguage: "en",
         canUpdateDisplayName: false,
         tfaEnabled: false,
@@ -224,7 +331,7 @@ app.get("/fortnite/api/version", (req, res) => {
     console.log("Client checking game version...")
     res.json({
         type: "NO_UPDATE",
-        version: "++Fortnite+Release-Cert-CL-3807424",
+        version: "++Fortnite+Release-2.4.2-CL-3870737",
         buildDate: "2023-01-01",
     })
     console.log("Version check completed")
@@ -254,7 +361,7 @@ app.get("/fortnite/api/versioncheck/:version", (req, res) => {
     console.log(`Client version check for: ${req.params.version}`)
     res.json({
         type: "NO_UPDATE",
-        acceptedVersion: "++Fortnite+Release-Cert-CL-3807424",
+        acceptedVersion: "++Fortnite+Release-2.4.2-CL-3870737",
         updateUrl: null,
         requiredVersion: "NONE",
         updatePriority: 0,
@@ -368,7 +475,7 @@ app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) 
                     _id: accountId,
                     accountId: accountId,
                     profileId: profileId,
-                    version: "no_version",
+                    version: "Chapter1_Season2",
                     items: items,
                     stats: {
                         attributes: {
@@ -379,7 +486,7 @@ app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) 
                             rested_xp_overflow: 0,
                             quest_manager: {},
                             book_level: 1,
-                            season_num: 20,
+                            season_num: 2,
                             book_xp: 0,
                             permissions: [],
                             season: {
@@ -406,7 +513,7 @@ app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) 
                     _id: accountId,
                     accountId: accountId,
                     profileId: profileId,
-                    version: "no_version",
+                    version: "Chapter1_Season2",
                     items: {},
                     stats: {
                         attributes: {
@@ -417,7 +524,7 @@ app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) 
                             rested_xp_overflow: 0,
                             quest_manager: {},
                             book_level: 1,
-                            season_num: 20,
+                            season_num: 2,
                             book_xp: 0,
                             permissions: [],
                             season: {

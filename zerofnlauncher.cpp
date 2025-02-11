@@ -162,57 +162,73 @@ public:
         // Initialize COM for folder browser
         CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
-        // Create main window
+        // Create main window with modern styling
         WNDCLASSEXW wc = {0};
         wc.cbSize = sizeof(WNDCLASSEXW);
         wc.lpfnWndProc = WindowProc;
         wc.hInstance = GetModuleHandle(NULL);
         wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+        wc.hbrBackground = CreateSolidBrush(RGB(240, 240, 240)); // Light gray background
         wc.lpszClassName = L"ZeroFNLauncher";
         RegisterClassExW(&wc);
 
+        // Create window with custom dimensions and centered position
+        int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+        int windowWidth = 900;
+        int windowHeight = 700;
+        int posX = (screenWidth - windowWidth) / 2;
+        int posY = (screenHeight - windowHeight) / 2;
+
         hwnd = CreateWindowExW(
-            0,
+            WS_EX_COMPOSITED, // Smooth drawing
             L"ZeroFNLauncher", 
             L"ZeroFN Launcher",
-            WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+            WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX & ~WS_THICKFRAME, // Fixed size
+            posX, posY, windowWidth, windowHeight,
             NULL,
             NULL,
             GetModuleHandle(NULL),
             NULL
         );
 
-        // Create controls with improved styling
+        // Create modern-styled controls
+        HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+
+        // Browse button with modern style
         CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            10, 10, 80, 25, hwnd, (HMENU)1, NULL, NULL);
+            20, 20, 100, 35, hwnd, (HMENU)1, NULL, NULL);
 
+        // Path edit box with modern style
         pathEdit = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
-            100, 10, 580, 25, hwnd, (HMENU)2, NULL, NULL);
+            140, 20, 720, 35, hwnd, (HMENU)2, NULL, NULL);
 
+        // Action buttons with modern style
         startButton = CreateWindowW(L"BUTTON", L"Launch Game", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            10, 45, 100, 30, hwnd, (HMENU)3, NULL, NULL);
+            20, 70, 150, 40, hwnd, (HMENU)3, NULL, NULL);
 
         stopButton = CreateWindowW(L"BUTTON", L"Stop Services", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            120, 45, 100, 30, hwnd, (HMENU)4, NULL, NULL);
+            190, 70, 150, 40, hwnd, (HMENU)4, NULL, NULL);
 
         EnableWindow(stopButton, FALSE);
 
-        // Create console output with improved styling
+        // Console output with modern styling
         consoleOutput = CreateWindowW(L"EDIT", L"", 
             WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
-            10, 85, 760, 460, hwnd, (HMENU)6, NULL, NULL);
+            20, 130, 840, 500, hwnd, (HMENU)6, NULL, NULL);
 
-        // Set modern font
-        HFONT hFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-        
-        SendMessage(pathEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-        SendMessage(startButton, WM_SETFONT, (WPARAM)hFont, TRUE);
-        SendMessage(stopButton, WM_SETFONT, (WPARAM)hFont, TRUE);
-        SendMessage(consoleOutput, WM_SETFONT, (WPARAM)hFont, TRUE);
+        // Apply modern font to all controls
+        HWND controls[] = {pathEdit, startButton, stopButton, consoleOutput};
+        for(HWND control : controls) {
+            SendMessage(control, WM_SETFONT, (WPARAM)hFont, TRUE);
+        }
+
+        // Custom styling for buttons
+        for(HWND button : {startButton, stopButton}) {
+            SetWindowTheme(button, L"Explorer", NULL);
+        }
 
         // Load saved path
         LoadSavedPath();
@@ -226,6 +242,12 @@ public:
 
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         switch (uMsg) {
+            case WM_CTLCOLOREDIT: {
+                HDC hdcEdit = (HDC)wParam;
+                SetTextColor(hdcEdit, RGB(0, 0, 0));
+                SetBkColor(hdcEdit, RGB(255, 255, 255));
+                return (LRESULT)GetStockObject(WHITE_BRUSH);
+            }
             case WM_COMMAND:
                 switch (LOWORD(wParam)) {
                     case 1: // Browse button

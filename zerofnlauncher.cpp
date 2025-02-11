@@ -15,9 +15,11 @@
 #include <functional>
 #include <userenv.h>
 #include <psapi.h> // Added for EnumProcessModules and GetModuleFileNameExW
+#include <uxtheme.h> // Added for SetWindowTheme
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "psapi.lib") // Added for psapi functions
+#pragma comment(lib, "uxtheme.lib") // Added for SetWindowTheme
 
 namespace fs = std::experimental::filesystem;
 

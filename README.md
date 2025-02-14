@@ -1,12 +1,12 @@
 # ZeroFN - Fortnite Private Server
-
-[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/yCY4FTMPdK)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Fortnite](https://img.shields.io/badge/Fortnite-2F2D2E?style=for-the-badge&logo=fortnite&logoColor=white)](https://www.epicgames.com/fortnite/)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Express.js](https://img.shields.io/badge/Express.js-4.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Windows](https://img.shields.io/badge/Windows-10%2B-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Docker](https://img.shields.io/badge/Docker-24.x-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us!-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/yCY4FTMPdK)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge&labelColor=black)](https://opensource.org/licenses/MIT)
+[![Fortnite](https://img.shields.io/badge/Fortnite-C1S2-2F2D2E?style=for-the-badge&logo=fortnite&logoColor=white)](https://www.epicgames.com/fortnite/)
 
 ZeroFN is a custom Fortnite private server and launcher that allows you to play Fortnite Chapter 1 Season 2. It includes a DLL injection system for authentication bypass and a backend server to handle game requests.
 

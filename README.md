@@ -1,120 +1,126 @@
-# ProjectZERO-ZeroFN
+# ZeroFN - Fortnite Private Server
 
-ProjectZERO-ZeroFN is a custom script that provides a streamlined interface for downloading, managing, and launching custom Fortnite OG (Original Game) builds. It is designed to allow users to easily specify their FortniteOG path, install specific Fortnite seasons, and authenticate with Epic Games.
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/yCY4FTMPdK)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Fortnite](https://img.shields.io/badge/Fortnite-2F2D2E?style=for-the-badge&logo=fortnite&logoColor=white)](https://www.epicgames.com/fortnite/)
+
+ZeroFN is a custom Fortnite private server and launcher that allows you to play Fortnite Chapter 1 Season 2. It includes a DLL injection system for authentication bypass and a backend server to handle game requests.
 
 ---
 
 ## Features
 
-1. **Main Menu Navigation**
-   - Specify username for playing
-   - Specify the path of the installed og version 
+1. **Custom Launcher**
+   - User-friendly GUI interface
+   - Automatic Fortnite path detection and validation
+   - DLL injection system for auth bypass
+   - Process monitoring and management
 
-2. **Fortnite OG Installation**
-   - Select and download Fortnite OG files for specific seasons (e.g., Season 1, Season 2)—currently, only Season 2 is available.
-   - Extracts and verifies installation directories to ensure all necessary files are present.
+2. **Authentication System** 
+   - Full authentication bypass via DLL injection
+   - Intercepts and redirects Epic/Fortnite API requests
+   - Simulates proper auth tokens and responses
+   - No Epic Games login required
 
-3. **Authentication**
-   - Directly patching game files to bypass all authentication attempts
+3. **Backend Server**
+   - Local Express.js server (port 3000)
+   - Handles all game API requests
+   - Provides cosmetics and profile data
+   - Maintains Chapter 1 Season 2 version info
 
-4. **Game and Server Management**
-   - Launch the ZeroFN server and Fortnite game client with necessary arguments.
-   - Launcher will create a new cmd window starting to patch the game while the game loads.
-
-5. **Discord Community**
-   - Direct access to the ZeroFN Discord community for updates and support.
-
----
-
-## Prerequisites
-
-1. **System Requirements**:
-   - Windows operating system
-   - Stable internet connection
-
-2. **Installed 
-   - No tools are required !! its an exe...
+4. **Game Features**
+   - Chapter 1 Season 2 version (2.4.2-CL-3870737)
+   - Basic cosmetics system
+   - Profile management
+   - Quest system support
 
 ---
 
-## Installation Steps
+## Installation
 
-1. **Clone the Repository**:
-   - Open a command prompt and run the following command to clone the repository to your local machine:
-     ```bash
-     git clone https://github.com/HarrisSagiris/ZeroFN.git
-     ```
-   - Alternatively, you can download the repository as a ZIP file from [getactivewin.xyz](https://getactivewin.xyz).
+1. **Download the Latest Release**
+   - Get the latest ZeroFN release from our Discord
+   - Extract all files to a folder
 
-2. **Navigate to the Project Directory**:
-   - Change your directory to the cloned repository:
-     ```bash
-     cd ZeroFN
-     ```
+2. **Requirements**
+   - Windows 64-bit OS
+   - Fortnite Chapter 1 Season 2 installation
+   - Administrator privileges (for DLL injection)
 
-3. **Run the Script**:
-   - Execute the script by running:
-     ```bash
-     ZeroFN.exe
-     ```
+3. **Setup**
+   - Run ZeroFNLauncher.exe
+   - Select your Fortnite installation folder
+   - The launcher will validate the installation
 
 ---
 
-## Usage Instructions
+## Usage
 
-1. **Launching the Script**:
-   - Double-click `ZeroFN.exe` to launch the script.
+1. **Starting the Server**
+   - Click the "Start" button in the launcher
+   - The launcher will:
+     - Start the backend server
+     - Launch Fortnite
+     - Inject the auth bypass DLL
+     - Monitor the game process
 
-2. **Follow the Main Menu Prompts**:
-   - **Option 1**: Specify the FortniteOG installation path if you have already downloaded the files.
-   - **Option 2**: Download and install a specific Fortnite OG build.
-   - **Option 3**: Log in to simulate authentication with Epic Games.
-   - **Option 4**: Join the ZeroFN Discord community for support and updates.
+2. **Playing the Game**
+   - Once Fortnite launches, you can play normally
+   - The auth bypass system handles all Epic/Fortnite API requests
+   - Your profile data is stored locally
 
-### Starting the Server and Game
-
-- Open the script, specify ur username and you are set ! it will run automatically
----
-
-## Important Notes
-
-1. **Fortnite Builds**:
-   - Ensure your internet connection is stable for downloading large Fortnite OG files.
-   - Verify that your installation directory is correct to avoid issues.
-
-2. **Auth bypass**:
-   - The script performs a login bypass state for Fortnite OG builds and does not connect to the official Epic Games servers.
+3. **Stopping**
+   - Use the "Stop" button to:
+     - Close Fortnite
+     - Stop the backend server
+     - Clean up processes
 
 ---
 
-## Troubleshooting Tips
+## Troubleshooting
 
-1. **Download Issues**:
-   - If the script fails to download files, check your internet connection.
-   - Ensure the provided URLs in the script are accessible.
+1. **DLL Injection Fails**
+   - Run launcher as Administrator
+   - Check antivirus isn't blocking zerofn.dll
+   - Verify Fortnite process is running
 
-2. **Server Not Starting**:
-   - Confirm that Python is correctly installed and accessible via the command line.
+2. **Server Connection Issues**
+   - Ensure ports 3000 and 3001 aren't in use
+   - Check firewall settings
+   - Verify backend server is running
 
-3. **Game Not Launching**:
-   - Verify the specified path and ensure that `FortniteClient-Win64-Shipping.exe` exists in the installation directory.
-
----
-
-## Contributors
-
-- **@Devharris**: Developer/Founder 
-- **@Ryneex**: Developer/Founder
-- **@Addamito**: Testing/community manager
+3. **Invalid Path Errors**
+   - Select correct Fortnite installation folder
+   - Verify FortniteClient-Win64-Shipping.exe exists
+   - Check file permissions
 
 ---
 
-## Community Engagement
+## Technical Details
 
-Join our [Discord Community](https://discord.gg/yCY4FTMPdK) for support, updates, and discussions with fellow users.
+- Backend: Node.js/Express (zerofn server)
+- TCP Server: Custom protocol (server)
+- DLL: Dynamic injection with WinAPI hooks
+- Launcher: Native Win32 GUI application
 
 ---
 
-## License Information
+## Support
 
-This project is licensed under the MIT License. Please refer to the LICENSE file for more details.
+Join our [Discord Server](https://discord.gg/yCY4FTMPdK) for:
+- Technical support
+- Updates and announcements
+- Community discussions
+- Bug reports
+
+---
+
+## Legal
+
+This project is NOT affiliated with Epic Games.
+All Fortnite assets and properties belong to Epic Games, Inc.
+Created by @Devharris and @Ryneex

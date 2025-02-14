@@ -66,7 +66,7 @@ ZeroFN is a custom Fortnite private server and launcher that allows you to play 
    - Administrator privileges (for DLL injection)
 
 3. **Setup**
-   - Run ZeroFNLauncher.exe
+   - Run ZeroFN.exe
    - Select your Fortnite installation folder
    - The launcher will validate the installation
 
@@ -77,7 +77,7 @@ ZeroFN is a custom Fortnite private server and launcher that allows you to play 
 1. **Starting the Server**
    - Click the "Start" button in the launcher
    - The launcher will:
-     - Start the backend server
+     - Connect to the server
      - Launch Fortnite
      - Inject the auth bypass DLL
      - Monitor the game process
@@ -90,7 +90,7 @@ ZeroFN is a custom Fortnite private server and launcher that allows you to play 
 3. **Stopping**
    - Use the "Stop" button to:
      - Close Fortnite
-     - Stop the backend server
+     - Stop the server connection
      - Clean up processes
 
 ---
@@ -103,9 +103,8 @@ ZeroFN is a custom Fortnite private server and launcher that allows you to play 
    - Verify Fortnite process is running
 
 2. **Server Connection Issues**
-   - Ensure ports 3000 and 3001 aren't in use
-   - Check firewall settings
-   - Verify backend server is running
+   - Check firewall settings --make sure you dont have port 3000 and 3001 closed...they are essential for the server connection
+   - Verify zerofn.dll is not removed by antivirus
 
 3. **Invalid Path Errors**
    - Select correct Fortnite installation folder

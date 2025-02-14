@@ -16,6 +16,9 @@
 #include <random>
 #include <iomanip>
 #include <thread>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "urlmon.lib")
@@ -27,6 +30,10 @@ std::mutex logMutex;
 // Function declarations
 bool ConnectToServer();
 void HeartbeatThread();
+
+// Global variables for bypass data
+json bypassData;
+std::mutex bypassDataMutex;
 
 // Enhanced logging with console colors
 void LogWithColor(const std::string& message, int color) {
@@ -72,11 +79,11 @@ void LogAuthDetails(const std::string& domain, const std::string& response) {
     logMsg += "=================================\n";
     
     LogToFile("AUTH ATTEMPT DETECTED - Domain: " + domain);
-    LogToFile("BYPASSED - Generated fake auth response");
+    LogToFile("BYPASSED - Generated response from server data");
     LogWithColor(logMsg, 13); // Light magenta for auth details
 }
 
-// Global socket for heartbeat
+// Global socket for server communication
 SOCKET g_ServerSocket = INVALID_SOCKET;
 bool g_Running = true;
 std::mutex g_SocketMutex;
@@ -102,8 +109,18 @@ const char* LOCAL_SERVER = "135.181.149.116";
 const wchar_t* LOCAL_SERVER_W = L"135.181.149.116";
 const INTERNET_PORT LOCAL_PORT = 3001;
 
+void ProcessServerData(const std::string& data) {
+    try {
+        std::lock_guard<std::mutex> lock(bypassDataMutex);
+        bypassData = json::parse(data);
+        LogToFile("SUCCESS: Updated bypass data from server");
+    } catch (const std::exception& e) {
+        LogToFile("ERROR: Failed to parse server data: " + std::string(e.what()));
+    }
+}
+
 void HeartbeatThread() {
-    char buffer[1024];
+    char buffer[8192]; // Increased buffer size for larger JSON payloads
     while (g_Running) {
         std::lock_guard<std::mutex> lock(g_SocketMutex);
         
@@ -120,10 +137,15 @@ void HeartbeatThread() {
         int bytesRead = recv(g_ServerSocket, buffer, sizeof(buffer), 0);
         if (bytesRead > 0) {
             buffer[bytesRead] = '\0';
-            if (strcmp(buffer, "ping") == 0) {
+            
+            // Process received data
+            if (strncmp(buffer, "ping", 4) == 0) {
                 const char* pong = "pong";
                 send(g_ServerSocket, pong, strlen(pong), 0);
                 LogToFile("SUCCESS: Heartbeat exchange successful");
+            } else {
+                // Assume it's bypass data in JSON format
+                ProcessServerData(std::string(buffer));
             }
         }
         else if (bytesRead == 0 || bytesRead == SOCKET_ERROR) {
@@ -168,94 +190,29 @@ bool ConnectToServer() {
     return false;
 }
 
-// Generate random strings for auth tokens
-std::string GenerateRandomString(int length) {
-    static const char alphanum[] =
-        "0123456789"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "abcdefghijklmnopqrstuvwxyz";
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, sizeof(alphanum) - 2);
-    std::string result;
-    for (int i = 0; i < length; ++i) {
-        result += alphanum[dis(gen)];
-    }
-    return result;
-}
-
-// Block list for Epic/Fortnite domains with active bypass responses
-const std::vector<std::pair<std::string, std::string>> BYPASS_RESPONSES = {
-    // OAuth token endpoint with Chapter 1 Season 2 specific version
-    {"account-public-service-prod.ol.epicgames.com/account/api/oauth/token",
-     "{\"access_token\":\"eg1~" + GenerateRandomString(128) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"token_type\":\"bearer\",\"refresh_token\":\"" + GenerateRandomString(32) + "\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"displayName\":\"ZeroFN_C1S2\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
-    },
-    
-    // OAuth verify endpoint with Chapter 1 Season 2 specific version
-    {"account-public-service-prod.ol.epicgames.com/account/api/oauth/verify",
-     "{\"token\":\"eg1~" + GenerateRandomString(128) + "\",\"session_id\":\"" + GenerateRandomString(32) + "\",\"token_type\":\"bearer\",\"client_id\":\"ec684b8c687f479fadea3cb2ad83f5c6\",\"internal_client\":true,\"client_service\":\"fortnite\",\"account_id\":\"" + GenerateRandomString(32) + "\",\"expires_in\":28800,\"expires_at\":\"" + std::to_string(std::time(nullptr) + 28800) + "\",\"auth_method\":\"exchange_code\",\"display_name\":\"ZeroFN_C1S2\",\"app\":\"fortnite\",\"in_app_id\":\"" + GenerateRandomString(32) + "\",\"device_id\":\"" + GenerateRandomString(32) + "\"}"
-    },
-    
-    // Profile endpoint with Chapter 1 Season 2 specific version
-    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile",
-     "{\"profileId\":\"athena\",\"profileChanges\":[{\"changeType\":\"fullProfileUpdate\",\"profile\":{\"_id\":\"" + GenerateRandomString(32) + "\",\"accountId\":\"" + GenerateRandomString(32) + "\",\"profileId\":\"athena\",\"version\":\"Chapter1_Season2\",\"items\":{},\"stats\":{\"attributes\":{\"season_num\":2}}}}],\"profileCommandRevision\":1,\"serverTime\":\"" + std::to_string(std::time(nullptr)) + "\",\"responseVersion\":1}"
-    },
-    
-    // Launcher assets endpoint with Chapter 1 Season 2 specific version
-    {"launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows/x64",
-     "{\"elements\":[{\"appName\":\"Fortnite\",\"labelName\":\"Live-Windows\",\"buildVersion\":\"++Fortnite+Release-2.4.2-CL-3870737\",\"hash\":\"" + GenerateRandomString(32) + "\",\"path\":\"FortniteGame/Content/Paks\"}]}"
-    },
-
-    // Additional auth endpoints with Chapter 1 Season 2 specific responses
-    {"account-public-service-prod.ol.epicgames.com/account/api/oauth/exchange",
-     "{\"expiresInSeconds\":28800,\"code\":\"" + GenerateRandomString(32) + "\",\"creatingClientId\":\"ec684b8c687f479fadea3cb2ad83f5c6\"}"
-    },
-
-    {"account-public-service-prod.ol.epicgames.com/account/api/public/account",
-     "{\"id\":\"" + GenerateRandomString(32) + "\",\"displayName\":\"ZeroFN_C1S2\",\"email\":\"zerofn@example.com\",\"failedLoginAttempts\":0,\"lastLogin\":\"" + std::to_string(std::time(nullptr)) + "\",\"numberOfDisplayNameChanges\":0,\"dateOfBirth\":\"1990-01-01\",\"ageGroup\":\"ADULT\",\"headless\":false,\"country\":\"US\",\"preferredLanguage\":\"en\",\"lastDisplayNameChange\":\"1970-01-01\",\"canUpdateDisplayName\":true,\"tfaEnabled\":false,\"emailVerified\":true,\"minorVerified\":false,\"minorExpected\":false,\"minorStatus\":\"UNKNOWN\"}"
-    },
-
-    {"account-public-service-prod.ol.epicgames.com/account/api/accounts",
-     "{\"id\":\"" + GenerateRandomString(32) + "\",\"displayName\":\"ZeroFN_C1S2\",\"externalAuths\":{}}"
-    },
-
-    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/cloudstorage/system",
-     "[{\"uniqueFilename\":\"DefaultGame.ini\",\"filename\":\"DefaultGame.ini\",\"hash\":\"" + GenerateRandomString(32) + "\",\"hash256\":\"" + GenerateRandomString(64) + "\",\"length\":1234,\"contentType\":\"application/octet-stream\",\"uploaded\":\"2017-11-30T23:59:59.999Z\",\"storageType\":\"S3\",\"doNotCache\":false}]"
-    },
-
-    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/cloudstorage/user",
-     "[]"
-    },
-
-    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/storefront/v2/catalog",
-     "{\"refreshIntervalHrs\":24,\"dailyPurchaseHrs\":24,\"expiration\":\"" + std::to_string(std::time(nullptr) + 86400) + "\",\"storefronts\":[{\"name\":\"BRWeeklyStorefront\",\"catalogEntries\":[]}]}"
-    },
-
-    {"fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/matchmaking/session/findPlayer",
-     "{\"player\":{\"id\":\"" + GenerateRandomString(32) + "\",\"attributes\":{\"player.subregion\":\"None\",\"player.platform\":\"Windows\",\"player.option.partyId\":\"" + GenerateRandomString(32) + "\",\"player.seasonLevel\":\"2\"}}}"
-    }
-};
-
 // Block list for Epic/Fortnite domains with active response generation
 bool ShouldBlockDomain(const char* domain, std::string& response) {
     if (!domain) return false;
     
     LogToFile("Checking domain: " + std::string(domain));
     
-    for (const auto& bypass : BYPASS_RESPONSES) {
-        if (strstr(domain, bypass.first.c_str())) {
-            response = bypass.second;
-            LogToFile("BYPASSED - Login/Auth request intercepted: " + std::string(domain));
-            LogAuthDetails(domain, response);
-            return true;
-        }
+    std::lock_guard<std::mutex> lock(bypassDataMutex);
+    if (bypassData.empty()) {
+        LogToFile("WARNING: No bypass data available from server");
+        return false;
     }
-    
-    // Additional checks for data collection endpoints
-    if (strstr(domain, "datarouter") || strstr(domain, "telemetry") || strstr(domain, "intake")) {
-        response = "{\"status\":\"ok\",\"timestamp\":\"" + std::to_string(std::time(nullptr)) + "\"}";
-        LogToFile("BYPASSED - Blocked telemetry request to: " + std::string(domain));
-        return true;
+
+    try {
+        for (const auto& endpoint : bypassData["endpoints"]) {
+            if (strstr(domain, endpoint["domain"].get<std::string>().c_str())) {
+                response = endpoint["response"].get<std::string>();
+                LogToFile("BYPASSED - Request intercepted: " + std::string(domain));
+                LogAuthDetails(domain, response);
+                return true;
+            }
+        }
+    } catch (const std::exception& e) {
+        LogToFile("ERROR: Failed to process bypass data: " + std::string(e.what()));
     }
     
     LogToFile("INFO: Domain not in block list: " + std::string(domain));

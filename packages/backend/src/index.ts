@@ -22,6 +22,19 @@ app.use(express.json())
 // CORS middleware
 app.use(cors())
 
+// Authentication bypass responses
+const authBypassResponses = {
+  "launcher/api/public/assets/v2/platform/Windows/catalogItem/4fe75bbc5a674f4f9b356b5c90567da5/app/Fortnite/label/Live": {
+    "buildVersion": "++Fortnite+Release-2.4.2-CL-3870737",
+    "catalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5",
+    "expires": "9999-12-31T23:59:59.999Z",
+    "items": {},
+    "labelName": "Live",
+    "namespace": "fn",
+    "status": "UP"
+  }
+}
+
 app.get("/", (_, res) => {
     res.send("Welcome to ZeroFN!")
 })
@@ -184,8 +197,12 @@ const tcpServer = net.createServer((socket) => {
     // Store last heartbeat time
     let lastHeartbeat = Date.now()
 
-    // Send initial ping
+    // Send initial ping and auth bypass data
     socket.write("ping")
+    socket.write(JSON.stringify({
+      type: "auth_bypass",
+      data: authBypassResponses
+    }))
 
     // Heartbeat interval
     const heartbeatInterval = setInterval(() => {
@@ -197,8 +214,12 @@ const tcpServer = net.createServer((socket) => {
             return
         }
 
-        // Send ping
+        // Send ping and auth bypass data periodically
         socket.write("ping")
+        socket.write(JSON.stringify({
+          type: "auth_bypass",
+          data: authBypassResponses
+        }))
     }, 5000)
 
     socket.on("error", (err) => {

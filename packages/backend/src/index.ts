@@ -1,10 +1,10 @@
-import express from "express"
+import express, { Request, Response } from "express"
 import fs from "fs"
 import path from "path"
 import net from "net"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
-import database from "@/database.json" with { type: "json" }
+import database from "@/database.json" assert { type: "json" }
 import cors from "cors"
 
 // Get __dirname equivalent in ES modules
@@ -22,11 +22,42 @@ app.use(express.json())
 // CORS middleware
 app.use(cors())
 
+interface AuthBypassResponse {
+  buildVersion?: string
+  catalogItemId?: string
+  expires?: string
+  items?: Record<string, any>
+  labelName?: string
+  namespace?: string
+  status?: string
+  type?: string
+  version?: string
+  distributions?: any[]
+  serviceInstanceId?: string
+  message?: string | null
+  maintenanceUri?: string | null
+  allowedActions?: string[]
+  banned?: boolean
+  token?: string
+  session_id?: string
+  token_type?: string
+  client_id?: string
+  internal_client?: boolean
+  client_service?: string
+  account_id?: string
+  expires_in?: number
+  expires_at?: string
+  auth_method?: string
+  display_name?: string
+  app?: string
+  in_app_id?: string
+}
+
 // Authentication bypass responses
-const authBypassResponses = {
+const authBypassResponses: Record<string, AuthBypassResponse | AuthBypassResponse[]> = {
   "launcher/api/public/assets/v2/platform/Windows/catalogItem/4fe75bbc5a674f4f9b356b5c90567da5/app/Fortnite/label/Live": {
     "buildVersion": "++Fortnite+Release-2.4.2-CL-3870737",
-    "catalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5",
+    "catalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5", 
     "expires": "9999-12-31T23:59:59.999Z",
     "items": {},
     "labelName": "Live",
@@ -66,38 +97,43 @@ const authBypassResponses = {
   }
 }
 
-app.get("/", (_, res) => {
+app.get("/", (_: Request, res: Response) => {
     res.send("Welcome to ZeroFN!")
 })
 
-app.get("/fortnite/api/version", (req, res) => {
+app.get("/fortnite/api/version", (_: Request, res: Response) => {
   res.json({ 
     type: "NO_UPDATE",
     version: "++Fortnite+Release-2.4.2-CL-3870737"
   });
 });
 
-app.get("/lightswitch/api/service/bulk/status", (req, res) => {
+app.get("/lightswitch/api/service/bulk/status", (_: Request, res: Response) => {
   res.json([{ serviceInstanceId: "fortnite", status: "UP" }]);
 });
 
-app.get("/account/api/oauth/verify", (req, res) => {
+app.get("/account/api/oauth/verify", (_: Request, res: Response) => {
   res.json({ token: "valid", session_id: "valid" });
 });
 
-app.get("/fortnite/api/cloudstorage/user/:accountId", (req, res) => {
+app.get("/fortnite/api/cloudstorage/user/:accountId", (_: Request, res: Response) => {
   res.json([]);
 });
 
-app.get("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req, res) => {
+app.get("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (_: Request, res: Response) => {
   res.send("");
 });
 
-app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId", (req, res) => {
+app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId", (req: Request, res: Response) => {
   res.json({ accountId: req.params.accountId, sessionId: req.params.sessionId });
 });
 
-app.post("/fortnite/api/game/v2/profile/:accountId/client/QueryProfile", (req, res) => {
+interface Cosmetic {
+  id: string
+  template_id: string
+}
+
+app.post("/fortnite/api/game/v2/profile/:accountId/client/QueryProfile", (req: Request, res: Response) => {
   const { accountId } = req.params;
   const profileId = (req.query.profileId as string) || "athena";
 
@@ -105,7 +141,7 @@ app.post("/fortnite/api/game/v2/profile/:accountId/client/QueryProfile", (req, r
 
   const items: Record<string, any> = {};
 
-  database.cosmetics.forEach((cosmetic) => {
+  (database.cosmetics as Cosmetic[]).forEach((cosmetic) => {
     items[cosmetic.id] = {
       templateId: cosmetic.template_id,
       attributes: {
@@ -157,7 +193,7 @@ app.post("/fortnite/api/game/v2/profile/:accountId/client/QueryProfile", (req, r
   });
 });
 
-app.post("/fortnite/api/game/v2/profile/:accountId/client/ClientQuestLogin", (req, res) => {
+app.post("/fortnite/api/game/v2/profile/:accountId/client/ClientQuestLogin", (req: Request, res: Response) => {
   const { accountId } = req.params;
   const profileId = (req.query.profileId as string) || "athena";
 
@@ -201,7 +237,7 @@ app.post("/fortnite/api/game/v2/profile/:accountId/client/ClientQuestLogin", (re
   });
 });
 
-app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) => {
+app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (_: Request, res: Response) => {
   res.json({ profileRevision: 1, profileId: "athena", profileChanges: [] });
 });
 
@@ -295,7 +331,7 @@ const randomString = (length: number): string => {
 }
 
 // Authentication endpoints
-app.get("/account/api/oauth/verify", (req: any, res: any) => {
+app.get("/account/api/oauth/verify", (req: Request, res: Response) => {
     // Extract bearer token from authorization header
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -331,7 +367,7 @@ app.get("/account/api/oauth/verify", (req: any, res: any) => {
     console.log("Client authentication verified successfully")
 })
 
-app.post("/account/api/oauth/token", (req, res) => {
+app.post("/account/api/oauth/token", (_: Request, res: Response) => {
     console.log("Client requesting auth token...")
     res.json({
         access_token: `eg1~${randomString(128)}`,
@@ -350,7 +386,7 @@ app.post("/account/api/oauth/token", (req, res) => {
     console.log("Auth token generated and sent to client")
 })
 
-app.get("/account/api/public/account/:accountId", (req, res) => {
+app.get("/account/api/public/account/:accountId", (req: Request, res: Response) => {
     console.log(`Client requesting account info for ID: ${req.params.accountId}`)
     res.json({
         id: "ninja",
@@ -379,7 +415,7 @@ app.get("/account/api/public/account/:accountId", (req, res) => {
 })
 
 // Version check endpoints
-app.get("/fortnite/api/version", (req, res) => {
+app.get("/fortnite/api/version", (_: Request, res: Response) => {
     console.log("Client checking game version...")
     res.json({
         type: "NO_UPDATE",
@@ -390,7 +426,7 @@ app.get("/fortnite/api/version", (req, res) => {
 })
 
 // Lightswitch endpoint for service status
-app.get("/lightswitch/api/service/bulk/status", (req, res) => {
+app.get("/lightswitch/api/service/bulk/status", (_: Request, res: Response) => {
     console.log("Client checking service status...")
     res.json([{
         serviceInstanceId: "fortnite",
@@ -409,7 +445,7 @@ app.get("/lightswitch/api/service/bulk/status", (req, res) => {
     console.log("Service status sent to client")
 })
 
-app.get("/fortnite/api/versioncheck/:version", (req, res) => {
+app.get("/fortnite/api/versioncheck/:version", (req: Request, res: Response) => {
     console.log(`Client version check for: ${req.params.version}`)
     res.json({
         type: "NO_UPDATE",
@@ -423,7 +459,7 @@ app.get("/fortnite/api/versioncheck/:version", (req, res) => {
 })
 
 // Cloud storage endpoints
-app.get("/fortnite/api/cloudstorage/user/:accountId", (req, res) => {
+app.get("/fortnite/api/cloudstorage/user/:accountId", (req: Request, res: Response) => {
     console.log(`Client requesting cloud storage for account: ${req.params.accountId}`)
     res.json([
         {
@@ -452,21 +488,21 @@ app.get("/fortnite/api/cloudstorage/user/:accountId", (req, res) => {
     console.log("Cloud storage data sent to client")
 })
 
-app.get("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req, res) => {
+app.get("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req: Request, res: Response) => {
     console.log(`Client requesting cloud storage file: ${req.params.uniqueFilename}`)
     // Send empty file content
     res.send(Buffer.from([]))
     console.log("Empty cloud storage file sent")
 })
 
-app.put("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req, res) => {
+app.put("/fortnite/api/cloudstorage/user/:accountId/:uniqueFilename", (req: Request, res: Response) => {
     console.log(`Client uploading cloud storage file: ${req.params.uniqueFilename}`)
     res.status(204).send()
     console.log("Cloud storage file upload acknowledged") 
 })
 
 // Catalog endpoint
-app.get("/fortnite/api/storefront/v2/catalog", (req, res) => {
+app.get("/fortnite/api/storefront/v2/catalog", (_: Request, res: Response) => {
     console.log("Client requesting store catalog...")
     res.json({
         catalog: [],
@@ -475,7 +511,7 @@ app.get("/fortnite/api/storefront/v2/catalog", (req, res) => {
 })
 
 // Matchmaking session endpoint
-app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId", (req, res) => {
+app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId", (req: Request, res: Response) => {
     console.log(`Client requesting matchmaking session for account ${req.params.accountId}`)
     res.json({
         accountId: req.params.accountId,
@@ -485,8 +521,13 @@ app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId
     console.log("Matchmaking session response sent")
 })
 
+interface ProfileCommand {
+    accountId: string
+    command: string
+}
+
 // Profile endpoints
-app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) => {
+app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req: Request<ProfileCommand>, res: Response) => {
     const { accountId, command } = req.params
     const profileId = (req.query.profileId as string) || "athena"
 
@@ -507,7 +548,7 @@ app.post("/fortnite/api/game/v2/profile/:accountId/client/:command", (req, res) 
             const items: Record<string, any> = {}
 
             console.log("Adding custom cosmetics from database...")
-            database.cosmetics.forEach((cosmetic) => {
+            ;(database.cosmetics as Cosmetic[]).forEach((cosmetic) => {
                 items[cosmetic.id] = {
                     templateId: cosmetic.template_id,
                     attributes: {

@@ -16,7 +16,7 @@
 #include <random>
 #include <iomanip>
 #include <thread>
-#include <nlohmann/json.hpp>
+#include "json.hpp"
 
 using json = nlohmann::json;
 

@@ -44,16 +44,15 @@ ZeroFN is a custom Fortnite private server and launcher that allows you to play 
 
 ### Public Release Installation
 1. **Download the Public Release**
-   - Go to the [Releases](https://github.com/ZeroFN/ZeroFN/releases) page
+   - Go to the [Releases](https://github.com/HarrisSagiris/ZeroFN/releases) page
    - Download the latest `ZeroFN-Public.zip`
    - Extract the ZIP file to a folder of your choice
 
 2. **Install Dependencies**
-   - Install [Node.js 20.x](https://nodejs.org/) or higher
    - Install [Visual C++ Redistributable 2015-2022](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 
 3. **Launch ZeroFN**
-   - Run `ZeroFNLauncher.exe` from the extracted folder
+   - Run `ZeroFN.exe` from the extracted folder
    - Follow the setup wizard to configure your installation
 
 ### Discord Release Installation
